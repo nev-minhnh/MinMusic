@@ -40,7 +40,6 @@ import com.metrolist.android.ui.GlobalPlaybackNetworkMonitor
 import com.metrolist.android.update.AppUpdateManager
 import com.metrolist.android.utils.CrashHandler
 import com.metrolist.android.utils.IconUtils
-import com.metrolist.android.utils.SentryManager
 import com.metrolist.android.utils.createAppImageLoader
 import com.metrolist.android.utils.isAndroidTv
 import com.metrolist.android.widget.MusicWidgetReceiver
@@ -58,13 +57,13 @@ import com.metrolist.shared.discord.DiscordTokenStore
 import com.metrolist.shared.discord.observeDiscordInitialization
 import com.metrolist.shared.equalizer.EqualizerProfiles
 import com.metrolist.shared.listentogether.network.isAllowedListenTogetherServerUrl
+import com.metrolist.shared.playback.PlaybackClientStats
 import com.metrolist.shared.settings.BlockedContent
 import com.metrolist.shared.settings.Settings
 import com.metrolist.shared.state.GlobalYouTube
 import com.metrolist.shared.state.SongLikeState
 import com.metrolist.shared.state.SongMetadataState
 import com.metrolist.shared.state.coreModule
-import com.metrolist.shared.utils.isCrashReportingAvailable
 import com.metrolist.shared.youtube.di.sharedModule
 import com.metrolist.shared.youtube.playback.AndroidContextProvider
 import com.metrolist.shared.youtube.playback.PlaybackNetworkStateStore
@@ -236,8 +235,6 @@ class App :
         migrateLegacyEqualizerProfiles()
         EqualizerProfiles.ensureDefaultProfile()
 
-        if (onboardingManager.isComplete) SentryManager.initialize(this)
-
         if (BuildConfig.DEBUG) {
             Timber.plant(Timber.DebugTree())
         }
@@ -307,13 +304,9 @@ class App :
                 .joinToString("\n")
     }
 
+    // MinMusic sends no telemetry; clear any crash-report consent stored by an older build.
     private fun migrateTelemetryConsent() {
-        if (!isCrashReportingAvailable()) return
-        val preferences = getSharedPreferences("metrolist_security_migrations", MODE_PRIVATE)
-        if (!preferences.getBoolean("telemetry_consent_v1", false)) {
-            Settings.shared.sentryEnabled = false
-            preferences.edit { putBoolean("telemetry_consent_v1", true) }
-        }
+        if (Settings.shared.sentryEnabled) Settings.shared.sentryEnabled = false
     }
 
     private fun applyTvContinuePlaybackDefault() {
@@ -332,11 +325,9 @@ class App :
         }
     }
 
-    fun completeOnboarding(sendCrashReports: Boolean) {
-        if (isCrashReportingAvailable()) Settings.shared.sentryEnabled = sendCrashReports
+    fun completeOnboarding() {
         onboardingManager.complete()
         setPlaybackServicesEnabled(true)
-        SentryManager.initialize(this)
         startDatabaseDependentServices()
     }
 
@@ -363,7 +354,8 @@ class App :
         get<CoroutineScope>().launch(Dispatchers.IO) {
             SongLikeState.recoverDatabaseLikes(get<MusicDatabase>())
         }
-        get<CoroutineScope>().launch(Dispatchers.IO) { SentryManager.reportPlaybackClientStats() }
+        // Nothing is uploaded; this only keeps the local launch counter and stored counts bounded.
+        get<CoroutineScope>().launch(Dispatchers.IO) { PlaybackClientStats.takeReportOnLaunch() }
         get<CoroutineScope>().launch {
             MusicRecognitionService.status.collect {
                 try {

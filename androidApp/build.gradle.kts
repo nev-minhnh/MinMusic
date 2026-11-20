@@ -181,7 +181,6 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.compose.compiler)
     alias(libs.plugins.kotlin.serialization)
-    alias(libs.plugins.sentry.android)
 }
 
 java {
@@ -191,7 +190,6 @@ java {
     }
 }
 
-val sentryAuthToken = providers.environmentVariable("SENTRY_AUTH_TOKEN").filter(String::isNotBlank)
 val appVersion = providers.gradleProperty("appVersion").get()
 val bundledLanguageTags =
     rootProject
@@ -214,29 +212,6 @@ val bundledLanguageTags =
         .sorted()
         .toList()
         .also { require(it.isNotEmpty()) { "No bundled language resources were found" } }
-
-sentry {
-    includeProguardMapping.set(true)
-    includeSourceContext.set(sentryAuthToken.isPresent)
-    autoUploadSourceContext.set(sentryAuthToken.isPresent)
-    autoUploadProguardMapping.set(sentryAuthToken.isPresent)
-    uploadNativeSymbols.set(sentryAuthToken.isPresent)
-    autoUploadNativeSymbols.set(sentryAuthToken.isPresent)
-    additionalSourceDirsForSourceContext.set(
-        setOf(
-            rootProject.file("shared/src/commonMain/kotlin").absolutePath,
-            rootProject.file("shared/src/androidMain/kotlin").absolutePath,
-        ),
-    )
-    autoInstallation {
-        enabled.set(false)
-    }
-    ignoredBuildTypes.set(setOf("debug", "benchmark", "izzy"))
-    tracingInstrumentation.enabled.set(false)
-    org.set("metrolistgroup")
-    projectName.set("metrolist-kmp")
-    authToken.set(sentryAuthToken)
-}
 
 android {
     namespace = "com.metrolist.android"
@@ -309,7 +284,7 @@ android {
             isProfileable = true
             matchingFallbacks += "release"
         }
-        // IzzyOnDroid ships updates itself and must not carry Sentry or Lyprio credentials.
+        // IzzyOnDroid ships updates itself and must not carry Lyprio credentials.
         create("izzy") {
             initWith(getByName("release"))
             buildConfigField("Boolean", "UPDATER_ENABLED", "false")
@@ -342,11 +317,8 @@ android {
                 .get()
                 .asFile.absolutePath
         getByName("benchmark") {
-            kotlin.directories += "src/release/kotlin"
             manifest.srcFile("src/benchmark/AndroidManifest.xml")
         }
-        // The debug source set holds the no-op Sentry reporters.
-        getByName("izzy").kotlin.directories += "src/debug/kotlin"
     }
 
     packaging {
@@ -367,8 +339,6 @@ android {
                 setOf(
                     "**/libandroidx.graphics.path.so",
                     "**/libdatastore_shared_counter.so",
-                    "**/libsentry-android.so",
-                    "**/libsentry.so",
                 )
         }
     }
@@ -475,8 +445,6 @@ dependencies {
     implementation(libs.ktor.client.websockets)
     implementation(libs.okhttp)
     implementation(libs.splashscreen)
-
-    releaseImplementation(libs.sentry.android.ndk)
 
     androidTestImplementation(libs.androidx.test.runner)
     androidTestImplementation(libs.junit4)

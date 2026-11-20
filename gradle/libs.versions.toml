@@ -112,7 +112,6 @@ media3-ui = { module = "androidx.media3:media3-ui", version.ref = "media3" }
 room-runtime = { module = "androidx.room3:room3-runtime", version.ref = "room" }
 room-compiler = { module = "androidx.room3:room3-compiler", version.ref = "room" }
 sentry = { module = "io.sentry:sentry", version.ref = "sentry" }
-sentry-android-ndk = { module = "io.sentry:sentry-android-ndk", version.ref = "sentry" }
 sqlite-bundled = { module = "androidx.sqlite:sqlite-bundled", version = "2.8.0-alpha03" }
 ktor-client-core = { module = "io.ktor:ktor-client-core", version.ref = "ktor" }
 ktor-client-darwin = { module = "io.ktor:ktor-client-darwin", version.ref = "ktor" }
@@ -157,5 +156,4 @@ android-kotlin-multiplatform-library = { id = "com.android.kotlin.multiplatform.
 kotlin-ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 ktlint = { id = "org.jlleitschuh.gradle.ktlint", version.ref = "ktlintGradle" }
 protobuf = { id = "com.google.protobuf", version.ref = "protobufPlugin" }
-sentry-android = { id = "io.sentry.android.gradle", version = "6.27.0" }
 sentry-jvm = { id = "io.sentry.jvm.gradle", version = "6.27.0" }

@@ -4,6 +4,7 @@ import com.metrolist.shared.model.SongItem
 import com.metrolist.shared.playback.PlaybackErrorContext
 import com.metrolist.shared.youtube.playback.PlaybackResource
 
+/** MinMusic sends no telemetry: playback failures are logged locally (PlaybackEventLog) and never uploaded. */
 internal object PlaybackErrorReporter {
     fun setActivePlayback(
         song: SongItem,

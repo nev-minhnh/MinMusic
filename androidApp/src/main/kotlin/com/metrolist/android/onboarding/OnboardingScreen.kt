@@ -65,14 +65,13 @@ import com.metrolist.shared.ui.settings.SettingsHostChoice
 import com.metrolist.shared.ui.settings.SettingsPageId
 import com.metrolist.shared.ui.settings.SettingsPlatform
 import com.metrolist.shared.ui.settings.SharedSettingsHost
-import com.metrolist.shared.utils.isCrashReportingAvailable
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
 
 @Composable
 internal fun OnboardingScreen(
     migration: LegacyInstallMigration,
-    onComplete: (sendCrashReports: Boolean, destination: OnboardingDestination) -> Unit,
+    onComplete: (destination: OnboardingDestination) -> Unit,
     hasLegacyInstallationOverride: Boolean? = null,
 ) {
     val languages = rememberAppLanguageChoices()
@@ -88,7 +87,6 @@ internal fun OnboardingScreen(
                 add(OnboardingPage.WELCOME)
                 if (hasLegacyInstallation && !libraryStartedFresh) add(OnboardingPage.MIGRATION)
                 if (hasLegacyInstallation && !libraryStartedFresh) add(OnboardingPage.MIGRATION_COMPLETE)
-                if (isCrashReportingAvailable()) add(OnboardingPage.CRASH_REPORTS)
                 add(OnboardingPage.NOTIFICATIONS)
                 add(OnboardingPage.LANGUAGE_LYRICS)
                 add(OnboardingPage.PLAYBACK)
@@ -96,7 +94,6 @@ internal fun OnboardingScreen(
             }
         }
     var currentPageName by rememberSaveable { mutableStateOf(OnboardingPage.WELCOME.name) }
-    var sendCrashReports by rememberSaveable { mutableStateOf(false) }
     var startingFresh by rememberSaveable { mutableStateOf(false) }
     var error by rememberSaveable { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
@@ -110,7 +107,7 @@ internal fun OnboardingScreen(
         if (currentIndex < pages.lastIndex) {
             currentPageName = pages[currentIndex + 1].name
         } else {
-            onComplete(sendCrashReports, OnboardingDestination.HOME)
+            onComplete(OnboardingDestination.HOME)
         }
     }
 
@@ -140,8 +137,7 @@ internal fun OnboardingScreen(
                 if (startingFresh) {
                     libraryStartedFresh = true
                     error = null
-                    currentPageName =
-                        if (isCrashReportingAvailable()) OnboardingPage.CRASH_REPORTS.name else OnboardingPage.NOTIFICATIONS.name
+                    currentPageName = OnboardingPage.NOTIFICATIONS.name
                 } else {
                     nextPage()
                 }
@@ -260,8 +256,8 @@ internal fun OnboardingScreen(
                         nextPage()
                     }
 
+                    // No telemetry: the crash-report consent page is never shown on Android.
                     OnboardingPage.CRASH_REPORTS -> {
-                        sendCrashReports = true
                         nextPage()
                     }
 
@@ -279,7 +275,7 @@ internal fun OnboardingScreen(
                     }
 
                     OnboardingPage.FINISH -> {
-                        onComplete(sendCrashReports, OnboardingDestination.HOME)
+                        onComplete(OnboardingDestination.HOME)
                     }
                 }
             },
@@ -307,12 +303,7 @@ internal fun OnboardingScreen(
                     }
 
                     OnboardingPage.CRASH_REPORTS -> {
-                        (
-                            {
-                                sendCrashReports = false
-                                nextPage()
-                            }
-                        )
+                        null
                     }
 
                     OnboardingPage.NOTIFICATIONS -> {
@@ -375,8 +366,8 @@ internal fun OnboardingScreen(
                 } else {
                     emptyList()
                 },
-            onLogin = { onComplete(sendCrashReports, OnboardingDestination.LOGIN) },
-            onRestore = { onComplete(sendCrashReports, OnboardingDestination.BACKUP_RESTORE) },
+            onLogin = { onComplete(OnboardingDestination.LOGIN) },
+            onRestore = { onComplete(OnboardingDestination.BACKUP_RESTORE) },
         )
     }
 }
