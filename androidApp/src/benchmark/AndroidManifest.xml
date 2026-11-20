@@ -3,15 +3,5 @@
 
     <application>
         <profileable android:shell="true" />
-
-        <meta-data
-            android:name="io.sentry.auto-init"
-            android:value="false" />
-        <meta-data
-            android:name="io.sentry.tombstone.enable"
-            android:value="true" />
-        <meta-data
-            android:name="io.sentry.tombstone.attach-raw"
-            android:value="true" />
     </application>
 </manifest>

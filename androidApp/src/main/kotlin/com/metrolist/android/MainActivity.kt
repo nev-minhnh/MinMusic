@@ -329,8 +329,8 @@ class MainActivity : ComponentActivity() {
                                 OnboardingScreen(
                                     migration = app.legacyInstallMigration,
                                     hasLegacyInstallationOverride = app.hadLegacyInstallationAtStartup,
-                                    onComplete = { sendCrashReports, destination ->
-                                        app.completeOnboarding(sendCrashReports)
+                                    onComplete = { destination ->
+                                        app.completeOnboarding()
                                         incomingIntentState.value =
                                             when (destination) {
                                                 OnboardingDestination.HOME -> incomingIntentState.value

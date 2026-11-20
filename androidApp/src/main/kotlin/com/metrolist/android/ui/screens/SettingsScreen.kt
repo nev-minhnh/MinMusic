@@ -67,7 +67,6 @@ import com.metrolist.android.utils.AppFontManager
 import com.metrolist.android.utils.AppIcon
 import com.metrolist.android.utils.IconUtils
 import com.metrolist.android.utils.QuickFontManager
-import com.metrolist.android.utils.SentryManager
 import com.metrolist.android.viewmodels.HomeViewModel
 import com.metrolist.android.viewmodels.SearchViewModel
 import com.metrolist.shared.generated.resources.Res
@@ -555,10 +554,6 @@ fun SettingsScreen(
                                 if (value == false) playerConnection?.setVideoMode(false)
                             }
 
-                            SettingsChangeEffect.SENTRY -> {
-                                value?.let(SentryManager::setEnabled)
-                            }
-
                             SettingsChangeEffect.AUTO_DOWNLOAD_ON_LIKE -> {
                                 if (value == true) {
                                     requireDownloadNotifications { SharedPreferences.shared.autoDownloadOnLike = true }
@@ -580,6 +575,8 @@ fun SettingsScreen(
                             SettingsChangeEffect.PLAYBACK_SPEED,
                             SettingsChangeEffect.PLAYBACK_PITCH,
                             SettingsChangeEffect.LOGGING,
+                            // Crash reporting is not offered on Android (no telemetry).
+                            SettingsChangeEffect.SENTRY,
                             -> {}
                         }
                     },
