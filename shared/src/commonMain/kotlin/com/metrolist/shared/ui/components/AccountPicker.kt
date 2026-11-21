@@ -77,6 +77,7 @@ private fun AccountPickerItem(
         ) {
             if (account.thumbnailUrl != null) {
                 AsyncImage(
+                    artworkEdge = false,
                     url = account.thumbnailUrl,
                     modifier = Modifier.size(40.dp).clip(CircleShape),
                     shape = CircleShape,

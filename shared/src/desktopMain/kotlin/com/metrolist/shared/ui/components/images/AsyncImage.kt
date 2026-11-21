@@ -36,6 +36,7 @@ actual fun AsyncImage(
     error: Painter?,
     previewUrl: String?,
     saturation: Float,
+    artworkEdge: Boolean,
 ) {
     val context = LocalPlatformContext.current
     val sizeResolver = rememberConstraintsSizeResolver()

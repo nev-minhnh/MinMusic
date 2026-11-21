@@ -895,6 +895,7 @@ fun MobileApp(
                                         ) {
                                             if (authManager.isLoggedIn && authManager.accountThumbnail.isNotBlank()) {
                                                 AsyncImage(
+                                                    artworkEdge = false,
                                                     url = authManager.accountThumbnail,
                                                     modifier = Modifier.size(32.dp).clip(CircleShape),
                                                     contentDescription = stringResource(Res.string.account),
