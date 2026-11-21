@@ -63,9 +63,7 @@ class ParametricEqualizerTest {
         val (_, bands) =
             assertNotNull(
                 parseParametricEq(
-                    "Filter 1: ON BP Fc 500 Hz Q 1.5
-Filter 2: ON NO Fc 60 Hz Q 10
-Filter 3: OFF PK Fc 2000 Hz Gain -4 dB Q 2",
+                    "Filter 1: ON BP Fc 500 Hz Q 1.5\nFilter 2: ON NO Fc 60 Hz Q 10\nFilter 3: OFF PK Fc 2000 Hz Gain -4 dB Q 2",
                 ),
             )
         assertEquals(listOf(FilterType.BP, FilterType.NO, FilterType.PK), bands.map { it.filterType })
