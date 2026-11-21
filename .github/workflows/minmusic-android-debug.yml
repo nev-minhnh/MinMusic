@@ -2,13 +2,9 @@ name: MinMusic Android debug build
 
 # Builds a debug APK on GitHub-hosted runners for testing feature branches.
 # Upstream Metrolist workflows use Blacksmith runners that this fork cannot use.
+# Manual only: day-to-day builds and tests run locally (see MinMusic-notes/tools/mm-build.sh).
+# GitHub Actions is used for release builds (minmusic-android-release.yml).
 on:
-  push:
-    branches-ignore: [main]
-    paths-ignore:
-      - 'docs/**'
-      - '**/*.md'
-      - 'fastlane/**'
   workflow_dispatch:
 
 permissions:
@@ -28,6 +24,9 @@ jobs:
         with:
           submodules: recursive
           persist-credentials: false
+
+      - name: Check for ad and tracking SDKs
+        run: bash scripts/check_no_ads.sh
 
       - name: Set up JDK 21
         uses: actions/setup-java@v4
