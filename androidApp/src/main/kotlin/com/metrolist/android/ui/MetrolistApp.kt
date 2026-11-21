@@ -368,6 +368,7 @@ import com.metrolist.shared.ui.player.shouldShowMusicVideoSurface
 import com.metrolist.shared.ui.screens.pageKey
 import com.metrolist.shared.ui.screens.toHomeSection
 import com.metrolist.shared.ui.settings.SettingsPageId
+import com.metrolist.shared.ui.theme.MinMotion
 import com.metrolist.shared.ui.theme.resolveThemeSeedColor
 import com.metrolist.shared.ui.tv.tvFocusHighlight
 import com.metrolist.shared.ui.utils.LocalMouseScrollFactors
@@ -1094,6 +1095,8 @@ fun MetrolistApp(
                             collapsedBound = miniPlayerCollapsedBound,
                             expandedBound = maxHeight,
                             initialAnchor = DISMISSED_ANCHOR,
+                            // Mini <-> full player: the 380 ms container spring (design-system section 7).
+                            animationSpec = remember { MinMotion.container<Dp>() },
                         )
                     ContentUndoHintsSnackbar(snackbarHostState) { page ->
                         coroutineScope.launch {
