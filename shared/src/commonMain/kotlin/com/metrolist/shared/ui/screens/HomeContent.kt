@@ -446,10 +446,11 @@ fun LazyListScope.renderHomeShelves(
                     ) {
                         HorizontalDivider()
                         Spacer(Modifier.height(16.dp))
+                        // MinMusic: headers are ink; colour is reserved for accents ("See all", play, progress).
                         Text(
                             title,
-                            style = MaterialTheme.typography.headlineLarge.copy(fontWeight = FontWeight.Bold),
-                            color = MaterialTheme.colorScheme.primary,
+                            style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.SemiBold),
+                            color = MaterialTheme.colorScheme.onSurface,
                         )
                     }
                 }
