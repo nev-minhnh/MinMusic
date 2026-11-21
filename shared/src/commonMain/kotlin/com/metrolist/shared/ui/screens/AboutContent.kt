@@ -243,13 +243,15 @@ data class AboutCommunityLink(
 
 val aboutCommunityLinks: List<AboutCommunityLink> =
     listOf(
-        AboutCommunityLink(AboutCommunityLinkKind.DISCORD, "https://discord.com/invite/zrdbeRG2Mt"),
-        AboutCommunityLink(AboutCommunityLinkKind.TELEGRAM, "https://t.me/metrolistapp"),
-        AboutCommunityLink(AboutCommunityLinkKind.REPOSITORY, "https://github.com/MetrolistGroup/Metrolist"),
+        AboutCommunityLink(AboutCommunityLinkKind.REPOSITORY, "https://github.com/nev-minhnh/MinMusic"),
     )
 
 val aboutLicenseLink: AboutCommunityLink =
-    AboutCommunityLink(AboutCommunityLinkKind.LICENSE, "https://github.com/MetrolistGroup/Metrolist/blob/main/LICENSE")
+    AboutCommunityLink(AboutCommunityLinkKind.LICENSE, "https://github.com/nev-minhnh/MinMusic/blob/main/LICENSE")
+
+/** MinMusic is a fork of Metrolist; GPL-3.0 attribution to the upstream project. */
+val aboutUpstreamLink: AboutCommunityLink =
+    AboutCommunityLink(AboutCommunityLinkKind.REPOSITORY, "https://github.com/MetrolistGroup/Metrolist")
 
 data class AboutScreenText(
     val title: String,
