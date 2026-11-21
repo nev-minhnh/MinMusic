@@ -16,10 +16,16 @@ internal data class AudioExportMetadata(
     val artist: String,
     val album: String?,
     val artwork: AudioExportArtwork? = null,
+    val albumArtist: String? = null,
+    val year: Int? = null,
+    val trackNumber: Int? = null,
+    val trackTotal: Int? = null,
+    val lyrics: String? = null,
 )
 
 internal data class AudioExportArtwork(
-    val png: ByteArray,
+    val data: ByteArray,
+    val mimeType: String,
     val width: Int,
     val height: Int,
 )
@@ -117,20 +123,25 @@ internal fun opusTagsPacket(metadata: AudioExportMetadata): ByteArray {
             add("TITLE=${metadata.title}")
             add("ARTIST=${metadata.artist}")
             metadata.album?.takeIf(String::isNotBlank)?.let { add("ALBUM=$it") }
+            metadata.albumArtist?.takeIf(String::isNotBlank)?.let { add("ALBUMARTIST=$it") }
+            metadata.year?.takeIf { it > 0 }?.let { add("DATE=$it") }
+            metadata.trackNumber?.takeIf { it > 0 }?.let { add("TRACKNUMBER=$it") }
+            metadata.trackTotal?.takeIf { it > 0 }?.let { add("TRACKTOTAL=$it") }
+            metadata.lyrics?.takeIf(String::isNotBlank)?.let { add("LYRICS=$it") }
             metadata.artwork?.let { artwork ->
                 val picture = ByteArrayOutputStream()
                 DataOutputStream(picture).use { output ->
-                    val mime = "image/png".encodeToByteArray()
+                    val mime = artwork.mimeType.encodeToByteArray()
                     output.writeInt(3)
                     output.writeInt(mime.size)
                     output.write(mime)
                     output.writeInt(0)
                     output.writeInt(artwork.width)
                     output.writeInt(artwork.height)
-                    output.writeInt(32)
+                    output.writeInt(if (artwork.mimeType == "image/png") 32 else 24)
                     output.writeInt(0)
-                    output.writeInt(artwork.png.size)
-                    output.write(artwork.png)
+                    output.writeInt(artwork.data.size)
+                    output.write(artwork.data)
                 }
                 add("METADATA_BLOCK_PICTURE=${picture.toByteArray().toByteString().base64()}")
             }
