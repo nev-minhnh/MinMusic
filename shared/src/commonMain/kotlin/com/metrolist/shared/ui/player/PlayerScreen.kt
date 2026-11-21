@@ -218,6 +218,9 @@ import com.metrolist.shared.ui.components.formatSleepTimerRemaining
 import com.metrolist.shared.ui.components.images.AsyncImage
 import com.metrolist.shared.ui.components.lyrics.LyricsContrastScrim
 import com.metrolist.shared.ui.components.lyrics.LyricsOffsetEditor
+import com.metrolist.shared.ui.components.minmusic.MmPlayerTintBackground
+import com.metrolist.shared.ui.components.minmusic.MmPlayerTransportRow
+import com.metrolist.shared.ui.components.minmusic.mmPlayerFullArtworkSlot
 import com.metrolist.shared.ui.components.playbackMarquee
 import com.metrolist.shared.ui.components.playerControlBlend
 import com.metrolist.shared.ui.components.rememberBottomSheetState
@@ -230,6 +233,7 @@ import com.metrolist.shared.ui.icons.MetrolistIcons
 import com.metrolist.shared.ui.navigation.NavigationBackHandler
 import com.metrolist.shared.ui.navigation.blockInput
 import com.metrolist.shared.ui.theme.ComponentShapes
+import com.metrolist.shared.ui.theme.MinMotion
 import com.metrolist.shared.ui.utils.supportsNativeBlur
 import com.metrolist.shared.utils.Logger
 import com.metrolist.shared.viewmodels.PlayerViewModel
@@ -638,6 +642,9 @@ fun PlayerScreen(
             )
 
     val playerType = Settings.shared.playerType
+    // MinMusic "Sân khấu tối" layout: the default modern player on phones (portrait), see MmPlayerSections.kt.
+    val mmStyle = playerType == PlayerType.MODERN && !isTv
+    var showEqualizerShortcut by remember { mutableStateOf(false) }
     val usesFullscreenThumbnail = playerThumbnailStyle == PlayerThumbnailStyle.FULLSCREEN
     val prefersTallCover = usesFullscreenThumbnail && !isLandscape
     val playbackNetwork by PlaybackNetworkStateStore.state.collectAsState()
@@ -773,7 +780,8 @@ fun PlayerScreen(
     var canvasMinimalUi by rememberSaveable { mutableStateOf(false) }
     if (!isCanvasBackdropVisible || !allowArtworkExpansion) canvasMinimalUi = false
     val shouldFetchLyrics = playerContentState.isActive && (uiState.isLyricsVisible || uiState.isSubtitleActive)
-    val shouldLoadLyrics = shouldFetchLyrics || (playerContentState.isActive && (Settings.shared.showLyricsOnPlayer || canvasMinimalUi))
+    val shouldLoadLyrics =
+        shouldFetchLyrics || (playerContentState.isActive && (Settings.shared.showLyricsOnPlayer || canvasMinimalUi || mmStyle))
 
     LaunchedEffect(
         currentSong?.id,
@@ -884,7 +892,12 @@ fun PlayerScreen(
                     if (displayCutoutTopPadding > 0.dp) displayCutoutTopPadding + 4.dp else 0.dp,
                     if (isImmersive) 16.dp else 0.dp,
                 )
-            val queuePeekHeight = if (useLandscapeLayout) 0.dp else QueuePeekHeight + 16.dp + navigationBarBottomPadding
+            val queuePeekHeight =
+                when {
+                    useLandscapeLayout -> 0.dp
+                    mmStyle -> mmPlayerBottomAreaHeight(showLyricsPeek = !uiState.isLyricsVisible) + navigationBarBottomPadding
+                    else -> QueuePeekHeight + 16.dp + navigationBarBottomPadding
+                }
             val queueSheetState =
                 rememberBottomSheetState(
                     dismissedBound = 0.dp,
@@ -1048,6 +1061,13 @@ fun PlayerScreen(
                                 .fillMaxSize()
                                 .background(backgroundColor),
                     )
+                    if (mmStyle && playerBackground == PlayerBackgroundStyle.SOLID) {
+                        // Static artwork tint, no blur (design-system section 2.4).
+                        MmPlayerTintBackground(
+                            artworkColor = uiState.dominantColor.takeIf { currentSong?.displayThumbnail != null },
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                    }
 
                     if (isPlayerContentVisible && !isInPipMode && !isFullscreen) {
                         Box(Modifier.fillMaxSize().graphicsLayer { alpha = if (queueCoversPlayer) 0f else 1f }) {
@@ -1403,7 +1423,34 @@ fun PlayerScreen(
                                             horizontalAlignment = Alignment.CenterHorizontally,
                                         ) {
                                             AnimatedVisibility(
-                                                visible = !canvasMinimalUi,
+                                                visible = mmStyle && !canvasMinimalUi,
+                                                // Fade only: the bar bleeds past the column gutter and must not be clipped.
+                                                enter = fadeIn(canvasEffectsSpec),
+                                                exit = fadeOut(canvasEffectsSpec),
+                                            ) {
+                                                MmPlayerTopBarSection(
+                                                    queueTitle = uiState.queueTitle,
+                                                    onCollapse = {
+                                                        hapticManager.perform(HapticEvent.PRESS)
+                                                        onClose()
+                                                    },
+                                                    onMore = {
+                                                        hapticManager.perform(HapticEvent.PRESS)
+                                                        showPlayerMenu = true
+                                                    },
+                                                    showVideoButton = showVideoButton,
+                                                    isVideoModeActive = isVideoModeActive,
+                                                    isVideoModeResolving = isVideoModeResolving,
+                                                    onToggleVideoMode = {
+                                                        hapticManager.perform(HapticEvent.PRESS)
+                                                        playerConnection?.setVideoMode(!isVideoModeActive)
+                                                    },
+                                                    contentColor = textBackgroundColor,
+                                                    modifier = Modifier.mmPlayerBleed(MmPlayerTopBarBleed),
+                                                )
+                                            }
+                                            AnimatedVisibility(
+                                                visible = !mmStyle && !canvasMinimalUi,
                                                 enter = canvasControlsEnter,
                                                 exit = canvasControlsExit,
                                             ) {
@@ -1792,6 +1839,7 @@ fun PlayerScreen(
                                                             Box(
                                                                 modifier =
                                                                     Modifier
+                                                                        .padding(horizontal = if (mmStyle) 12.dp else 0.dp)
                                                                         .sharedElement(
                                                                             sharedContentState =
                                                                                 rememberSharedContentState(
@@ -1801,7 +1849,17 @@ fun PlayerScreen(
                                                                             boundsTransform = albumArtBoundsTransform,
                                                                             clipInOverlayDuringTransition = OverlayClip(albumArtShape),
                                                                         ).aspectRatio(1f)
-                                                                        .clip(albumArtShape),
+                                                                        .then(
+                                                                            if (mmStyle) {
+                                                                                Modifier.mmPlayerFullArtworkSlot(
+                                                                                    image = trackPresentation.artwork.bitmap,
+                                                                                    isSettledExpanded = bottomSheetState.isSettledExpanded,
+                                                                                    progress = { bottomSheetState.progress },
+                                                                                )
+                                                                            } else {
+                                                                                Modifier
+                                                                            },
+                                                                        ).clip(if (mmStyle) MmPlayerArtworkShape else albumArtShape),
                                                             ) {
                                                                 CrossfadeArtwork(
                                                                     animate = LocalPlayerContentActive.current,
@@ -1931,11 +1989,20 @@ fun PlayerScreen(
                                             verticalArrangement = Arrangement.spacedBy(4.dp),
                                         ) {
                                             val titleEffectsSpec = MaterialTheme.motionScheme.defaultEffectsSpec<Float>()
+                                            val titleSlidePx = with(LocalDensity.current) { MmPlayerTitleSlide.roundToPx() }
                                             AnimatedContent(
                                                 targetState = currentSong,
                                                 contentKey = { it?.id },
                                                 transitionSpec = {
-                                                    (fadeIn(titleEffectsSpec) togetherWith fadeOut(titleEffectsSpec))
+                                                    // MinMusic track change: title and artist rise 8 dp while fading in.
+                                                    val enter =
+                                                        if (mmStyle) {
+                                                            fadeIn(titleEffectsSpec) +
+                                                                slideInVertically(MinMotion.standardEnter<IntOffset>()) { titleSlidePx }
+                                                        } else {
+                                                            fadeIn(titleEffectsSpec)
+                                                        }
+                                                    (enter togetherWith fadeOut(titleEffectsSpec))
                                                         .using(SizeTransform(clip = false))
                                                 },
                                                 contentAlignment = Alignment.CenterStart,
@@ -1961,7 +2028,7 @@ fun PlayerScreen(
                                                             } else {
                                                                 MaterialTheme.typography.titleLarge
                                                             },
-                                                        fontWeight = FontWeight.Bold,
+                                                        fontWeight = if (mmStyle) FontWeight.SemiBold else FontWeight.Bold,
                                                         color = textBackgroundColor,
                                                         maxLines = 1,
                                                         softWrap = false,
@@ -1985,12 +2052,12 @@ fun PlayerScreen(
                                                         onNavigateToArtist = onNavigateToArtist,
                                                         iterations = if (LocalPlayerContentActive.current) 1 else 0,
                                                         style =
-                                                            if (usesCanvasThumbnail) {
+                                                            if (usesCanvasThumbnail || mmStyle) {
                                                                 MaterialTheme.typography.bodyMedium
                                                             } else {
                                                                 MaterialTheme.typography.titleMedium
                                                             },
-                                                        color = textBackgroundColor.copy(alpha = 0.7f),
+                                                        color = textBackgroundColor.copy(alpha = if (mmStyle) 0.76f else 0.7f),
                                                         modifier =
                                                             Modifier
                                                                 .then(
@@ -2057,6 +2124,19 @@ fun PlayerScreen(
                                                 buttonColor = textBackgroundColor,
                                                 onButtonColor = vintageOnButtonColor(textBackgroundColor),
                                             )
+                                        } else if (mmStyle && !uiState.isLyricsVisible) {
+                                            MmPlayerTitleActions(
+                                                isLiked = isLiked,
+                                                onLikeClick = {
+                                                    hapticManager.toggle(!isLiked)
+                                                    toggleDisplayedLike()
+                                                },
+                                                onShareClick = {
+                                                    hapticManager.perform(HapticEvent.PRESS)
+                                                    shareDisplayedSong()
+                                                },
+                                                contentColor = textBackgroundColor,
+                                            )
                                         } else {
                                             PlayerActionRow(
                                                 isLyricsVisible = uiState.isLyricsVisible,
@@ -2103,6 +2183,7 @@ fun PlayerScreen(
                                     songId = currentSong?.id,
                                     progressColor = textBackgroundColor.takeIf { playerType == PlayerType.CLASSIC },
                                     isLive = uiState.isLive || playbackResource?.isLive == true,
+                                    mmStyle = mmStyle,
                                 )
 
                                 playerControlsTransition.AnimatedVisibility(
@@ -2201,7 +2282,38 @@ fun PlayerScreen(
                                                     )
                                                 }
 
-                                                PlayerType.MODERN -> {
+                                                PlayerType.MODERN -> if (mmStyle) {
+                                                    MmPlayerTransportRow(
+                                                        isPlaying = isPlaying,
+                                                        isLoading =
+                                                            isPlaybackLoading && contentActive && !hasVisibleVideoTransitionIndicator,
+                                                        isShuffleOn = isShuffleOn,
+                                                        repeatMode = repeatMode,
+                                                        onToggleShuffle = {
+                                                            hapticManager.toggle(!isShuffleOn)
+                                                            viewModel.toggleShuffle()
+                                                        },
+                                                        onToggleRepeat = {
+                                                            hapticManager.perform(HapticEvent.PRESS)
+                                                            viewModel.toggleRepeat()
+                                                        },
+                                                        onSkipPrevious = {
+                                                            hapticManager.perform(HapticEvent.PRESS)
+                                                            viewModel.previous()
+                                                        },
+                                                        onTogglePlay = {
+                                                            hapticManager.toggle(!isPlaying)
+                                                            viewModel.togglePlayPause()
+                                                        },
+                                                        onSkipNext = {
+                                                            hapticManager.perform(HapticEvent.PRESS)
+                                                            viewModel.next()
+                                                        },
+                                                        playButtonSize = primaryControlSize,
+                                                        contentColor = textBackgroundColor,
+                                                        playPauseFocusRequester = playPauseFocusRequester,
+                                                    )
+                                                } else {
                                                     PlayerPrimaryControls(
                                                         isPlaying = isPlaying,
                                                         isLoading = isPlaybackLoading && contentActive,
@@ -2244,7 +2356,16 @@ fun PlayerScreen(
                                     enter = canvasControlsEnter,
                                     exit = canvasControlsExit,
                                 ) {
-                                    Spacer(modifier = Modifier.height(QueuePeekHeight + 32.dp))
+                                    Spacer(
+                                        modifier =
+                                            Modifier.height(
+                                                if (mmStyle) {
+                                                    mmPlayerBottomAreaHeight(showLyricsPeek = !uiState.isLyricsVisible) + 8.dp
+                                                } else {
+                                                    QueuePeekHeight + 32.dp
+                                                },
+                                            ),
+                                    )
                                 }
                                 playerControlsTransition.AnimatedVisibility(
                                     visible = { (expanded, minimalUi) ->
@@ -2329,6 +2450,29 @@ fun PlayerScreen(
                                             },
                                             contentColor = textBackgroundColor,
                                             modifier = Modifier.padding(bottom = navigationBarBottomPadding),
+                                        )
+                                    } else if (mmStyle) {
+                                        MmPlayerBottomArea(
+                                            viewModel = viewModel,
+                                            lyrics = uiState.lyrics,
+                                            songId = currentSong?.id,
+                                            lyricsOffsetMs = uiState.lyricsOffsetMs,
+                                            isLyricsLoading = uiState.isLyricsLoading,
+                                            isLyricsVisible = uiState.isLyricsVisible,
+                                            onLyricsVisibleChange = { visible -> viewModel.setLyricsVisible(visible) },
+                                            isPlaying = isPlaying,
+                                            castState = castState,
+                                            onOpenCast =
+                                                openCastDialog.takeIf {
+                                                    !isListenTogetherGuest && platform.supportsCasting &&
+                                                        Settings.shared.isPlayerCastButtonVisible
+                                                },
+                                            onOpenEqualizer = { showEqualizerShortcut = true },
+                                            sleepTimerState = sleepTimerState,
+                                            onShowSleepTimer = { showSleepTimerDialog = true },
+                                            onOpenQueue = { queueSheetState.expandSoft() },
+                                            isListenTogetherGuest = isListenTogetherGuest,
+                                            navigationBarBottomPadding = navigationBarBottomPadding,
                                         )
                                     } else {
                                         PlayerBottomControls(
@@ -2506,6 +2650,16 @@ fun PlayerScreen(
                                 showSongDetails = true
                             },
                             extraActions = landscapeMenuActions,
+                        )
+                    }
+
+                    PopupVisibility(visible = showEqualizerShortcut) {
+                        platform.EqualizerShortcut(
+                            viewModel = viewModel,
+                            onDismiss = { showEqualizerShortcut = false },
+                            onNavigateToAlbum = onNavigateToAlbum,
+                            onNavigateToArtist = onNavigateToArtist,
+                            onNavigateToListenTogether = onNavigateToListenTogether,
                         )
                     }
 
