@@ -39,6 +39,8 @@ import com.metrolist.shared.generated.resources.mm_player_time_remaining
 import com.metrolist.shared.generated.resources.playback_position_time
 import com.metrolist.shared.playback.PendingSeekPosition
 import com.metrolist.shared.playback.interpolatePlaybackPosition
+import com.metrolist.shared.settings.Settings
+import com.metrolist.shared.settings.SliderStyle
 import com.metrolist.shared.ui.components.LiveBadge
 import com.metrolist.shared.ui.components.minmusic.MmPlayerProgressTrack
 import com.metrolist.shared.ui.components.sliders.PlaybackProgressSlider
@@ -47,6 +49,7 @@ import com.metrolist.shared.ui.components.sliders.progressAtPixel
 import com.metrolist.shared.ui.components.sliders.rememberPendingSeekPosition
 import com.metrolist.shared.ui.haptics.HapticEvent
 import com.metrolist.shared.ui.haptics.rememberMetrolistHaptics
+import com.metrolist.shared.ui.theme.LocalBrand
 import com.metrolist.shared.utils.Logger
 import com.metrolist.shared.utils.formatDuration
 import com.metrolist.shared.viewmodels.PlayerViewModel
@@ -136,6 +139,8 @@ internal fun PlayerProgressSlider(
         renderedPosition = { displayedPosition },
     )
     val hapticManager = rememberMetrolistHaptics()
+    val sliderStyle = Settings.shared.sliderStyle
+    val brandGradientColors = if (mmStyle && !isLive) LocalBrand.current.gradientColors else null
     val displayedSecond =
         when {
             isDraggingSlider -> (sliderValue.toDouble() * duration).toLong() / 1_000L
@@ -208,8 +213,9 @@ internal fun PlayerProgressSlider(
             isPlaying = isPlaying && !isPlaybackLoading,
             bufferedFraction = if (isLive) 1f else bufferedProgress,
             animate = active,
+            style = sliderStyle,
             track =
-                if (mmStyle && !isLive) {
+                if (mmStyle && !isLive && sliderStyle == SliderStyle.DEFAULT) {
                     { state ->
                         MmPlayerProgressTrack(
                             progress = { state.value },
@@ -219,6 +225,8 @@ internal fun PlayerProgressSlider(
                 } else {
                     null
                 },
+            // The other styles keep the user's chosen shape and thickness; MinMusic only swaps in the brand gradient.
+            activeGradientColors = brandGradientColors,
             colors =
                 if (isLive) {
                     val activeColor = progressColor ?: MaterialTheme.colorScheme.primary
@@ -232,7 +240,8 @@ internal fun PlayerProgressSlider(
                         disabledInactiveTrackColor = inactiveColor,
                     )
                 } else {
-                    val activeColor = progressColor ?: MaterialTheme.colorScheme.primary
+                    // MinMusic: base the unplayed and buffered parts on the muted ink; the played part uses the gradient.
+                    val activeColor = progressColor ?: if (mmStyle) textBackgroundColor else MaterialTheme.colorScheme.primary
                     val inactive = activeColor.copy(alpha = activeColor.alpha * (77f / 255f))
                     SliderDefaults.colors(
                         thumbColor = activeColor,

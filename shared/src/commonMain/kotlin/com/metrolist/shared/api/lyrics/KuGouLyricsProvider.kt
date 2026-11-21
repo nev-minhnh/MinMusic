@@ -47,11 +47,12 @@ class KuGouLyricsProvider(
     ): Pair<Long, String>? {
         val query =
             buildString {
-                append(keyword.title)
+                // KuGou only matches "artist - title"; "title - artist" returns no candidates.
                 if (keyword.artist.isNotBlank()) {
-                    append(" - ")
                     append(keyword.artist)
+                    append(" - ")
                 }
+                append(keyword.title)
                 if (!keyword.album.isNullOrBlank()) {
                     append(' ')
                     append(keyword.album)

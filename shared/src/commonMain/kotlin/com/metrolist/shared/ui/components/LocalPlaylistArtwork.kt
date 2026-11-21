@@ -13,6 +13,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
 import com.metrolist.shared.ui.components.images.AsyncImage
+import com.metrolist.shared.ui.components.minmusic.mmArtworkEdge
 
 @Composable
 fun LocalPlaylistArtwork(
@@ -21,11 +22,12 @@ fun LocalPlaylistArtwork(
     fallbackUrl: String? = null,
 ) {
     Box(
-        modifier = modifier.background(MaterialTheme.colorScheme.surfaceContainerHigh),
+        // MinMusic: one soft edge around the whole collage (tiles opt out), backdrop included.
+        modifier = modifier.mmArtworkEdge().background(MaterialTheme.colorScheme.surfaceContainerHigh),
         contentAlignment = Alignment.Center,
     ) {
         if (thumbnails.isEmpty()) {
-            PlaylistCoverImage(fallbackUrl, Modifier.fillMaxSize())
+            PlaylistCoverImage(fallbackUrl, Modifier.fillMaxSize(), artworkEdge = false)
         } else {
             Column(Modifier.fillMaxSize()) {
                 thumbnails.take(4).chunked(2).forEach { row ->
@@ -35,6 +37,7 @@ fun LocalPlaylistArtwork(
                                 url = thumbnail,
                                 modifier = Modifier.weight(1f).fillMaxHeight(),
                                 contentScale = ContentScale.Crop,
+                                artworkEdge = false,
                             )
                         }
                     }

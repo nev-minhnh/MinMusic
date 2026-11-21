@@ -153,10 +153,12 @@ import com.metrolist.shared.ui.components.PlayerSheetSurface
 import com.metrolist.shared.ui.components.focusOutline
 import com.metrolist.shared.ui.components.images.AsyncImage
 import com.metrolist.shared.ui.components.minmusic.MmPlayerMiniBar
+import com.metrolist.shared.ui.components.minmusic.MmPlayerMiniBarHeight
 import com.metrolist.shared.ui.components.minmusic.MmPlayerMiniBarInset
 import com.metrolist.shared.ui.components.rememberTrackMarquee
 import com.metrolist.shared.ui.components.sliders.collectPlaybackDisplayState
 import com.metrolist.shared.ui.components.sliders.progressAtPixel
+import com.metrolist.shared.ui.design.expressive.components.ExpressiveMiniPlayer
 import com.metrolist.shared.ui.design.expressive.components.ExpressiveMiniPlayerHeight
 import com.metrolist.shared.ui.haptics.HapticEvent
 import com.metrolist.shared.ui.haptics.MetrolistHaptics
@@ -207,12 +209,17 @@ fun MiniPlayer(
     val isLive = currentSong?.isLive == true || playbackResource?.isLive == true
     val lifecycleState by LocalLifecycleOwner.current.lifecycle.currentStateAsState()
     val miniPlayerActive = bottomSheetState?.isCollapsed != false && lifecycleState == Lifecycle.State.RESUMED
+    // MinMusic bar is the default; Expressive, Modern and Vintage stay available when the user picks them.
+    val isMinMusicMiniPlayer = Settings.shared.miniPlayerType == MiniPlayerType.MINMUSIC && !useDesktopLayout
     val isExpressiveMiniPlayer = Settings.shared.miniPlayerType == MiniPlayerType.EXPRESSIVE && !useDesktopLayout
     val isModern = Settings.shared.miniPlayerType == MiniPlayerType.MODERN && !useDesktopLayout
-    val progressActive = miniPlayerActive && !useDesktopLayout && !isLive
+    val miniProgressEnabled = Settings.shared.showExpressiveMiniPlayerProgress
+    val expressiveProgressEnabled = isExpressiveMiniPlayer && miniProgressEnabled
+    val progressActive =
+        miniPlayerActive && (!(isExpressiveMiniPlayer || isMinMusicMiniPlayer) || miniProgressEnabled) && !useDesktopLayout && !isLive
     var progressWidthPx by remember { mutableIntStateOf(0) }
     val progressLengthPx =
-        if (isModern) {
+        if (isModern || expressiveProgressEnabled) {
             (with(LocalDensity.current) { MiniPlayerProgressDiameter.toPx() } * PI).roundToInt()
         } else {
             progressWidthPx
@@ -271,7 +278,7 @@ fun MiniPlayer(
             }
         }
     val bufferedProgress =
-        playerConnection.bufferedProgress.collectPlaybackDisplayState(progressActive && !isModern && !isExpressiveMiniPlayer) {
+        playerConnection.bufferedProgress.collectPlaybackDisplayState(progressActive && !isModern && !isExpressiveMiniPlayer && !isMinMusicMiniPlayer) {
             if (isLive) 1f else progressAtPixel(it, progressLengthPx)
         }
     val canSkipNext by playerConnection.canSkipNext.collectAsState(initial = false)
@@ -305,6 +312,7 @@ fun MiniPlayer(
 
     val coroutineScope = rememberCoroutineScope()
     val hapticManager = rememberMetrolistHaptics()
+    val context = LocalContext.current
 
     val layoutDirection = LocalLayoutDirection.current
     val dragOffset = remember { mutableStateOf(Offset.Zero) }
@@ -341,6 +349,8 @@ fun MiniPlayer(
                 .height(
                     if (useDesktopLayout) {
                         DesktopMiniPlayerHeight
+                    } else if (isMinMusicMiniPlayer) {
+                        MmPlayerMiniBarHeight
                     } else if (isExpressiveMiniPlayer) {
                         ExpressiveMiniPlayerHeight
                     } else if (isModern) {
@@ -349,10 +359,10 @@ fun MiniPlayer(
                         MiniPlayerHeight
                     },
                 ).then(
-                    if (isModern || isExpressiveMiniPlayer) {
+                    if (isModern || isExpressiveMiniPlayer || isMinMusicMiniPlayer) {
                         Modifier
                             .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))
-                            .padding(horizontal = if (isExpressiveMiniPlayer) MmPlayerMiniBarInset else ModernMiniPlayerHorizontalPadding)
+                            .padding(horizontal = if (isMinMusicMiniPlayer) MmPlayerMiniBarInset else ModernMiniPlayerHorizontalPadding)
                     } else {
                         Modifier
                     },
@@ -372,8 +382,8 @@ fun MiniPlayer(
                     onSkipPrevious = { playerConnection.skipToPrevious() },
                 ),
     ) {
-        if (isExpressiveMiniPlayer) {
-            // MinMusic mini player: the default (expressive) style is replaced by the "Sân khấu tối" design.
+        if (isMinMusicMiniPlayer) {
+            // MinMusic mini player (the default type): the "Sân khấu tối" design.
             val showMiniPlayerVideo =
                 shouldShowMusicVideoSurface(
                     isVideoModeActive = isVideoModeActive,
@@ -389,8 +399,8 @@ fun MiniPlayer(
                 isLoading = isPlaybackLoading && miniPlayerActive,
                 progress = { progress.value },
                 // Keep the 2 dp track visible while the duration is still unknown (restored or paused queue);
-                // the gradient fill starts once the player reports a duration.
-                progressAvailable = !isLive,
+                // the gradient fill starts once the player reports a duration. Honours the mini player progress setting.
+                progressAvailable = !isLive && Settings.shared.showExpressiveMiniPlayerProgress,
                 onExpand = {
                     hapticManager.perform(HapticEvent.PRESS)
                     onExpand()
@@ -443,6 +453,97 @@ fun MiniPlayer(
                     } else {
                         null
                     },
+            )
+            return
+        }
+        if (isExpressiveMiniPlayer) {
+            val database: MusicDatabase = koinInject()
+            val artist = song.artists.firstOrNull { !it.id.isNullOrBlank() }
+            val artistId = artist?.id
+            val isArtistSubscribed =
+                if (miniPlayerActive && Settings.shared.showExpressiveMiniPlayerSubscribeButton) {
+                    rememberArtistSubscription(database, artistId)
+                } else {
+                    false
+                }
+            val subscribedMessage = stringResource(Res.string.subscribed_to_artist, artist?.displayName.orEmpty())
+            val subscriptionError = stringResource(Res.string.error_occurred)
+            val addToPlaylist = LocalPlaylistAdder.current
+            ExpressiveMiniPlayer(
+                song = song,
+                isPlaying = isPlaying,
+                isLoading = isPlaybackLoading && miniPlayerActive,
+                active = miniPlayerActive,
+                onTogglePlay = {
+                    hapticManager.perform(HapticEvent.PRESS)
+                    if (isListenTogetherGuest) {
+                        playerConnection.setVolume(if (volume > 0.01f) 0f else 1f)
+                    } else {
+                        playerConnection.togglePlayPause()
+                    }
+                },
+                onSkipNext = {
+                    hapticManager.perform(HapticEvent.PRESS)
+                    playerConnection.skipToNext()
+                },
+                onSkipPrevious = { playerConnection.skipToPrevious() },
+                onExpand = {
+                    hapticManager.perform(HapticEvent.PRESS)
+                    onExpand()
+                },
+                canSkipNext = canSkipNext && !isListenTogetherGuest,
+                canSkipPrevious = canSkipPrevious && !isListenTogetherGuest,
+                playbackEnabled = true,
+                swipeThresholdPx = swipeThreshold,
+                isVisible = true,
+                modifier =
+                    Modifier
+                        .then(if (cardFocusRequester != null) Modifier.focusRequester(cardFocusRequester) else Modifier)
+                        .tvFocusHighlight(scale = 1f)
+                        .graphicsLayer { translationX = dragOffset.value.x },
+                onDpadExpand = {
+                    hapticManager.perform(HapticEvent.PRESS)
+                    onDpadExpand()
+                },
+                playbackActionLabel =
+                    if (isListenTogetherGuest) {
+                        stringResource(
+                            if (isMuted) Res.string.unmute else Res.string.mute,
+                        )
+                    } else {
+                        null
+                    },
+                playbackActionIcon =
+                    if (isListenTogetherGuest) {
+                        if (isMuted) MetrolistIcons.AutoMirrored.Filled.VolumeUp else MetrolistIcons.AutoMirrored.Filled.VolumeOff
+                    } else {
+                        null
+                    },
+                swipeEnabled = false,
+                progress = { progress.value },
+                progressAvailable = expressiveProgressEnabled && !isLive && duration > 0L,
+                isLiked = SongLikeState.isLiked(song.id),
+                isArtistSubscribed = isArtistSubscribed,
+                onLike = { SongLikeState.toggleLike(song) },
+                onSubscribeToggle =
+                    if (artistId != null) {
+                        {
+                            toggleArtistSubscription(
+                                coroutineScope,
+                                database,
+                                GlobalYouTubeRepository.instance,
+                                artistId,
+                                artist.displayName,
+                                onSubscriptionChanged = { subscribed ->
+                                    if (subscribed) Toast.makeText(context, subscribedMessage, Toast.LENGTH_SHORT).show()
+                                },
+                                onError = { Toast.makeText(context, subscriptionError, Toast.LENGTH_SHORT).show() },
+                            )
+                        }
+                    } else {
+                        null
+                    },
+                onAddToPlaylist = { addToPlaylist(listOf(song)) },
             )
             return
         }
@@ -742,6 +843,7 @@ internal fun MiniPlayerCard(
                     )
                 } else {
                     AsyncImage(
+                        artworkEdge = false,
                         url = artworkUrl,
                         contentDescription = null,
                         modifier =

@@ -95,6 +95,7 @@ import com.metrolist.shared.ui.components.EpisodePlayedIndicator
 import com.metrolist.shared.ui.components.SongThumbnailPlayingIndicator
 import com.metrolist.shared.ui.components.libraryCover
 import com.metrolist.shared.ui.components.menuAnchorSemantics
+import com.metrolist.shared.ui.components.minmusic.mmArtworkEdge
 import com.metrolist.shared.ui.icons.MetrolistIcons
 import com.metrolist.shared.ui.menu.BuiltinPlaylistMenuButton
 import com.metrolist.shared.ui.menu.groupedMenuItemShapes
@@ -427,7 +428,7 @@ private fun PodcastShowRow(
                 model = podcast.thumbnailUrl,
                 contentDescription = podcast.title,
                 contentScale = ContentScale.Crop,
-                modifier = Modifier.size(64.dp).clip(gridCellShape()),
+                modifier = Modifier.size(64.dp).mmArtworkEdge(gridCellShape()),
             )
             Column(Modifier.weight(1f)) {
                 Text(
@@ -469,7 +470,7 @@ private fun PodcastLibraryChannelRow(
                 model = channel.thumbnail,
                 contentDescription = channel.title,
                 contentScale = ContentScale.Crop,
-                modifier = Modifier.size(64.dp).clip(gridCellShape()),
+                modifier = Modifier.size(64.dp).mmArtworkEdge(gridCellShape()),
             )
             Text(
                 channel.title,
@@ -568,7 +569,7 @@ private fun PodcastLibraryEpisodeRow(
                     model = song.song.thumbnailUrl,
                     contentDescription = song.song.title,
                     contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier.fillMaxSize().mmArtworkEdge(),
                 )
                 SongThumbnailPlayingIndicator(
                     isActive = isActive && !Settings.shared.uiEnhancements,

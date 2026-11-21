@@ -73,7 +73,8 @@ fun MmQuickPickTile(
             url = thumbnailUrl,
             contentDescription = null,
             contentScale = ContentScale.Crop,
-            modifier = Modifier.size(56.dp).background(MaterialTheme.colorScheme.surfaceContainerHigh),
+            modifier = Modifier.size(56.dp).mmArtworkEdge().background(MaterialTheme.colorScheme.surfaceContainerHigh),
+            artworkEdge = false,
         )
         Text(
             text = title,
@@ -128,8 +129,9 @@ fun MmCollectionTile(
                 Modifier
                     .mmPressScale(interactionSource)
                     .size(size)
-                    .clip(TileShape)
+                    .mmArtworkEdge(TileShape)
                     .background(MaterialTheme.colorScheme.surfaceContainerHigh),
+            artworkEdge = false,
         )
         Spacer(Modifier.height(8.dp))
         Text(

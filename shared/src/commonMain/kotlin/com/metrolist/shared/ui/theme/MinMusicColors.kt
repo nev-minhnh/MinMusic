@@ -143,6 +143,27 @@ data class MinMusicBrand(
             )
 
         fun of(isDark: Boolean): MinMusicBrand = if (isDark) Dark else Light
+
+        /**
+         * Brand values for a user-chosen accent (custom theme colour, wallpaper or song-artwork colours): the
+         * gradient runs from [primary] to [tertiary] so play, progress and selected states follow the user's
+         * choice instead of the fixed MinMusic green-blue. The VIP gold stays.
+         */
+        fun seeded(
+            isDark: Boolean,
+            primary: Color,
+            tertiary: Color,
+            onPrimary: Color,
+        ): MinMusicBrand {
+            val stops = listOf(0f to primary, 1f to tertiary)
+            return of(isDark).copy(
+                gradient = AngledLinearGradient(stops, BrandGradientAngleDegrees),
+                gradientColors = listOf(primary, tertiary),
+                onGradient = onPrimary,
+                accentText = primary,
+                accentFill = primary,
+            )
+        }
     }
 }
 

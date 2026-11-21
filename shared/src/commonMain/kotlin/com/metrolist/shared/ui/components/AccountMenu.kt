@@ -516,6 +516,7 @@ private fun AccountMenuHero(
             Box(Modifier.fillMaxSize().clip(avatarShape).background(colorScheme.primary))
             if (isSignedIn && !accountImageUrl.isNullOrBlank()) {
                 AsyncImage(
+                    artworkEdge = false,
                     url = accountImageUrl,
                     modifier = Modifier.size(56.dp).clip(avatarShape),
                     shape = avatarShape,

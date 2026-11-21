@@ -2,6 +2,9 @@ package com.metrolist.android.source.zing
 
 import com.metrolist.shared.generated.resources.Res
 import com.metrolist.shared.generated.resources.charts
+import com.metrolist.shared.generated.resources.mm_chart_zing_week_kr
+import com.metrolist.shared.generated.resources.mm_chart_zing_week_us
+import com.metrolist.shared.generated.resources.mm_chart_zing_week_vn
 import com.metrolist.shared.generated.resources.new_releases
 import com.metrolist.shared.model.AlbumItem
 import com.metrolist.shared.model.AlbumPage
@@ -101,14 +104,51 @@ class ZingSource(
         return SourcePlaylist(ZingItems.playlist(playlist), playlist.songs.map(ZingItems::song))
     }
 
+    /**
+     * The realtime #zingchart (complete, as chart-home serves it), new releases and the weekly charts. chart-home only
+     * previews the last two, so their continuation loads the full list from the dedicated endpoints.
+     */
     override suspend fun charts(): List<SourceChartSection> {
         val charts = client.charts()
+        val weekly =
+            charts.weekly.mapNotNull { week ->
+                val playlistId = week.playlistId?.takeIf(String::isNotBlank) ?: return@mapNotNull null
+                if (week.songs.isEmpty()) return@mapNotNull null
+                val title =
+                    when (week.region.lowercase()) {
+                        "vn" -> getString(Res.string.mm_chart_zing_week_vn)
+                        "us" -> getString(Res.string.mm_chart_zing_week_us)
+                        "korea", "kr" -> getString(Res.string.mm_chart_zing_week_kr)
+                        else -> week.region
+                    }
+                SourceChartSection(title, week.songs.map(ZingItems::song), id = WEEK_CHART_PREFIX + playlistId, continuation = FULL_CHART)
+            }
         return listOfNotNull(
-            charts.realtime.takeIf { it.isNotEmpty() }?.let { SourceChartSection(getString(Res.string.charts), it.map(ZingItems::song)) },
-            charts.newReleases.takeIf { it.isNotEmpty() }?.let {
-                SourceChartSection(getString(Res.string.new_releases), it.map(ZingItems::song))
+            charts.realtime.takeIf { it.isNotEmpty() }?.let {
+                SourceChartSection(getString(Res.string.charts), it.map(ZingItems::song), id = REALTIME_CHART)
             },
-        )
+            charts.newReleases.takeIf { it.isNotEmpty() }?.let {
+                SourceChartSection(
+                    getString(Res.string.new_releases),
+                    it.map(ZingItems::song),
+                    id = NEW_RELEASE_CHART,
+                    continuation = FULL_CHART,
+                )
+            },
+        ) + weekly
+    }
+
+    override suspend fun chartPage(
+        chartId: String,
+        continuation: String,
+    ): SourcePage<YTItem> {
+        val songs =
+            when {
+                chartId == NEW_RELEASE_CHART -> client.newReleases()
+                chartId.startsWith(WEEK_CHART_PREFIX) -> client.weekChart(chartId.removePrefix(WEEK_CHART_PREFIX)).songs
+                else -> emptyList()
+            }
+        return SourcePage(songs.map(ZingItems::song))
     }
 
     override suspend fun lyrics(id: String): String? = client.lyrics(id)
@@ -121,6 +161,13 @@ class ZingSource(
             displayName = account.displayName,
             entitlement = if (account.entitlement == ZingEntitlement.VIP) SourceEntitlement.VIP else SourceEntitlement.FREE,
         )
+    }
+
+    private companion object {
+        const val REALTIME_CHART = "realtime"
+        const val NEW_RELEASE_CHART = "new-release"
+        const val WEEK_CHART_PREFIX = "week:"
+        const val FULL_CHART = "full"
     }
 }
 

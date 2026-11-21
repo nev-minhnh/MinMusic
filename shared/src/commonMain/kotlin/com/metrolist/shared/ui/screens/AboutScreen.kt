@@ -397,6 +397,7 @@ private fun ContributorAvatar(
         tonalElevation = 4.dp,
     ) {
         AsyncImage(
+            artworkEdge = false,
             url = contributor.avatarUrl,
             contentDescription = null,
             shape = shape,

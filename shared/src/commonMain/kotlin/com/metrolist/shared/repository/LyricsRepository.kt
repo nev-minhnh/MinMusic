@@ -41,6 +41,8 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
@@ -77,6 +79,32 @@ private val VIDEO_SPECIFIC_LYRICS_PROVIDERS =
 // Keep saved lyrics from retired providers available offline.
 private fun isRetiredLyricsProvider(provider: String): Boolean =
     provider.equals("LyricsPlus", ignoreCase = true) || provider.equals("Zemer", ignoreCase = true)
+
+/**
+ * The automatic chain: the configured providers plus SimpMusic, which looks lyrics up by the exact YouTube
+ * video id (strong for Vietnamese songs and music videos). It joins every automatic chain (recognised by its
+ * always-last YouTube fallbacks) just ahead of those fallbacks, and is appended in video context as before.
+ */
+internal fun autoLyricsProviders(
+    preferredProviders: List<LyricsProvider>,
+    isVideoContext: Boolean,
+): List<LyricsProvider> {
+    val base = preferredProviders.filter { it != LyricsProvider.AUTO }.distinct()
+    if (LyricsProvider.SIMPMUSIC in base) return base
+    val fallbackIndex = base.indexOfFirst { it in LyricsProvider.alwaysLastFallbacks }
+    return when {
+        fallbackIndex >= 0 -> base.take(fallbackIndex) + LyricsProvider.SIMPMUSIC + base.drop(fallbackIndex)
+        isVideoContext -> base + LyricsProvider.SIMPMUSIC
+        else -> base
+    }
+}
+
+/** The best timing a provider can ever return; a running provider below the current best cannot improve it. */
+private fun bestTimingCeiling(provider: LyricsProvider): LyricsTimingKind =
+    when (provider) {
+        LyricsProvider.LRCLIB, LyricsProvider.KUGOU, LyricsProvider.YOUTUBE, LyricsProvider.YOUTUBESUBTITLE -> LyricsTimingKind.LINE_SYNCED
+        else -> LyricsTimingKind.WORD_SYNCED
+    }
 
 private fun configuredLyricsProviders(): List<LyricsProvider> =
     LyricsProvider.preferredProvidersForFetch(
@@ -327,7 +355,7 @@ class LyricsRepository(
     ): LyricsWithProviderModel? =
         cachedLyricsResult(
             databaseDao?.cachedLyrics(videoId),
-            preferredProviders + if (isVideoContext) listOf(LyricsProvider.SIMPMUSIC) else emptyList(),
+            autoLyricsProviders(preferredProviders, isVideoContext),
         )
 
     private fun cachedLyricsResult(
@@ -366,10 +394,8 @@ class LyricsRepository(
         val lookupVideoId = videoId.takeUnless { ignoreVideoIdentity }
         val preferWordSynced = Settings.shared.preferWordSyncedLyrics
         val preferredTiming = if (preferWordSynced) LyricsTimingKind.WORD_SYNCED else LyricsTimingKind.LINE_SYNCED
-        val providers =
-            (preferredProviders + if (isVideoContext) listOf(LyricsProvider.SIMPMUSIC) else emptyList())
-                .filter { it != LyricsProvider.AUTO }
-                .distinct()
+        // Unusable providers (Lyprio without its key) must not hold the first rank a cached result is checked against.
+        val providers = autoLyricsProviders(preferredProviders, isVideoContext).filter(lyricsClient::isProviderAvailable)
         val lookupKey =
             lyricsLookupKey(
                 lookupVideoId.orEmpty(),
@@ -422,43 +448,52 @@ class LyricsRepository(
                     continue
                 }
                 val timingKind = lyricsTimingKind(parsed)
-                val synced = timingKind != LyricsTimingKind.UNSYNCED
-                val bestSynced = bestTimingKind != LyricsTimingKind.UNSYNCED
+                // Word-synced beats line-synced beats plain; the configured order only breaks ties.
                 val better =
-                    if (preferWordSynced && timingKind != bestTimingKind) {
-                        timingKind > bestTimingKind
-                    } else {
-                        (synced && !bestSynced) ||
-                            (
-                                synced == bestSynced &&
-                                    (
-                                        providerIndex < bestProviderIndex ||
-                                            (providerIndex == bestProviderIndex && timingKind > bestTimingKind)
-                                    )
-                            )
-                    }
+                    timingKind > bestTimingKind ||
+                        (timingKind == bestTimingKind && providerIndex < bestProviderIndex)
                 if (finalResult == null || better) {
                     finalResult = candidate
                     bestTimingKind = timingKind
                     bestProviderIndex = providerIndex
                     currentCoroutineContext().ensureActive()
-                    onLyricsAvailable(candidate)
+                    // Plain text is only shown once no synced source is left (it comes back as the result).
+                    if (timingKind != LyricsTimingKind.UNSYNCED) onLyricsAvailable(candidate)
                 }
             }
         }
 
-        for ((fetchIndex, provider) in fetchOrder.withIndex()) {
+        // A provider that is still running only matters if it could still beat the current best.
+        fun canStillImprove(provider: LyricsProvider): Boolean {
+            val ceiling = bestTimingCeiling(provider)
             val index = providers.indexOf(provider).takeIf { it >= 0 } ?: Int.MAX_VALUE
-            currentCoroutineContext().ensureActive()
-            if (bestTimingKind >= preferredTiming && index >= bestProviderIndex) continue
-            val fetch = fetchProviderLyrics(lookupVideoId, title, artist, duration, album, provider, isVideoContext = isVideoContext)
-            acceptFetch(fetch, index)
-            if (bestTimingKind >= preferredTiming &&
-                fetchOrder.drop(fetchIndex + 1).none { providerPriority(it.name, providers) < bestProviderIndex }
-            ) {
-                break
-            }
+            return ceiling > bestTimingKind || (ceiling == bestTimingKind && index < bestProviderIndex)
         }
+
+        val fetchProviders = fetchOrder.filter(lyricsClient::isProviderAvailable)
+        coroutineScope {
+            val fetched = Channel<Pair<LyricsProvider, ProviderLyricsFetch>>(Channel.UNLIMITED)
+            val permits = Semaphore(AUTO_FETCH_CONCURRENCY)
+            val jobs =
+                fetchProviders.map { provider ->
+                    launch {
+                        val fetch =
+                            permits.withPermit {
+                                fetchProviderLyrics(lookupVideoId, title, artist, duration, album, provider, isVideoContext = isVideoContext)
+                            }
+                        fetched.send(provider to fetch)
+                    }
+                }
+            val pending = fetchProviders.toMutableSet()
+            while (pending.isNotEmpty()) {
+                if (finalResult != null && pending.none { canStillImprove(it) }) break
+                val (provider, fetch) = fetched.receive()
+                pending.remove(provider)
+                acceptFetch(fetch, providers.indexOf(provider).takeIf { it >= 0 } ?: Int.MAX_VALUE)
+            }
+            jobs.forEach { it.cancel() }
+        }
+        if (bestTimingKind == LyricsTimingKind.UNSYNCED) finalResult?.let { onLyricsAvailable(it) }
 
         val selectedResult = finalResult
         if (skipCache && selectedResult == null && !cachedLyrics?.lyrics.isNullOrBlank()) return null
@@ -484,7 +519,7 @@ class LyricsRepository(
                     )
                 if (stored == null || stored.isLegacyProtected || stored.isUserSelected || isLocalLyricsProvider(stored.provider) ||
                     selectedResult == null ||
-                    !prefersLyrics(selectedResult, LyricsWithProviderModel(stored.lyrics, stored.provider), providers, preferWordSynced)
+                    !prefersLyrics(selectedResult, LyricsWithProviderModel(stored.lyrics, stored.provider), providers, preferWordSynced = true)
                 ) {
                     break
                 }
@@ -505,7 +540,8 @@ class LyricsRepository(
         preferredProviders: List<LyricsProvider> = LyricsProvider.userConfigurable + LyricsProvider.afterUserLyricsFallbacks,
         failOnError: Boolean = false,
     ): Flow<LyricsProviderResult> {
-        val providers = preferredProviders.filter { it != LyricsProvider.AUTO }.distinct()
+        val providers =
+            preferredProviders.filter { it != LyricsProvider.AUTO && lyricsClient.isProviderAvailable(it) }.distinct()
         val semaphore = Semaphore(PROVIDER_RESULTS_CONCURRENCY)
         val rawFlow =
             channelFlow {
@@ -667,10 +703,7 @@ class LyricsRepository(
         preferVideoProviders: Boolean,
     ): LyricsLookupKey {
         val providers =
-            (preferredProviders + if (isVideoContext) listOf(LyricsProvider.SIMPMUSIC) else emptyList())
-                .filter {
-                    it != LyricsProvider.AUTO
-                }.distinct()
+            autoLyricsProviders(preferredProviders, isVideoContext)
                 .let {
                     if (preferVideoProviders) (LyricsProvider.afterUserLyricsFallbacks + it).distinct() else it
                 }
@@ -1549,8 +1582,11 @@ class LyricsRepository(
         const val AI_TRANSLATION_CACHE_VERSION = "v5"
         val LEGACY_AI_TRANSLATION_CACHE_VERSIONS = listOf("v2", "v3", "v4")
         const val SYNCED_TRANSLATION_PREFIX = "METROLIST_TRANSLATION_V2:"
-        const val PROVIDER_TIMEOUT_MS = 10_000L
+        const val PROVIDER_TIMEOUT_MS = 8_000L
         const val PROVIDER_RESULTS_CONCURRENCY = 12
+
+        // Automatic lookups ask this many providers at once, in the configured order.
+        const val AUTO_FETCH_CONCURRENCY = 4
         const val NEGATIVE_CACHE_TTL_MS = 7 * 24 * 60 * 60_000L
     }
 }

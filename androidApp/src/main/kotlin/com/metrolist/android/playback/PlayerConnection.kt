@@ -49,6 +49,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -232,6 +233,16 @@ class PlayerConnection(
     private val listenTogetherPlaybackRequestsState =
         MutableSharedFlow<ListenTogetherPlaybackRequest>(extraBufferCapacity = 1)
     val listenTogetherPlaybackRequests: SharedFlow<ListenTogetherPlaybackRequest> = listenTogetherPlaybackRequestsState
+
+    // MinMusic: emitted when the user starts playback from the in-app UI, so the app root can open the full player.
+    // Only the public entry points emit; internal retries, deferred commands and background callers never do.
+    private val playerExpansionRequestsState =
+        MutableSharedFlow<Unit>(extraBufferCapacity = 1, onBufferOverflow = BufferOverflow.DROP_OLDEST)
+    val playerExpansionRequests: SharedFlow<Unit> = playerExpansionRequestsState
+
+    private fun requestPlayerExpansion(expandPlayer: Boolean) {
+        if (expandPlayer && !AndroidListenTogetherManager.isGuestPlaybackLocked) playerExpansionRequestsState.tryEmit(Unit)
+    }
 
     private val _isPlaying = MutableStateFlow(false)
     override val isPlaying: StateFlow<Boolean> = _isPlaying.asStateFlow()
@@ -669,9 +680,11 @@ class PlayerConnection(
         url: String,
         startPositionMs: Long = 0L,
         startVideo: Boolean = false,
+        expandPlayer: Boolean = true,
     ) {
         if (song.isUnavailable) return
         cancelPlaylistRequest()
+        requestPlayerExpansion(expandPlayer)
         if (AndroidListenTogetherManager.isGuestPlaybackLocked) {
             listenTogetherPlaybackRequestsState.tryEmit(ListenTogetherPlaybackRequest(song = song))
             return
@@ -757,7 +770,8 @@ class PlayerConnection(
         playlistId: String,
         title: String,
         shuffle: Boolean = false,
-    ) = playPagedCollection(title, shuffle) {
+        expandPlayer: Boolean = true,
+    ) = playPagedCollection(title, shuffle, expandPlayer) {
         GlobalYouTubeRepository.instance.run {
             val page = getPlaylistPlaybackPage(playlistId)
             if (shuffle) completePlaylistPage(page, applyContentFilters = false) else page
@@ -768,11 +782,13 @@ class PlayerConnection(
         albumId: String,
         title: String,
         shuffle: Boolean = false,
-    ) = playPagedCollection(title, shuffle) { GlobalYouTubeRepository.instance.getAlbumPlaybackPage(albumId) }
+        expandPlayer: Boolean = true,
+    ) = playPagedCollection(title, shuffle, expandPlayer) { GlobalYouTubeRepository.instance.getAlbumPlaybackPage(albumId) }
 
     private fun playPagedCollection(
         title: String,
         shuffle: Boolean,
+        expandPlayer: Boolean,
         load: suspend () -> PlaylistPage?,
     ) {
         cancelPlaylistRequest()
@@ -794,9 +810,16 @@ class PlayerConnection(
                     if (songs.isEmpty()) {
                         Toast.makeText(context, getString(Res.string.playlist_unavailable), Toast.LENGTH_SHORT).show()
                     } else if (shuffle) {
-                        shuffleQueue(songs, title, finite = true, playlistPage = page)
+                        shuffleQueue(songs, title, finite = true, playlistPage = page, expandPlayer = expandPlayer)
                     } else {
-                        playQueue(songs, queueTitle = title, finite = true, playlistPage = page, startVideo = false)
+                        playQueue(
+                            songs,
+                            queueTitle = title,
+                            finite = true,
+                            playlistPage = page,
+                            startVideo = false,
+                            expandPlayer = expandPlayer,
+                        )
                     }
                 } catch (e: CancellationException) {
                     throw e
@@ -816,6 +839,7 @@ class PlayerConnection(
         finite: Boolean = false,
         playlistPage: PlaylistPage? = null,
         songsOnly: Boolean = false,
+        expandPlayer: Boolean = true,
     ) {
         val playableSongs = BlockedContent.filterPlayableSongs(songs)
         if (playableSongs.isEmpty()) return
@@ -828,6 +852,7 @@ class PlayerConnection(
             playlistPage = playlistPage,
             songsOnly = songsOnly,
             startVideo = false,
+            expandPlayer = expandPlayer,
         )
     }
 
@@ -840,6 +865,7 @@ class PlayerConnection(
         playlistPage: PlaylistPage? = null,
         songsOnly: Boolean = false,
         startVideo: Boolean = false,
+        expandPlayer: Boolean = true,
     ) {
         if (songs.any { it.isUnavailable }) {
             val queue = MusicQueue().apply { setQueue(songs, startIndex) }
@@ -853,12 +879,25 @@ class PlayerConnection(
                     playlistPage,
                     songsOnly,
                     startVideo,
+                    expandPlayer,
                 )
             }
             return
         }
+        // Emit once here; the deferred and completed-page re-entries below pass expandPlayer = false.
+        if (songs.isNotEmpty()) requestPlayerExpansion(expandPlayer)
         if (deferUntilConnected {
-                playQueue(songs, startIndex, queueTitle, finite, shuffleModeEnabled, playlistPage, songsOnly, startVideo)
+                playQueue(
+                    songs,
+                    startIndex,
+                    queueTitle,
+                    finite,
+                    shuffleModeEnabled,
+                    playlistPage,
+                    songsOnly,
+                    startVideo,
+                    expandPlayer = false,
+                )
             }
         ) {
             return
@@ -890,6 +929,7 @@ class PlayerConnection(
                                 shuffleModeEnabled,
                                 songsOnly = songsOnly,
                                 startVideo = startVideo,
+                                expandPlayer = false,
                             )
                         }
                     } catch (e: CancellationException) {
@@ -1220,6 +1260,7 @@ class PlayerConnection(
         if (deferUntilConnected { startRadio(song) }) return
         if (song.isUnavailable) return
         cancelPlaylistRequest()
+        requestPlayerExpansion(expandPlayer = true)
         if (AndroidListenTogetherManager.isGuestPlaybackLocked) {
             listenTogetherPlaybackRequestsState.tryEmit(ListenTogetherPlaybackRequest(song = song))
             return

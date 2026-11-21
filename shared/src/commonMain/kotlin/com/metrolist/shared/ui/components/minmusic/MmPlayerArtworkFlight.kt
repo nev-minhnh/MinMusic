@@ -23,6 +23,7 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.geometry.lerp
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.clipPath
@@ -63,6 +64,8 @@ class MmPlayerArtworkFlight {
     var image by mutableStateOf<ImageBitmap?>(null)
 
     private val path = Path()
+
+    private val layerPaint = Paint()
 
     /** True when both ends and an image are known, so the real artworks hide while the sheet moves. */
     val canFly: Boolean
@@ -105,9 +108,12 @@ class MmPlayerArtworkFlight {
             val radius = startRadius + (MmPlayerFullArtworkRadius.toPx() - startRadius) * fraction
             path.reset()
             path.addRoundRect(RoundRect(rect, CornerRadius(radius)))
-            // Centre-crop like ContentScale.Crop on the real artwork.
-            val edge = minOf(bitmap.width, bitmap.height)
-            if (edge <= 0) return
+            // Centre-crop like ContentScale.Crop on the real artwork, plus the soft edge zoom of mmArtworkEdge.
+            val side = minOf(bitmap.width, bitmap.height)
+            if (side <= 0) return
+            val edge = (side / mmArtworkZoom(rect.minDimension)).roundToInt().coerceIn(1, side)
+            val canvas = drawContext.canvas
+            canvas.saveLayer(rect, layerPaint)
             clipPath(path) {
                 drawImage(
                     image = bitmap,
@@ -117,6 +123,8 @@ class MmPlayerArtworkFlight {
                     dstSize = IntSize(width, height),
                 )
             }
+            drawMmArtworkEdgeMask(rect.topLeft, rect.size)
+            canvas.restore()
         }
     }
 }

@@ -89,6 +89,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
@@ -220,6 +221,7 @@ import com.metrolist.android.ui.screens.RecognitionHistoryScreen
 import com.metrolist.android.ui.screens.RecognitionScreen
 import com.metrolist.android.ui.screens.SearchScreen
 import com.metrolist.android.ui.screens.SettingsScreen
+import com.metrolist.android.ui.screens.SourceChartsScreen
 import com.metrolist.android.ui.screens.settings.AndroidAboutScreen
 import com.metrolist.android.ui.screens.settings.AndroidAutoScreen
 import com.metrolist.android.ui.screens.settings.BackupRestoreScreen
@@ -392,17 +394,20 @@ import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import org.jetbrains.compose.resources.getPluralString
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.seconds
 import coil3.compose.AsyncImage as CoilAsyncImage
 import com.metrolist.android.ui.screens.settings.IntegrationsScreen as SettingsIntegrationsScreen
 
@@ -875,7 +880,10 @@ fun MetrolistApp(
                 label = "navigationVisibility",
             )
         val hasBottomNavigation = navigationSuiteType.isNavigationBar
-        val isExpressiveMiniPlayer = Settings.shared.miniPlayerType == MiniPlayerType.EXPRESSIVE && !useDesktopMiniPlayer
+        // The MinMusic bar has the expressive bar's 64 dp height and spacing.
+        val isExpressiveMiniPlayer =
+            (Settings.shared.miniPlayerType == MiniPlayerType.EXPRESSIVE || Settings.shared.miniPlayerType == MiniPlayerType.MINMUSIC) &&
+                !useDesktopMiniPlayer
         val isModernMiniPlayer = Settings.shared.miniPlayerType == MiniPlayerType.MODERN && !useDesktopMiniPlayer
         val miniPlayerBottomSpacing =
             when {
@@ -1288,7 +1296,7 @@ fun MetrolistApp(
                                             .filterIsInstance<SongItem>()
                                     }.getOrDefault(emptyList())
                                 if (songs.isNotEmpty()) {
-                                    playerConnection.playQueue(songs, finite = true)
+                                    playerConnection.playQueue(songs, finite = true, expandPlayer = false)
                                 } else {
                                     pendingSearchQuery = destination.query
                                     pendingOpenPlayer = false
@@ -1343,7 +1351,7 @@ fun MetrolistApp(
                                         loadMetadata = GlobalYouTubeRepository.instance::getSongMetadata,
                                         loadPlayerInformation = GlobalYouTubeRepository.instance::getSongPlayerInformation,
                                     )
-                                playerConnection.playSong(song, "", startPositionMs = destination.startPositionMs)
+                                playerConnection.playSong(song, "", startPositionMs = destination.startPositionMs, expandPlayer = false)
                             }
                         }
                         onIncomingIntentConsumed(intent)
@@ -1353,6 +1361,25 @@ fun MetrolistApp(
                         if (pendingOpenPlayer && hasMedia) {
                             playerBottomSheetState.expandSoft()
                             pendingOpenPlayer = false
+                        }
+                    }
+
+                    // MinMusic: selecting a song anywhere in the in-app UI opens the full player. Only the public
+                    // PlayerConnection play entry points emit, so queue advance, restore, widgets, deep links,
+                    // Listen Together and remote/media-button changes never expand the sheet.
+                    LaunchedEffect(playerConnection, playerBottomSheetState, usesDirectionalNavigation) {
+                        if (usesDirectionalNavigation) return@LaunchedEffect
+                        playerConnection.playerExpansionRequests.collectLatest {
+                            // Already open or opening (e.g. radio started from the player menu or queue): nothing to do.
+                            if (playerBottomSheetState.targetAnchor == EXPANDED_ANCHOR) return@collectLatest
+                            // First play of the session: the sheet appears only once the new song arrives.
+                            if (currentSong == null) {
+                                withTimeoutOrNull(15.seconds) { snapshotFlow { currentSong != null }.first { it } }
+                                    ?: return@collectLatest
+                            }
+                            focusManager.clearFocus(force = true)
+                            keyboardController?.hide()
+                            playerBottomSheetState.expandSoft()
                         }
                     }
 
@@ -2137,6 +2164,7 @@ fun MetrolistApp(
                                 )
                             } else {
                                 AsyncImage(
+                                    artworkEdge = false,
                                     url = currentSong?.thumbnail,
                                     contentDescription = currentSong?.title,
                                     contentScale = ContentScale.Crop,
@@ -2593,6 +2621,9 @@ fun getEntryProvider(
                 onNavigateToHomeSection = { shelf ->
                     navigator.navigate(Screen.HomeSection(shelf.pageKey, shelf.title, shelf.toHomeSection()))
                 },
+                onNavigateToCharts = { sourceKey, chartKey ->
+                    navigator.navigate(Screen.SourceCharts(sourceKey, chartKey))
+                },
                 scrollToTopEvents = homeScrollToTopEvents,
             )
         }
@@ -2616,6 +2647,17 @@ fun getEntryProvider(
                 onNavigateToBrowse = { browseId, params, title ->
                     navigator.navigate(Screen.Browse(browseId, params, title))
                 },
+            )
+        }
+
+        entry<Screen.SourceCharts>(metadata = navTabMetadata) { route ->
+            SourceChartsScreen(
+                initialSourceKey = route.sourceKey,
+                initialChartKey = route.chartKey,
+                onBackClick = { navigator.goBack() },
+                onNavigateToAlbum = { albumId -> navigator.navigate(Screen.Album(albumId)) },
+                onNavigateToArtist = { artistId -> navigator.navigate(Screen.Artist(artistId)) },
+                onNavigateToPodcast = { podcastId -> navigator.navigate(Screen.Podcast(podcastId)) },
             )
         }
 

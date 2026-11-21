@@ -5771,4 +5771,29 @@
     <string name="mm_search_genre_bolero">Bolero</string>
     <!-- Home top bar overflow button that holds History and Listen Together on phones. -->
     <string name="mm_home_more_actions">More</string>
+    <!-- Full player bottom handle that opens the playing queue: overline above the next song's title. -->
+    <string name="mm_player_queue_up_next">Up next</string>
+    <!-- Full player queue handle when there is no next song; %1$d is the number of songs in the queue. -->
+    <plurals name="mm_player_queue_song_count">
+        <item quantity="one">%1$d song in the queue</item>
+        <item quantity="other">%1$d songs in the queue</item>
+    </plurals>
+    <!-- Accessibility action label of the full player queue handle. -->
+    <string name="mm_player_queue_open">Open queue</string>
+    <!-- Player type / mini player type choice for the MinMusic design (default). -->
+    <string name="mm_player_type_minmusic">MinMusic</string>
+    <string name="mm_back_press_again_to_exit">Press back again to exit</string>
+    <!-- MinMusic full chart screen and chart names. -->
+    <string name="mm_chart_zing_week_vn">Vietnam weekly</string>
+    <string name="mm_chart_zing_week_us">US-UK weekly</string>
+    <string name="mm_chart_zing_week_kr">K-Pop weekly</string>
+    <string name="mm_chart_sc_trending">Trending worldwide</string>
+    <string name="mm_charts_tab_soundcloud" translatable="false">SoundCloud</string>
+    <string name="mm_charts_error">Couldn\u0027t load the charts</string>
+    <string name="mm_charts_empty">This chart has no songs right now</string>
+    <string name="mm_charts_no_sources">Turn on Zing MP3, NhacCuaTui or SoundCloud in Settings to see charts</string>
+    <string name="mm_charts_load_more_failed">Couldn\u0027t load more songs</string>
+    <string name="mm_charts_song_count">%1$d songs</string>
+    <!-- Shown with lyrics that have no timing, so they cannot follow playback. -->
+    <string name="mm_lyrics_unsynced_hint">Lyrics not synced</string>
 </resources>

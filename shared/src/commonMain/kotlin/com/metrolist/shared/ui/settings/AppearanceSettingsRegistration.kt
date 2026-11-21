@@ -588,6 +588,7 @@ internal fun SettingsUiRegistryBuilder.registerAppearanceSettings(host: SharedSe
                 )
             } else {
                 listOf(
+                    SettingsChoice(PlayerType.MINMUSIC.name, stringResource(Res.string.mm_player_type_minmusic)),
                     SettingsChoice(PlayerType.MODERN.name, stringResource(Res.string.player_type_modern)),
                     SettingsChoice(PlayerType.VINTAGE.name, stringResource(Res.string.player_type_vintage)),
                     SettingsChoice(PlayerType.CLASSIC.name, stringResource(Res.string.player_type_classic)),
@@ -596,6 +597,9 @@ internal fun SettingsUiRegistryBuilder.registerAppearanceSettings(host: SharedSe
         val selectedPlayerType =
             if (host.platform == SettingsPlatform.DESKTOP && settings.playerType == PlayerType.CLASSIC) {
                 PlayerType.VINTAGE
+            } else if (host.platform == SettingsPlatform.DESKTOP && settings.playerType == PlayerType.MINMUSIC) {
+                // The desktop player has no MinMusic layout; it renders the modern one.
+                PlayerType.MODERN
             } else {
                 settings.playerType
             }
@@ -870,6 +874,7 @@ internal fun SettingsUiRegistryBuilder.registerAppearanceSettings(host: SharedSe
     if (SettingsPageId.MINI_PLAYER_STYLE in host.availablePages) {
         val miniPlayerTypeChoices =
             listOf(
+                SettingsChoice(MiniPlayerType.MINMUSIC.name, stringResource(Res.string.mm_player_type_minmusic)),
                 SettingsChoice(MiniPlayerType.EXPRESSIVE.name, stringResource(Res.string.player_type_expressive)),
                 SettingsChoice(MiniPlayerType.MODERN.name, stringResource(Res.string.player_type_modern)),
                 SettingsChoice(MiniPlayerType.VINTAGE.name, stringResource(Res.string.player_type_vintage)),
@@ -899,7 +904,7 @@ internal fun SettingsUiRegistryBuilder.registerAppearanceSettings(host: SharedSe
                     choices = miniPlayerTypeChoices,
                     selectedChoiceId = settings.miniPlayerType.name,
                 ) { settings.miniPlayerType = MiniPlayerType.valueOf(it) }
-                if (settings.miniPlayerType != MiniPlayerType.EXPRESSIVE) {
+                if (settings.miniPlayerType == MiniPlayerType.MODERN || settings.miniPlayerType == MiniPlayerType.VINTAGE) {
                     choice(
                         id = "miniPlayerBackground",
                         title = stringResource(Res.string.player_background_style),
@@ -970,6 +975,17 @@ internal fun SettingsUiRegistryBuilder.registerAppearanceSettings(host: SharedSe
                         checked = settings.showExpressiveMiniPlayerLikeButton,
                         description = stringResource(Res.string.settings_mini_player_control_summary),
                     ) { settings.showExpressiveMiniPlayerLikeButton = it }
+                }
+            }
+            if (settings.miniPlayerType == MiniPlayerType.MINMUSIC) {
+                // The MinMusic bar has a fixed layout; its only option is the 2 dp progress line.
+                group("minMusicControls", stringResource(Res.string.menu_controls)) {
+                    switch(
+                        id = "showMinMusicMiniPlayerProgress",
+                        title = stringResource(Res.string.mini_player_progress_overlay),
+                        checked = settings.showExpressiveMiniPlayerProgress,
+                        description = stringResource(Res.string.settings_mini_player_progress_summary),
+                    ) { settings.showExpressiveMiniPlayerProgress = it }
                 }
             }
             if (settings.miniPlayerType == MiniPlayerType.MODERN) {

@@ -194,7 +194,7 @@ private fun PlaylistTitleAndDescription(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 playlist.authorThumbnail?.let { thumbnail ->
-                    AsyncImage(url = thumbnail, modifier = Modifier.size(24.dp).clip(CircleShape))
+                    AsyncImage(url = thumbnail, modifier = Modifier.size(24.dp).clip(CircleShape), artworkEdge = false)
                 }
                 Text(
                     text = author,

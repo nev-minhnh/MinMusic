@@ -586,6 +586,7 @@ fun PlayerScreen(
     var showSongDetails by remember { mutableStateOf(false) }
     var showSleepTimerDialog by remember { mutableStateOf(false) }
     var showLyricsMenu by remember { mutableStateOf(false) }
+    var showEqualizerShortcut by remember { mutableStateOf(false) }
     var showLyricsOffsetEditor by rememberSaveable(currentSong?.id) { mutableStateOf(false) }
     val hapticManager = rememberMetrolistHaptics()
     var seekFeedback by remember { mutableStateOf<SeekFeedback?>(null) }
@@ -607,11 +608,21 @@ fun PlayerScreen(
         derivedStateOf { bottomSheetState.progress > 0.2f && !bottomSheetState.isDismissed }
     }
 
+    // Back peels one layer at a time, innermost first. Menus and sheets that live in their own window
+    // consume Back themselves; the branches below only cover in-composition fallbacks (e.g. mouse menus).
+    // Lyrics must close before the player collapses, otherwise Back from lyrics lands on the page below.
     NavigationBackHandler(enabled = isPlayerBackHandlerEnabled) {
         when {
+            showPlayerMenu -> showPlayerMenu = false
+            showLyricsMenu -> showLyricsMenu = false
+            showSleepTimerDialog -> showSleepTimerDialog = false
+            showSongDetails -> showSongDetails = false
+            showEqualizerShortcut -> showEqualizerShortcut = false
+            showDeviceConnectSheet -> showDeviceConnectSheet = false
             showLyricsOffsetEditor -> showLyricsOffsetEditor = false
             uiState.isQueueVisible -> viewModel.setQueueVisible(false)
-            isFullscreen && !uiState.isLyricsVisible -> viewModel.toggleFullscreen()
+            uiState.isLyricsVisible -> viewModel.setLyricsVisible(false)
+            isFullscreen -> viewModel.toggleFullscreen()
             else -> onClose()
         }
     }
@@ -643,8 +654,7 @@ fun PlayerScreen(
 
     val playerType = Settings.shared.playerType
     // MinMusic "Sân khấu tối" layout: the default modern player on phones (portrait), see MmPlayerSections.kt.
-    val mmStyle = playerType == PlayerType.MODERN && !isTv
-    var showEqualizerShortcut by remember { mutableStateOf(false) }
+    val mmStyle = playerType == PlayerType.MINMUSIC && !isTv
     val usesFullscreenThumbnail = playerThumbnailStyle == PlayerThumbnailStyle.FULLSCREEN
     val prefersTallCover = usesFullscreenThumbnail && !isLandscape
     val playbackNetwork by PlaybackNetworkStateStore.state.collectAsState()
@@ -2282,7 +2292,7 @@ fun PlayerScreen(
                                                     )
                                                 }
 
-                                                PlayerType.MODERN -> if (mmStyle) {
+                                                PlayerType.MODERN, PlayerType.MINMUSIC -> if (mmStyle) {
                                                     MmPlayerTransportRow(
                                                         isPlaying = isPlaying,
                                                         isLoading =
@@ -2310,6 +2320,7 @@ fun PlayerScreen(
                                                             viewModel.next()
                                                         },
                                                         playButtonSize = primaryControlSize,
+                                                        useRoundedRectPlayButton = useRoundedRectPlayButton,
                                                         contentColor = textBackgroundColor,
                                                         playPauseFocusRequester = playPauseFocusRequester,
                                                     )
@@ -2473,6 +2484,8 @@ fun PlayerScreen(
                                             onOpenQueue = { queueSheetState.expandSoft() },
                                             isListenTogetherGuest = isListenTogetherGuest,
                                             navigationBarBottomPadding = navigationBarBottomPadding,
+                                            nextSongTitle = nextSong?.title,
+                                            queueSize = queueItems.size,
                                         )
                                     } else {
                                         PlayerBottomControls(

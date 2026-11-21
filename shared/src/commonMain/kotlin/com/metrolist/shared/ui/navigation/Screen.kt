@@ -102,6 +102,13 @@ sealed class Screen : NavKey {
         val section: HomeSectionData? = null,
     ) : Screen()
 
+    /** Full charts of the enabled non-YouTube sources; [sourceKey] is a SourceId key, [chartKey] an MmChartTab key. */
+    @Serializable
+    data class SourceCharts(
+        val sourceKey: String? = null,
+        val chartKey: String? = null,
+    ) : Screen()
+
     @Serializable
     data class Browse(
         val browseId: String,

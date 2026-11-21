@@ -38,9 +38,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathMeasure
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipRect
@@ -63,6 +65,7 @@ internal fun SquigglyProgress(
     progress: () -> Float,
     bufferedFraction: Float,
     color: Color,
+    gradientColors: List<Color>? = null,
     isPlaying: Boolean,
     isDragging: Boolean,
     animate: Boolean,
@@ -138,12 +141,12 @@ internal fun SquigglyProgress(
             fun drawWave(
                 start: Float,
                 end: Float,
-                segmentColor: Color,
+                segmentPaint: Brush,
             ) {
                 if (end <= start) return
                 val left = if (start <= inset) 0f else start
                 clipRect(left = left, top = center.y - clipHeight, right = end, bottom = center.y + clipHeight) {
-                    drawPath(visiblePath, segmentColor, style = stroke)
+                    drawPath(visiblePath, segmentPaint, style = stroke)
                 }
             }
 
@@ -154,10 +157,10 @@ internal fun SquigglyProgress(
             ) {
                 if (end > start) drawLine(segmentColor, Offset(start, center.y), Offset(end, center.y), strokeWidth, StrokeCap.Round)
             }
-            drawWave(inset, playedX, color)
+            drawWave(inset, playedX, progressBrush(gradientColors, color))
             if (transitionEnabled) {
-                drawWave(playedX, size.width, inactiveColor)
-                if (bufferedX > playedX) drawWave(playedX, bufferedX, color.copy(alpha = color.alpha * 0.38f))
+                drawWave(playedX, size.width, SolidColor(inactiveColor))
+                if (bufferedX > playedX) drawWave(playedX, bufferedX, SolidColor(color.copy(alpha = color.alpha * 0.38f)))
             } else {
                 drawFlat(playedX, size.width - inset, inactiveColor)
                 if (bufferedX > playedX) drawFlat(playedX, bufferedX, color.copy(alpha = color.alpha * 0.38f))
@@ -166,7 +169,7 @@ internal fun SquigglyProgress(
                 val thumbWidth = max(ThumbWidth.toPx(), strokeWidth)
                 val thumbHeight = max(ThumbHeight.toPx(), 2f * (lineAmplitude + strokeWidth))
                 drawRoundRect(
-                    color = color,
+                    brush = progressBrush(gradientColors, color),
                     topLeft = Offset(playedX - thumbWidth / 2f, center.y - thumbHeight / 2f),
                     size = Size(thumbWidth, thumbHeight),
                     cornerRadius = CornerRadius(thumbWidth / 2f),

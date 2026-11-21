@@ -369,6 +369,7 @@ fun AuthorInfoSheet(
                 ) {
                     val avatarShape = contributorShape(contributor)
                     AsyncImage(
+                        artworkEdge = false,
                         url = contributor.avatarUrl,
                         modifier = Modifier.size(72.dp).clip(avatarShape),
                         contentDescription = contributor.name,

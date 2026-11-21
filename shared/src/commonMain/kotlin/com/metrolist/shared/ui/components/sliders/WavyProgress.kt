@@ -117,6 +117,7 @@ internal fun WavyProgress(
     amplitude: Float,
     color: Color,
     trackColor: Color,
+    gradientColors: List<Color>? = null,
     stroke: Stroke,
     gapSize: Dp,
     moving: Boolean,
@@ -175,7 +176,8 @@ internal fun WavyProgress(
                             progressPath,
                             true,
                         )
-                        translate(left = -shift) { drawPath(progressPath, color, style = stroke) }
+                        val progressPaint = progressBrush(gradientColors, color, offsetX = shift)
+                        translate(left = -shift) { drawPath(progressPath, progressPaint, style = stroke) }
                     }
 
                     val trackStart = max(capWidth, headX + if (activeVisible) gap + capWidth * 2 else gap)
@@ -202,7 +204,9 @@ internal fun WavyProgress(
                         stopSize = max(0f, stopSize - (progressX - stopX))
                         stopX = progressX
                     }
-                    if (stopSize > 0f) drawCircle(color, stopSize / 2f, Offset(stopX + stopSize / 2f, centerY))
+                    if (stopSize > 0f) {
+                        drawCircle(progressBrush(gradientColors, color), stopSize / 2f, Offset(stopX + stopSize / 2f, centerY))
+                    }
                 }
             }
         },

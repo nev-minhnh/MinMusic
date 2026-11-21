@@ -193,6 +193,7 @@ fun FullscreenPlayerContent(
                 )
             } else {
                 AsyncImage(
+                    artworkEdge = false,
                     url = currentSong.displayThumbnail,
                     contentDescription = null,
                     modifier =
