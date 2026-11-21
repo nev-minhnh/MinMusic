@@ -932,6 +932,15 @@ class Settings(
     var enableSystemWindowFrame by preference(false)
     var minimizeToTrayOnClose by preference(defaultMinimizeToTrayOnClose())
     var desktopTrayToggleOnClick by preference(true)
+
+    // MinMusic (Windows desktop): docked player bar by default; true = floating rounded bar.
+    var desktopFloatingPlayerBar by preference("desktopFloatingPlayerBar", false)
+
+    // MinMusic (Windows desktop): always-on-top mini-player window and taskbar thumbnail buttons.
+    var desktopMiniPlayerWindow by preference("desktopMiniPlayerWindow", true)
+    var desktopMiniPlayerOnMinimize by preference("desktopMiniPlayerOnMinimize", false)
+    var desktopMiniPlayerPosition by preference("desktopMiniPlayerPosition", "")
+    var desktopTaskbarButtons by preference("desktopTaskbarButtons", true)
     var waylandDefaultFrameApplied by preference(false)
     var disableWaylandScaleFix by preference(false)
     var macDefaultFrameApplied by preference(false)

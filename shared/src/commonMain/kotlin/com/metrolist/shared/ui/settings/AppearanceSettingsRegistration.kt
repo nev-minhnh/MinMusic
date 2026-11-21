@@ -35,6 +35,7 @@ import com.metrolist.shared.settings.YouTubeCanvasMode
 import com.metrolist.shared.settings.desktopDefaultOpenTab
 import com.metrolist.shared.settings.desktopDefaultOpenTabs
 import com.metrolist.shared.settings.isDesktopMac
+import com.metrolist.shared.settings.isDesktopWindows
 import com.metrolist.shared.settings.normalizeDefaultOpenTab
 import com.metrolist.shared.settings.updateDefaultOpenTab
 import com.metrolist.shared.ui.icons.MetrolistIcons
@@ -292,6 +293,12 @@ internal fun SettingsUiRegistryBuilder.registerAppearanceSettings(host: SharedSe
                     checked = settings.floatingSearch,
                 ) { settings.floatingSearch = it }
                 switch(
+                    id = "desktopFloatingPlayerBar",
+                    title = stringResource(Res.string.desktop_floating_player_bar),
+                    description = stringResource(Res.string.desktop_floating_player_bar_desc),
+                    checked = settings.desktopFloatingPlayerBar,
+                ) { settings.desktopFloatingPlayerBar = it }
+                switch(
                     id = "systemWindowFrame",
                     title = stringResource(Res.string.settings_system_window_frame),
                     description = stringResource(Res.string.settings_system_window_frame_description),
@@ -311,10 +318,38 @@ internal fun SettingsUiRegistryBuilder.registerAppearanceSettings(host: SharedSe
                 }
                 switch(
                     id = "minimizeToTrayOnClose",
-                    title = stringResource(Res.string.desktop_minimize_to_tray),
-                    description = stringResource(Res.string.desktop_minimize_to_tray_desc),
+                    title = stringResource(if (isDesktopWindows()) Res.string.desktop_close_to_tray else Res.string.desktop_minimize_to_tray),
+                    description =
+                        stringResource(
+                            if (isDesktopWindows()) Res.string.desktop_close_to_tray_desc else Res.string.desktop_minimize_to_tray_desc,
+                        ),
                     checked = settings.minimizeToTrayOnClose,
                 ) { settings.minimizeToTrayOnClose = it }
+                switch(
+                    id = "desktopMiniPlayerWindow",
+                    title = stringResource(Res.string.desktop_mini_player_window),
+                    description = stringResource(Res.string.desktop_mini_player_window_desc),
+                    checked = settings.desktopMiniPlayerWindow,
+                ) {
+                    settings.desktopMiniPlayerWindow = it
+                    if (!it) settings.showMiniplayer = false
+                }
+                if (settings.desktopMiniPlayerWindow) {
+                    switch(
+                        id = "desktopMiniPlayerOnMinimize",
+                        title = stringResource(Res.string.desktop_mini_player_on_minimize),
+                        description = stringResource(Res.string.desktop_mini_player_on_minimize_desc),
+                        checked = settings.desktopMiniPlayerOnMinimize,
+                    ) { settings.desktopMiniPlayerOnMinimize = it }
+                }
+                if (isDesktopWindows()) {
+                    switch(
+                        id = "desktopTaskbarButtons",
+                        title = stringResource(Res.string.desktop_taskbar_buttons),
+                        description = stringResource(Res.string.desktop_taskbar_buttons_desc),
+                        checked = settings.desktopTaskbarButtons,
+                    ) { settings.desktopTaskbarButtons = it }
+                }
                 switch(
                     id = "desktopTrayToggleOnClick",
                     title = stringResource(Res.string.desktop_tray_toggle_on_click),

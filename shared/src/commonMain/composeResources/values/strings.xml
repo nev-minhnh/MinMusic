@@ -5801,4 +5801,24 @@
     <string name="mm_desktop_lyrics_peek_hint">Click to open</string>
     <!-- Translators: Privacy note in the NhacCuaTui sign-in dialog on Windows. -->
     <string name="source_nct_privacy_token_desktop">Only the sign-in token is kept, encrypted on this computer and left out of backups. Signing out deletes it at once.</string>
+    <!-- Translators: Windows desktop Settings > Appearance switch: show the player bar as a floating rounded card instead of docked full width. -->
+    <string name="desktop_floating_player_bar">Floating player bar</string>
+    <string name="desktop_floating_player_bar_desc">Show the player bar as a rounded floating card instead of docking it to the bottom edge</string>
+    <!-- Translators: Windows desktop Settings switch: what the window close button (×) does. On = hide to the system tray and keep playing. -->
+    <string name="desktop_close_to_tray">Close window: minimize to tray</string>
+    <string name="desktop_close_to_tray_desc">The × button keeps MinMusic playing in the system tray. Turn off to make × quit the app</string>
+    <!-- Translators: Windows desktop Settings switch for the always-on-top mini-player window. -->
+    <string name="desktop_mini_player_window">Mini-player window</string>
+    <string name="desktop_mini_player_window_desc">A small always-on-top player. Open it with Ctrl+M or the picture-in-picture button</string>
+    <string name="desktop_mini_player_on_minimize">Open mini-player when minimized</string>
+    <string name="desktop_mini_player_on_minimize_desc">Shows the mini-player while the main window is minimized</string>
+    <!-- Translators: Windows desktop Settings switch for the previous / play-pause / next buttons shown when hovering the taskbar icon. -->
+    <string name="desktop_taskbar_buttons">Taskbar control buttons</string>
+    <string name="desktop_taskbar_buttons_desc">Previous, play/pause and next when you hover over the MinMusic taskbar icon</string>
+    <!-- Translators: System tray menu item and mini-player button that bring the main window back. -->
+    <string name="tray_open_app">Open MinMusic</string>
+    <!-- Translators: System tray menu item that fully exits the app. -->
+    <string name="tray_quit">Quit</string>
+    <!-- Translators: Keyboard shortcuts sheet entry for Ctrl+M. -->
+    <string name="shortcut_toggle_mini_player">Open or close the mini-player</string>
 </resources>

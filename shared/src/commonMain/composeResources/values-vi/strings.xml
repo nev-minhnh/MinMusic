@@ -2667,4 +2667,17 @@
     <string name="mm_lyrics_unsynced_hint">Lời chưa đồng bộ</string>
     <string name="mm_desktop_lyrics_peek_hint">Bấm để mở</string>
     <string name="source_nct_privacy_token_desktop">Chỉ lưu mã đăng nhập, mã hoá trên máy này và không nằm trong bản sao lưu. Đăng xuất là xoá ngay.</string>
+    <string name="desktop_floating_player_bar">Thanh phát nổi bo tròn</string>
+    <string name="desktop_floating_player_bar_desc">Hiện thanh phát dạng thẻ nổi bo tròn thay vì gắn sát mép dưới cửa sổ</string>
+    <string name="desktop_close_to_tray">Đóng cửa sổ: thu xuống khay</string>
+    <string name="desktop_close_to_tray_desc">Nút × giữ MinMusic tiếp tục phát dưới khay hệ thống. Tắt để nút × thoát ứng dụng</string>
+    <string name="desktop_mini_player_window">Cửa sổ mini-player</string>
+    <string name="desktop_mini_player_window_desc">Trình phát nhỏ luôn nằm trên cùng. Mở bằng Ctrl+M hoặc nút ảnh trong ảnh</string>
+    <string name="desktop_mini_player_on_minimize">Mở mini-player khi thu nhỏ</string>
+    <string name="desktop_mini_player_on_minimize_desc">Hiện mini-player khi cửa sổ chính bị thu nhỏ</string>
+    <string name="desktop_taskbar_buttons">Nút điều khiển trên thanh taskbar</string>
+    <string name="desktop_taskbar_buttons_desc">Bài trước, phát/tạm dừng và bài tiếp khi rê chuột lên biểu tượng MinMusic trên taskbar</string>
+    <string name="tray_open_app">Mở MinMusic</string>
+    <string name="tray_quit">Thoát</string>
+    <string name="shortcut_toggle_mini_player">Mở hoặc đóng mini-player</string>
 </resources>

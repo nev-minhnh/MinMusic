@@ -55,9 +55,12 @@ private const val LEGACY_PREFERENCES_MIGRATED = "desktopLegacyPreferencesMigrate
 private const val LEGACY_SECRET_CLEANUP_V2 = "desktopLegacySecretCleanupV2"
 private const val AUTO_CACHE_DEFAULT_MIGRATION = "desktopAutoCacheDefaultDisabledV1"
 
-internal actual fun defaultMinimizeToTrayOnClose(): Boolean = OsUtil.isMac
+// MinMusic: on Windows the close button (×) also keeps playing from the tray by default (owner decision).
+internal actual fun defaultMinimizeToTrayOnClose(): Boolean = OsUtil.isMac || OsUtil.isWindows
 
 internal actual fun isDesktopMac(): Boolean = OsUtil.isMac
+
+internal actual fun isDesktopWindows(): Boolean = OsUtil.isWindows
 
 private val secretKeys =
     setOf(

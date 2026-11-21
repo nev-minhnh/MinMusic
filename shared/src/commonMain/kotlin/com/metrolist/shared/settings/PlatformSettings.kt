@@ -13,6 +13,8 @@ internal expect fun defaultMinimizeToTrayOnClose(): Boolean
 
 internal expect fun isDesktopMac(): Boolean
 
+internal expect fun isDesktopWindows(): Boolean
+
 internal val largeSettingKeys =
     setOf(
         "aiSlopBlocklistCache",
