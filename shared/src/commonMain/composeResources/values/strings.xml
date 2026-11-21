@@ -5605,8 +5605,6 @@
     <string name="source_zing_mp3">Zing MP3</string>
     <!-- Translators: Name of the NhacCuaTui music service, marked as an experimental source. -->
     <string name="source_nhaccuatui_experimental">NhacCuaTui (experimental)</string>
-    <!-- Translators: Summary under a music source that cannot be turned on yet. -->
-    <string name="source_coming_soon">Coming soon</string>
     <!-- Short source codes shown in source badges. -->
     <string name="source_badge_yt" translatable="false">YT</string>
     <string name="source_badge_sc" translatable="false">SC</string>
@@ -5622,6 +5620,68 @@
     <string name="search_source_failed">%1$s did not respond</string>
     <!-- Translators: Message in search results when a music source found nothing. %1$s is the source name. -->
     <string name="search_source_no_results">No results on %1$s</string>
+    <!-- Translators: Supporting text under the Sources settings section. -->
+    <string name="settings_sources_description">Turn on a source to search, play and download from it. Turning one off hides it everywhere.</string>
+    <!-- Translators: Small tag next to a source that may stop working at any time. -->
+    <string name="source_experimental">Experimental</string>
+    <!-- Joins the state of a source and its account, for example "On · Signed in · VIP". -->
+    <string name="source_status_combined" translatable="false">%1$s · %2$s</string>
+    <!-- Translators: State of a music source whose switch is off. -->
+    <string name="source_status_disabled">Off</string>
+    <!-- Translators: State of a music source whose switch is on. -->
+    <string name="source_status_enabled">On</string>
+    <!-- Translators: State of a music source paused after repeated errors. -->
+    <string name="source_status_degraded">Paused after repeated errors, turn it off and on to retry</string>
+    <!-- Translators: Account state of a music source that works without an account. -->
+    <string name="source_status_no_account">No account needed</string>
+    <!-- Translators: Account state of a music source the user has not signed in to. -->
+    <string name="source_status_logged_out">Not signed in, free songs only</string>
+    <!-- Translators: Account state of a music source the user signed in to, while its plan is unknown. -->
+    <string name="source_status_logged_in">Signed in</string>
+    <!-- Translators: Account state of a music source signed in with a free account. -->
+    <string name="source_status_logged_in_free">Signed in, free account</string>
+    <!-- Translators: Account state of a music source signed in with a paid VIP account. -->
+    <string name="source_status_logged_in_vip">Signed in, VIP</string>
+    <!-- Translators: Account state of a music source whose saved session no longer works. -->
+    <string name="source_status_session_expired">Session expired, sign in again</string>
+    <!-- Translators: Title of the switch that plays the best available copy of a song found on several sources. -->
+    <string name="source_auto_best_quality">Prefer the highest quality</string>
+    <!-- Translators: Supporting text of the highest quality switch. -->
+    <string name="source_auto_best_quality_desc">When a song is on several sources, play the best quality your accounts allow</string>
+    <!-- Translators: Settings action and screen title for signing in to Zing MP3. -->
+    <string name="source_zing_login">Sign in to Zing MP3</string>
+    <!-- Translators: Supporting text of the Zing MP3 sign-in action. -->
+    <string name="source_zing_login_desc">Use your own VIP account for 320 kbps and lossless</string>
+    <!-- Translators: Settings action that removes the saved Zing MP3 session. -->
+    <string name="source_zing_logout">Sign out of Zing MP3</string>
+    <!-- Translators: Error shown when the Zing MP3 sign-in did not produce a working session. -->
+    <string name="source_zing_login_failed">Could not sign in to Zing MP3</string>
+    <!-- Translators: Privacy note above the Zing MP3 sign-in page. -->
+    <string name="source_zing_login_privacy">You sign in on Zing's own page. MinMusic never sees your password and keeps only the session cookie, encrypted on this device and left out of backups.</string>
+    <!-- Translators: Settings action and sheet title for signing in to NhacCuaTui. -->
+    <string name="source_nct_login">Sign in to NhacCuaTui</string>
+    <!-- Translators: Supporting text of the NhacCuaTui sign-in action. -->
+    <string name="source_nct_login_desc">Use your own VIP account for 320 kbps</string>
+    <!-- Translators: Subtitle of the NhacCuaTui sign-in sheet. -->
+    <string name="source_nct_login_subtitle">Play and download at 320 kbps</string>
+    <!-- Translators: Settings action that removes the saved NhacCuaTui session. -->
+    <string name="source_nct_logout">Sign out of NhacCuaTui</string>
+    <!-- Translators: Label of the NhacCuaTui username field. -->
+    <string name="source_nct_username">Username or email</string>
+    <!-- Translators: Title of the privacy note in the NhacCuaTui sign-in sheet. -->
+    <string name="source_nct_privacy_title">Privacy</string>
+    <!-- Translators: Privacy note about the NhacCuaTui password. -->
+    <string name="source_nct_privacy_password">Your password is sent to NhacCuaTui once, to sign in. MinMusic does not store your password.</string>
+    <!-- Translators: Privacy note about the NhacCuaTui sign-in token. -->
+    <string name="source_nct_privacy_token">Only the sign-in token is kept, encrypted with the Android Keystore and left out of backups. Signing out deletes it.</string>
+    <!-- Translators: Button that closes the NhacCuaTui sign-in sheet and keeps using free songs. -->
+    <string name="source_nct_use_free">Use for free without signing in</string>
+    <!-- Translators: Error under the password field when NhacCuaTui rejects the sign-in. -->
+    <string name="source_nct_login_failed">Wrong username or password</string>
+    <!-- Translators: Error under the password field when NhacCuaTui cannot be reached. -->
+    <string name="source_nct_login_network_error">Could not reach NhacCuaTui, try again</string>
+    <!-- Translators: Confirmation shown before removing a saved music source session. -->
+    <string name="source_logout_confirm">Remove the saved session from this device?</string>
     <!-- MinMusic redesign: theme foundation. -->
     <!-- Translators: Title of the appearance switch that replaces the MinMusic colours with colours from the wallpaper (Material You). -->
     <string name="wallpaper_colors">Wallpaper colors</string>
