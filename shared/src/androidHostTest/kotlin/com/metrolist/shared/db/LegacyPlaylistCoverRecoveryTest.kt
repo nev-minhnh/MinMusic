@@ -112,6 +112,8 @@ class LegacyPlaylistCoverRecoveryTest {
     @Test
     fun symlinkOutsideCacheAndEmptyFilesAreIgnored() =
         fixture { connection, files, cache ->
+            // Creating symlinks needs elevated privileges on Windows hosts; still runs on Linux.
+            org.junit.Assume.assumeTrue(!System.getProperty("os.name").startsWith("Windows"))
             val source = File(cache, "playlist_cover_crop_123.jpg")
             source.writeBytes(byteArrayOf())
             insert(connection, uri)
@@ -157,6 +159,8 @@ class LegacyPlaylistCoverRecoveryTest {
     @Test
     fun unreadableSourcePreservesReferenceAndRetriesAfterPermissionRestored() =
         fixture { connection, files, cache ->
+            // POSIX read-permission semantics; File.setReadable(false) has no effect on Windows hosts.
+            org.junit.Assume.assumeTrue(!System.getProperty("os.name").startsWith("Windows"))
             val source = File(cache, "playlist_cover_crop_123.jpg").apply { writeBytes(byteArrayOf(6)) }
             insert(connection, uri)
             assertTrue(source.setReadable(false, false))
