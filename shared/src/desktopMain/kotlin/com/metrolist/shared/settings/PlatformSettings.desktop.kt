@@ -8,6 +8,8 @@ package com.metrolist.shared.settings
 import com.metrolist.shared.constants.DiscordPendingAuthSessionKey
 import com.metrolist.shared.constants.LyricsOpenRouterOAuthKey
 import com.metrolist.shared.constants.LyricsOpenRouterOAuthSessionKey
+import com.metrolist.shared.constants.NctSourceTokenKey
+import com.metrolist.shared.constants.ZingSourceCookieKey
 import com.metrolist.shared.utils.LogBridge
 import com.metrolist.shared.utils.Logger
 import com.metrolist.shared.utils.OsUtil
@@ -82,6 +84,9 @@ private val secretKeys =
         "deviceConnectPairedDevices",
         "listenTogetherPairedRoomCode",
         "listenTogetherAutoJoinPairedRoom",
+        // Source logins: the Zing cookie header and the NCT session token (never a password).
+        ZingSourceCookieKey,
+        NctSourceTokenKey,
     )
 
 private val settingsWriter =

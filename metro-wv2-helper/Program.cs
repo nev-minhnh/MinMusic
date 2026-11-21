@@ -92,6 +92,12 @@ namespace MetroWv2Helper
                 string loginUrl = _provider == "spotify"
                     ? "https://accounts.spotify.com/login?continue=https%3A%2F%2Fopen.spotify.com%2F"
                     : _loginUrl ?? "https://accounts.google.com/ServiceLogin?continue=https://music.youtube.com";
+                if (_provider == "zing")
+                {
+                    // The user signs in through zingmp3.vn's own login button (Zalo / VNG ID) and lands back on zingmp3.vn.
+                    loginUrl = ZingLoginUrl;
+                    Text = "Zing MP3";
+                }
                 _webView.CoreWebView2.Navigate(loginUrl);
             }
             catch (Exception ex)
@@ -138,6 +144,10 @@ namespace MetroWv2Helper
                 var uri = new Uri(_webView.CoreWebView2.Source);
                 if (uri.Scheme != "https") return;
                 if (_provider == "spotify" && uri.Host == "open.spotify.com") await TryExtractSpotifyAsync();
+                else if (_provider == "zing")
+                {
+                    if (uri.Host == "zingmp3.vn" || uri.Host.EndsWith(".zingmp3.vn", StringComparison.Ordinal)) await TryExtractZingAsync();
+                }
                 else if (_provider != "spotify" && uri.Host == "music.youtube.com") await TryExtractAsync();
             }
             finally
@@ -164,6 +174,33 @@ namespace MetroWv2Helper
             catch (Exception ex)
             {
                 Console.Error.WriteLine("Spotify extraction failed: " + ex.Message);
+            }
+        }
+
+        private const string ZingLoginUrl = "https://zingmp3.vn/";
+
+        // Never logs cookie names or values; only the exception message on failure.
+        private async Task TryExtractZingAsync()
+        {
+            try
+            {
+                var cookieManager = _webView.CoreWebView2.CookieManager;
+                var cookies = await cookieManager.GetCookiesAsync("https://zingmp3.vn");
+                var byName = new Dictionary<string, string>();
+                foreach (var c in cookies) byName[c.Name] = c.Value;
+                var header = LoginCompletion.ReadZingCookieHeader(byName);
+                if (header == null) return;
+
+                var result = new { zingCookie = header };
+                if (WriteResult(result))
+                {
+                    cookieManager.DeleteAllCookies();
+                    Close();
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine("Zing extraction failed: " + ex.Message);
             }
         }
 

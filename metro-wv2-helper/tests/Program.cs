@@ -46,4 +46,9 @@ try { retry.TryWrite(payload, _ => throw new IOException("Output unavailable"));
 catch (IOException) { }
 Check(!retry.IsCompleted);
 Check(retry.TryWrite(payload, _ => { }));
+// Zing: visitor cookies alone never complete the login; a session cookie returns the whole zingmp3.vn header.
+Check(LoginCompletion.ReadZingCookieHeader(new Dictionary<string, string> { ["zmp3_rqid"] = "r", ["zmp3_app_version.1"] = "1" }) == null);
+Check(LoginCompletion.ReadZingCookieHeader(new Dictionary<string, string> { ["zmp3_sid"] = " ", ["zmp3_rqid"] = "r" }) == null);
+var zingHeader = LoginCompletion.ReadZingCookieHeader(new Dictionary<string, string> { ["zmp3_rqid"] = "r", ["zpsid"] = "s" });
+Check(zingHeader == "zmp3_rqid=r; zpsid=s");
 Console.WriteLine("Login completion tests passed");

@@ -5,6 +5,7 @@
 
 package com.metrolist.desktop.di
 
+import com.metrolist.desktop.source.desktopSourceModule
 import com.metrolist.desktop.state.playback.PlayerState
 import com.metrolist.desktop.storage.DownloadManager
 import com.metrolist.desktop.storage.SongCacheManager
@@ -21,6 +22,7 @@ import org.koin.dsl.module
 
 val composeStateModule =
     module {
+        includes(desktopSourceModule)
         single<MusicDatabase> { getDatabaseBuilder().build() }
         single<LocalAudioSource> {
             LocalAudioSource { id, song ->

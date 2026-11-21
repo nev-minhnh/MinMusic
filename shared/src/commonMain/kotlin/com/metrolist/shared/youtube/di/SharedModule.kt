@@ -75,7 +75,8 @@ val sharedModule =
             )
         }
 
-        // Android registers each MusicSource adapter with `bind MusicSource::class`; other platforms have none.
+        // Android (sourceModule) and desktop (desktopSourceModule) register each MusicSource adapter with
+        // `bind MusicSource::class`; iOS has none.
         single { SourceRegistry(getAll<MusicSource>()) }
         single { BestSourceSelector(get()) }
 
