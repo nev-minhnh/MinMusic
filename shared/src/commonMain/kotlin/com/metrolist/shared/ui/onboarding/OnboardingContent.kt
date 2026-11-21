@@ -328,7 +328,7 @@ private fun OnboardingPageLayout(
 @Composable
 private fun PrivacyLink() {
     val uriHandler = LocalUriHandler.current
-    val privacyUrl = "https://metrolist.cc/privacy"
+    val privacyUrl = "https://github.com/nev-minhnh/MinMusic"
     var openFailed by remember { mutableStateOf(false) }
     Column {
         TextButton(

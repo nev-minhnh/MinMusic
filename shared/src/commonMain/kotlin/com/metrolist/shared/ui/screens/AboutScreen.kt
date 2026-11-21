@@ -80,6 +80,7 @@ import com.metrolist.shared.generated.resources.app_name
 import com.metrolist.shared.generated.resources.back
 import com.metrolist.shared.generated.resources.build_type_debug
 import com.metrolist.shared.generated.resources.build_type_release
+import com.metrolist.shared.generated.resources.credits_based_on_metrolist
 import com.metrolist.shared.generated.resources.devmode_already_active
 import com.metrolist.shared.generated.resources.devtools_enabled
 import com.metrolist.shared.generated.resources.play
@@ -215,34 +216,6 @@ fun AboutScreen(
                 onOpenLink = openCommunityLink,
             )
 
-            CollaboratorsList(
-                contributors = listOf(AboutContributors.lead),
-                text = text,
-                title = text.creatorSection,
-                avatarSize = 64.dp,
-                colorScheme = colorScheme,
-                onContributorClick = { selectedContributor = it },
-                onContributorLongClick = onContributorLongClick,
-            )
-
-            CollaboratorsList(
-                contributors = AboutContributors.leads,
-                text = text,
-                title = text.leadsSection,
-                avatarSize = 64.dp,
-                colorScheme = colorScheme,
-                onContributorClick = { selectedContributor = it },
-                onContributorLongClick = onContributorLongClick,
-            )
-
-            CollaboratorsList(
-                contributors = AboutContributors.collaborators,
-                text = text,
-                colorScheme = colorScheme,
-                onContributorClick = { selectedContributor = it },
-                onContributorLongClick = onContributorLongClick,
-            )
-
             Text(
                 text = text.licenseDescription,
                 style = MaterialTheme.typography.bodyMedium,
@@ -253,6 +226,19 @@ fun AboutScreen(
                         .fillMaxWidth()
                         .clip(MaterialTheme.shapes.medium)
                         .clickable(role = Role.Button, onClickLabel = text.license) { openCommunityLink(aboutLicenseLink) }
+                        .padding(16.dp),
+            )
+
+            Text(
+                text = stringResource(Res.string.credits_based_on_metrolist),
+                style = MaterialTheme.typography.bodyMedium,
+                textAlign = TextAlign.Center,
+                color = colorScheme.onSurfaceVariant,
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .clip(MaterialTheme.shapes.medium)
+                        .clickable(role = Role.Button) { openCommunityLink(aboutUpstreamLink) }
                         .padding(16.dp),
             )
 
