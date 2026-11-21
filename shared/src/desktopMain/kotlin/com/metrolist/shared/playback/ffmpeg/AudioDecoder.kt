@@ -31,6 +31,12 @@ class AudioDecoder private constructor(
                 options["reconnect_delay_max"] = "5"
                 options["timeout"] = "15000000"
                 options["rw_timeout"] = "15000000"
+                if (path.substringBefore('?').endsWith(".m3u8", ignoreCase = true)) {
+                    // SoundCloud (and other source) HLS: segment URLs carry no common media extension, which FFmpeg's
+                    // HLS demuxer rejects by default. Nested segment opens stay limited to HTTP(S) by the demuxer.
+                    options["extension_picky"] = "0"
+                    options["allowed_extensions"] = "ALL"
+                }
                 val ua = headers.entries.firstOrNull { it.key.equals("User-Agent", ignoreCase = true) }?.value
                 if (!ua.isNullOrBlank()) {
                     options["user_agent"] = ua
