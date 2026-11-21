@@ -2571,6 +2571,8 @@
     <string name="source_zing_mp3">Zing MP3</string>
     <string name="source_nhaccuatui_experimental">NhacCuaTui (thử nghiệm)</string>
     <string name="source_coming_soon">Sắp ra mắt</string>
+    <string name="search_source_failed">%1$s không phản hồi</string>
+    <string name="search_source_no_results">Không có kết quả trên %1$s</string>
     <!-- MinMusic redesign: theme foundation. -->
     <string name="wallpaper_colors">Màu theo hình nền</string>
     <string name="wallpaper_colors_description">Dùng màu nhấn từ hình nền thay cho màu MinMusic</string>

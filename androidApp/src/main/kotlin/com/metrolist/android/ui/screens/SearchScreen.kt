@@ -544,6 +544,7 @@ fun SearchScreen(
                         },
                         onLoadMore = searchViewModel.shared::loadMoreFilteredResults,
                         onRetryLoadMore = searchViewModel.shared::retryLoadMoreFilteredResults,
+                        onSourceSelected = searchViewModel.shared::selectSource,
                         currentSongId = currentSong?.id,
                         isPlaying = isPlaying,
                         contentPadding = PaddingValues(bottom = bottomOverlayInset + 24.dp),

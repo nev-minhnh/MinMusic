@@ -101,6 +101,14 @@ import com.metrolist.shared.generated.resources.retry
 import com.metrolist.shared.generated.resources.saved
 import com.metrolist.shared.generated.resources.search_load_more_failed
 import com.metrolist.shared.generated.resources.search_online_failed
+import com.metrolist.shared.generated.resources.search_source_failed
+import com.metrolist.shared.generated.resources.search_source_no_results
+import com.metrolist.shared.generated.resources.source_badge_nct
+import com.metrolist.shared.generated.resources.source_badge_zing
+import com.metrolist.shared.generated.resources.source_nhaccuatui
+import com.metrolist.shared.generated.resources.source_soundcloud
+import com.metrolist.shared.generated.resources.source_youtube
+import com.metrolist.shared.generated.resources.source_zing_mp3
 import com.metrolist.shared.generated.resources.song_type
 import com.metrolist.shared.model.AlbumItem
 import com.metrolist.shared.model.ArtistItem
@@ -121,6 +129,8 @@ import com.metrolist.shared.settings.ArtistNameAliases
 import com.metrolist.shared.settings.Settings
 import com.metrolist.shared.settings.displayName
 import com.metrolist.shared.settings.displayTitle
+import com.metrolist.shared.source.SourceId
+import com.metrolist.shared.source.sourceOf
 import com.metrolist.shared.ui.components.AlbumPlayButton
 import com.metrolist.shared.ui.components.AlertDialog
 import com.metrolist.shared.ui.components.ArtistSubtitle
@@ -133,6 +143,7 @@ import com.metrolist.shared.ui.components.PlaylistCoverImage
 import com.metrolist.shared.ui.components.PopupContent
 import com.metrolist.shared.ui.components.PopupVisibility
 import com.metrolist.shared.ui.components.SongThumbnailPlayingIndicator
+import com.metrolist.shared.ui.components.SourceBadge
 import com.metrolist.shared.ui.components.VideoShelf
 import com.metrolist.shared.ui.components.YTListItem
 import com.metrolist.shared.ui.components.focusOutline
@@ -162,9 +173,11 @@ import com.metrolist.shared.utils.monthlyAudienceText
 import com.metrolist.shared.utils.withoutPlaybackCountLabel
 import com.metrolist.shared.viewmodels.SearchPresentation
 import com.metrolist.shared.viewmodels.SearchViewModel.SearchUiState
+import com.metrolist.shared.viewmodels.SourceSearchSection
 import com.metrolist.shared.viewmodels.searchPresentation
 import com.valentinilk.shimmer.shimmer
 import kotlinx.coroutines.flow.distinctUntilChanged
+import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 
 data class SearchContentText(
@@ -248,6 +261,7 @@ fun SearchContent(
     onMixClick: (YTItem) -> Unit = {},
     itemContainer: @Composable (YTItem, @Composable () -> Unit) -> Unit = { _, content -> content() },
     onAlbumPlay: ((AlbumItem) -> Unit)? = null,
+    onSourceSelected: (SourceId?) -> Unit = {},
 ) {
     val query = uiState.query
     val isQuerySubmitted = uiState.isQuerySubmitted
@@ -322,6 +336,7 @@ fun SearchContent(
                             onMixClick = onMixClick,
                             itemContainer = itemContainer,
                             onAlbumPlay = onAlbumPlay,
+                            onSourceSelected = onSourceSelected,
                             modifier = Modifier.fillMaxSize(),
                         )
                     }
@@ -966,8 +981,11 @@ private fun SearchResultsList(
     onMixClick: (YTItem) -> Unit = {},
     itemContainer: @Composable (YTItem, @Composable () -> Unit) -> Unit = { _, content -> content() },
     onAlbumPlay: ((AlbumItem) -> Unit)? = null,
+    onSourceSelected: (SourceId?) -> Unit = {},
 ) {
     val selectedFilter = uiState.selectedFilter
+    val sourceSearch = uiState.sourceSearch
+    val showSourceBadges = sourceSearch.sources.isNotEmpty()
     val isSearching = uiState.isSearching
     val isLoadingMore = uiState.isLoadingMore
     val searchSummary = uiState.searchSummary
@@ -984,9 +1002,16 @@ private fun SearchResultsList(
     val filteredItems = filteredResults?.items.orEmpty()
     val showingFilteredResults = selectedFilter != null && filteredResults != null
     val allResultsEmpty = summaries.all { it.items.isEmpty() }
+    // In "all sources" mode another source may still answer, so YouTube alone being empty is not "no results".
+    val otherSourcesPending =
+        sourceSearch.selectedSource == null && sourceSearch.sections.values.any { it.isLoading || it.items.isNotEmpty() }
     val showNoResults =
         hasSearched && !isSearching && !uiState.searchFailed &&
-            if (showingFilteredResults) filteredItems.isEmpty() && filteredResults.continuation == null else allResultsEmpty
+            if (showingFilteredResults) {
+                filteredItems.isEmpty() && filteredResults.continuation == null
+            } else {
+                allResultsEmpty && !otherSourcesPending
+            }
 
     LaunchedEffect(selectedFilter, filteredResults?.continuation, filteredItems.size, isLoadingMore, uiState.loadMoreFailed) {
         snapshotFlow {
@@ -1011,6 +1036,50 @@ private fun SearchResultsList(
     ) {
         item(key = "search_filter_top_safe_space") {
             Spacer(Modifier.height(12.dp))
+        }
+
+        if (sourceSearch.sources.isNotEmpty()) {
+            item(key = "search_source_chips") {
+                Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
+                    Box(Modifier.widthIn(max = 1400.dp).fillMaxWidth().padding(bottom = 8.dp)) {
+                        ChipShelf(
+                            options = listOf(SourceId.YT) + sourceSearch.sources,
+                            selectedOption = sourceSearch.selectedSource,
+                            onSelectionChange = onSourceSelected,
+                            label = { source -> stringResource(sourceChipLabel(source)) },
+                            allLabel = text.filterAll,
+                        )
+                    }
+                }
+            }
+        }
+
+        val selectedOtherSource = sourceSearch.selectedSource?.takeIf { !sourceSearch.showsYouTube }
+        if (selectedOtherSource != null) {
+            item(key = "source_only_${selectedOtherSource.key}") {
+                Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
+                    Box(Modifier.widthIn(max = 1400.dp).fillMaxWidth()) {
+                        SearchEnterMotion {
+                            SourceResultGroup(
+                                source = selectedOtherSource,
+                                section = sourceSearch.sections[selectedOtherSource],
+                                showTitle = false,
+                                onItemClick = onItemClick,
+                                onItemLongClick = onItemLongClick,
+                                onSongSave = onSongSave,
+                                currentSongId = currentSongId,
+                                isPlaying = isPlaying,
+                                text = text,
+                                onArtistClick = onArtistClick,
+                                onAlbumClick = onAlbumClick,
+                                itemContainer = itemContainer,
+                                isWide = isWide,
+                            )
+                        }
+                    }
+                }
+            }
+            return@DragScrollableColumn
         }
 
         item(key = "search_filter_chips") {
@@ -1107,6 +1176,7 @@ private fun SearchResultsList(
                                 itemContainer = itemContainer,
                                 onAlbumPlay = onAlbumPlay,
                                 isWide = isWide,
+                                showSourceBadges = showSourceBadges,
                             )
                         }
                     }
@@ -1158,6 +1228,7 @@ private fun SearchResultsList(
                                         onAlbumPlay = onAlbumPlay,
                                         isTopResults = summary.isTopResult,
                                         isWide = isWide,
+                                        showSourceBadges = showSourceBadges,
                                     )
                                 }
                             }
@@ -1168,9 +1239,118 @@ private fun SearchResultsList(
                     }
                 }
             }
+            if (sourceSearch.selectedSource == null) {
+                sourceSearch.sources.forEach { source ->
+                    val section = sourceSearch.sections[source]
+                    // Sections stay out of the merged list until they have something to show.
+                    if (section != null && (section.failed || section.items.isNotEmpty())) {
+                        item(key = "source_section_${source.key}", contentType = "source_section") {
+                            Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
+                                Box(Modifier.widthIn(max = 1400.dp).fillMaxWidth()) {
+                                    SearchEnterMotion {
+                                        SourceResultGroup(
+                                            source = source,
+                                            section = section,
+                                            showTitle = true,
+                                            onItemClick = onItemClick,
+                                            onItemLongClick = onItemLongClick,
+                                            onSongSave = onSongSave,
+                                            currentSongId = currentSongId,
+                                            isPlaying = isPlaying,
+                                            text = text,
+                                            onArtistClick = onArtistClick,
+                                            onAlbumClick = onAlbumClick,
+                                            itemContainer = itemContainer,
+                                            isWide = isWide,
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                        item(key = "source_section_gap_${source.key}") {
+                            Spacer(Modifier.height(24.dp))
+                        }
+                    }
+                }
+            }
         }
     }
 }
+
+/** Song results from one non-YouTube source, as a titled section in the merged list or as the whole list. */
+@Composable
+private fun SourceResultGroup(
+    source: SourceId,
+    section: SourceSearchSection?,
+    showTitle: Boolean,
+    onItemClick: (YTItem) -> Unit,
+    onItemLongClick: (YTItem) -> Unit,
+    onSongSave: (SongItem) -> Unit,
+    currentSongId: String?,
+    isPlaying: Boolean,
+    text: SearchContentText,
+    onArtistClick: ((String) -> Unit)?,
+    onAlbumClick: ((String) -> Unit)?,
+    itemContainer: @Composable (YTItem, @Composable () -> Unit) -> Unit,
+    isWide: Boolean,
+) {
+    val name = stringResource(sourceSectionTitle(source))
+    when {
+        section == null || section.isLoading -> {
+            SearchResultsShimmer(sectioned = false)
+        }
+
+        section.failed || section.items.isEmpty() -> {
+            Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (showTitle) SectionHeader(title = name, isWide = isWide)
+                Text(
+                    text =
+                        stringResource(
+                            if (section.failed) Res.string.search_source_failed else Res.string.search_source_no_results,
+                            name,
+                        ),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                )
+            }
+        }
+
+        else -> {
+            SearchResultGroup(
+                title = if (showTitle) name else null,
+                items = section.items,
+                onItemClick = onItemClick,
+                onItemLongClick = onItemLongClick,
+                onSongSave = onSongSave,
+                currentSongId = currentSongId,
+                isPlaying = isPlaying,
+                text = text,
+                onArtistClick = onArtistClick,
+                onAlbumClick = onAlbumClick,
+                itemContainer = itemContainer,
+                isWide = isWide,
+                showSourceBadges = true,
+            )
+        }
+    }
+}
+
+private fun sourceChipLabel(source: SourceId): StringResource =
+    when (source) {
+        SourceId.YT, SourceId.LOCAL -> Res.string.source_youtube
+        SourceId.SC -> Res.string.source_soundcloud
+        SourceId.ZING -> Res.string.source_badge_zing
+        SourceId.NCT -> Res.string.source_badge_nct
+    }
+
+private fun sourceSectionTitle(source: SourceId): StringResource =
+    when (source) {
+        SourceId.YT, SourceId.LOCAL -> Res.string.source_youtube
+        SourceId.SC -> Res.string.source_soundcloud
+        SourceId.ZING -> Res.string.source_zing_mp3
+        SourceId.NCT -> Res.string.source_nhaccuatui
+    }
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -1885,6 +2065,7 @@ private fun SearchResultGroup(
     isTopResults: Boolean = false,
     isWide: Boolean = false,
     onAlbumPlay: ((AlbumItem) -> Unit)? = null,
+    showSourceBadges: Boolean = false,
 ) {
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -1943,6 +2124,7 @@ private fun SearchResultGroup(
                             modifier = Modifier.padding(horizontal = 8.dp),
                             isWide = isWide,
                             onAlbumPlay = onAlbumPlay?.let { play -> { (item as? AlbumItem)?.let(play) } },
+                            showSourceBadge = showSourceBadges,
                         )
                     }
                 }
@@ -1962,6 +2144,7 @@ private fun SearchResultGroup(
                         modifier = Modifier.padding(horizontal = 8.dp),
                         isWide = isWide,
                         onAlbumPlay = onAlbumPlay?.let { play -> { (item as? AlbumItem)?.let(play) } },
+                        showSourceBadge = showSourceBadges,
                     )
                 }
             }
@@ -2069,8 +2252,10 @@ private fun SearchResultItem(
     modifier: Modifier = Modifier,
     isWide: Boolean = false,
     onAlbumPlay: (() -> Unit)? = null,
+    showSourceBadge: Boolean = false,
 ) {
     val isCurrentSong = item is SongItem && item.id == currentSongId
+    val songSource = (item as? SongItem)?.takeIf { showSourceBadge }?.let { sourceOf(it.id) }
 
     YTListItem(
         item = item,
@@ -2083,6 +2268,7 @@ private fun SearchResultItem(
         modifier = modifier,
         clickableMetadata = isWide,
         onAlbumPlay = onAlbumPlay,
+        badges = if (songSource != null) { { SourceBadge(songSource) } } else null,
     )
 }
 
