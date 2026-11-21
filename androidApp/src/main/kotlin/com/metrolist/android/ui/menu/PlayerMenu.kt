@@ -108,7 +108,6 @@ import com.metrolist.shared.ui.components.PopupVisibility
 import com.metrolist.shared.ui.components.TempoPitchControls
 import com.metrolist.shared.ui.components.rememberModalSheetState
 import com.metrolist.shared.ui.equalizer.EqualizerDialog
-import com.metrolist.shared.ui.equalizer.MetroEqSheet
 import com.metrolist.shared.ui.icons.MetrolistIcons
 import com.metrolist.shared.ui.menu.ExpressiveMediaMenuHeader
 import com.metrolist.shared.ui.menu.albumNavigationMenuAction
@@ -152,7 +151,9 @@ fun PlayerMenu(
     onNavigateToArtist: (String) -> Unit = {},
     onNavigateToListenTogether: () -> Unit = {},
     onShowSongDetails: () -> Unit = onDismiss,
+    onOpenEqualizer: () -> Unit = {},
     extraActions: List<PlayerMenuAction> = emptyList(),
+    startWithEqualizer: Boolean = false,
 ) {
     val suggestedToHostText = stringResource(Res.string.suggested_to_host)
 
@@ -189,10 +190,18 @@ fun PlayerMenu(
     val isTv = LocalIsTv.current
     val menuSheetState = rememberModalSheetState()
     var showPlaybackSpeed by remember { mutableStateOf(false) }
-    var showEqualizer by remember { mutableStateOf(false) }
-    if (showEqualizer) {
+    // TV keeps the D-pad friendly dialog over the menu; phones open the full-screen equalizer route instead.
+    // The player's EQ chip (startWithEqualizer) goes straight to the same entry as the "Equalizer" action.
+    var showEqualizer by remember { mutableStateOf(startWithEqualizer && isTv) }
+    if (startWithEqualizer && !isTv) {
+        LaunchedEffect(Unit) {
+            onDismiss()
+            onOpenEqualizer()
+        }
+    }
+    if (showEqualizer && isTv) {
         EqualizerDialog(
-            onDismiss = { if (isTv) showEqualizer = false else onDismiss() },
+            onDismiss = { showEqualizer = false },
             rememberProfilePicker = { onPicked -> rememberMetroEqProfilePicker(onPicked) },
             onOpenSystemEqualizer = {
                 if (!launchSystemEqualizer(context, playerConnection?.audioSessionId ?: 0) {
@@ -202,31 +211,7 @@ fun PlayerMenu(
                     Toast.makeText(context, systemEqualizerUnavailable, Toast.LENGTH_SHORT).show()
                 }
             },
-            metroEqContent =
-                if (isTv) {
-                    null
-                } else {
-                    { close, searchAutoEq ->
-                        MetroEqSheet(
-                            onDismiss = close,
-                            varispeed = Settings.shared.varispeed,
-                            rememberProfilePicker = { onPicked -> rememberMetroEqProfilePicker(onPicked) },
-                            initialAutoEqSearch = searchAutoEq,
-                        ) { onBack ->
-                            TempoPitchControls(
-                                speed = playbackSpeed,
-                                pitch = playbackPitch,
-                                onSpeedChange = onPlaybackSpeedChange,
-                                onPitchChange = onPlaybackPitchChange,
-                                speedEnabled = !isInListenTogetherRoom,
-                                varispeed = Settings.shared.varispeed,
-                                onDone = onBack,
-                            )
-                        }
-                    }
-                },
         )
-        if (!isTv) return
     }
     var showVideoResolution by remember { mutableStateOf(false) }
     var downloadRefreshKey by remember { mutableIntStateOf(0) }
@@ -564,9 +549,8 @@ fun PlayerMenu(
                                                 if (isTv) {
                                                     showEqualizer = true
                                                 } else {
-                                                    coroutineScope.launch {
-                                                        if (menuSheetState.hide()) showEqualizer = true
-                                                    }
+                                                    onDismiss()
+                                                    onOpenEqualizer()
                                                 }
                                             }),
                                             tempoPitchMenuAction(Settings.shared.varispeed) { showPlaybackSpeed = true },

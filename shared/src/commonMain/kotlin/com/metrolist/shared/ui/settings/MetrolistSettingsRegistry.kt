@@ -138,6 +138,18 @@ fun rememberMetrolistSettingsRegistry(
                         }
                     }
 
+                    SettingsPageId.SOURCES -> {
+                        listOf(
+                            Res.string.source_youtube_music,
+                            Res.string.source_zing_mp3,
+                            Res.string.source_nhaccuatui,
+                            Res.string.source_soundcloud,
+                            Res.string.source_zing_login,
+                            Res.string.source_nct_login,
+                            Res.string.source_auto_best_quality,
+                        )
+                    }
+
                     SettingsPageId.ABOUT -> {
                         listOf(
                             Res.string.credits_creator_section,
@@ -159,6 +171,13 @@ fun rememberMetrolistSettingsRegistry(
         }
     }
 
+    customPage(
+        SettingsPageId.SOURCES,
+        stringResource(Res.string.settings_sources),
+        stringResource(Res.string.settings_sources_overview),
+        MetrolistIcons.Outlined.LibraryMusic,
+        SettingsTone.CYAN,
+    )
     customPage(
         SettingsPageId.EQUALIZER,
         stringResource(Res.string.metroeq),
@@ -232,8 +251,9 @@ fun rememberMetrolistSettingsRegistry(
 
     builder.rootGroup(
         stringResource(Res.string.settings_interface),
-        SettingsPageId.APPEARANCE,
-        SettingsPageId.CONTENT,
+        *listOf(SettingsPageId.APPEARANCE, SettingsPageId.CONTENT, SettingsPageId.SOURCES)
+            .filter { it != SettingsPageId.SOURCES || it in host.availablePages }
+            .toTypedArray(),
     )
     builder.rootGroup(
         stringResource(Res.string.settings_playback),

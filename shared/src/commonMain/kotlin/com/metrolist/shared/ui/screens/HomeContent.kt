@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -110,6 +111,7 @@ import com.metrolist.shared.ui.components.VideoShelf
 import com.metrolist.shared.ui.components.YTGridItem
 import com.metrolist.shared.ui.components.YTListItem
 import com.metrolist.shared.ui.components.carouselArtworkShape
+import com.metrolist.shared.ui.components.minmusic.MmQuickPickTile
 import com.metrolist.shared.ui.components.rememberItemPlayback
 import com.metrolist.shared.ui.utils.DragScrollableColumn
 import com.metrolist.shared.ui.utils.carouselScroll
@@ -213,6 +215,7 @@ fun HomeContent(
     header: (LazyListScope.() -> Unit)? = null,
     shelfCache: HomeShelfCache? = null,
     onPlaySongs: ((List<SongItem>) -> Unit)? = null,
+    afterQuickPicks: (LazyListScope.() -> Unit)? = null,
 ) {
     val activeSongId =
         remember(currentSongId) {
@@ -257,6 +260,7 @@ fun HomeContent(
                 isLandscape = isLandscape,
                 speedDialSurpriseAtEndOfFirstPage = speedDialSurpriseAtEndOfFirstPage,
                 isWide = isWide,
+                afterQuickPicks = afterQuickPicks,
             )
 
             if (uiState.isContentLoading || uiState.isLoadingMore) {
@@ -410,8 +414,19 @@ fun LazyListScope.renderHomeShelves(
     speedDialSurpriseAtEndOfFirstPage: Boolean = false,
     isWide: Boolean = false,
     onPlaySongs: ((List<SongItem>) -> Unit)? = null,
+    afterQuickPicks: (LazyListScope.() -> Unit)? = null,
 ) {
+    // Extra shelves (e.g. the VN charts) go right after quick picks, or first when there are none.
+    var afterQuickPicksPending = afterQuickPicks != null
+    if (afterQuickPicks != null && shelves.none { it.key == QUICK_PICKS_SHELF_KEY }) {
+        afterQuickPicks.invoke(this)
+        afterQuickPicksPending = false
+    }
     shelves.forEach { shelf ->
+        if (afterQuickPicksPending && shelves.getOrNull(shelves.indexOf(shelf) - 1)?.key == QUICK_PICKS_SHELF_KEY) {
+            afterQuickPicks?.invoke(this)
+            afterQuickPicksPending = false
+        }
         shelf.chipTitle?.let { title ->
             item(key = "${shelf.key}_chip_header", contentType = "home_chip_header") {
                 Box(
@@ -431,10 +446,11 @@ fun LazyListScope.renderHomeShelves(
                     ) {
                         HorizontalDivider()
                         Spacer(Modifier.height(16.dp))
+                        // MinMusic: headers are ink; colour is reserved for accents ("See all", play, progress).
                         Text(
                             title,
-                            style = MaterialTheme.typography.headlineLarge.copy(fontWeight = FontWeight.Bold),
-                            color = MaterialTheme.colorScheme.primary,
+                            style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.SemiBold),
+                            color = MaterialTheme.colorScheme.onSurface,
                         )
                     }
                 }
@@ -603,6 +619,17 @@ internal fun DefaultHomeShelf(
             }
             return@Column
         }
+        if (shelf.style == HomeShelfStyle.SONG_GRID && shelf.key == QUICK_PICKS_SHELF_KEY && !isWide) {
+            // MinMusic quick picks: a two-column grid of 56 dp tiles.
+            HomeQuickPickTiles(
+                shelf = shelf,
+                onItemClick = onItemClick,
+                onItemLongClick = onItemLongClick,
+                currentSongId = currentSongId,
+                isItemEnabled = isItemEnabled,
+            )
+            return@Column
+        }
         when (shelf.style) {
             HomeShelfStyle.CAROUSEL, HomeShelfStyle.ALBUM_CAROUSEL, HomeShelfStyle.SIMILAR_TO -> {
                 HomeCarouselShelf(
@@ -668,6 +695,42 @@ internal fun DefaultHomeShelf(
                     isItemEnabled,
                     isWide,
                 )
+            }
+        }
+    }
+}
+
+internal const val QUICK_PICKS_SHELF_KEY = "quick_picks"
+private const val QUICK_PICK_TILE_COUNT = 8
+
+@Composable
+private fun HomeQuickPickTiles(
+    shelf: HomeShelf,
+    onItemClick: (YTItem) -> Unit,
+    onItemLongClick: ((YTItem) -> Unit)?,
+    currentSongId: State<String?>,
+    isItemEnabled: (YTItem) -> Boolean,
+) {
+    val tiles = remember(shelf.items) { shelf.items.take(QUICK_PICK_TILE_COUNT).chunked(2) }
+    val currentId = currentSongId.value
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        tiles.forEach { pair ->
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                pair.forEach { item ->
+                    MmQuickPickTile(
+                        title = item.title,
+                        thumbnailUrl = item.thumbnail,
+                        onClick = { onItemClick(item) },
+                        onLongClick = onItemLongClick?.let { handler -> { handler(item) } },
+                        isCurrent = item.id == currentId,
+                        enabled = !item.isUnavailable && isItemEnabled(item),
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                if (pair.size == 1) Spacer(Modifier.weight(1f))
             }
         }
     }

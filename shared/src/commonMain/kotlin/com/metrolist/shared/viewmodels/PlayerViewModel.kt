@@ -377,7 +377,9 @@ class PlayerViewModel(
             ) { (id, thumbnail), style ->
                 id to
                     thumbnail.takeIf {
-                        style == PlayerBackgroundStyle.GRADIENT || style == PlayerBackgroundStyle.ANIMATED_GRADIENT
+                        // SOLID uses the artwork colour for the MinMusic player tint (design-system section 2.4).
+                        style == PlayerBackgroundStyle.GRADIENT || style == PlayerBackgroundStyle.ANIMATED_GRADIENT ||
+                            style == PlayerBackgroundStyle.SOLID
                     }
             }.distinctUntilChanged().collectLatestWhileVisible(artworkVisible) { (id, thumbnail) ->
                 extractColors(id, thumbnail)

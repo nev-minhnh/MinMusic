@@ -158,7 +158,8 @@ internal class PlayerSheetMotion(
     private fun alpha(phase: Float): Float =
         effects.getValueFromNanos((phase.coerceIn(0f, 1f) * effects.durationNanos).toLong()).coerceIn(0f, 1f)
 
-    fun expandedAlpha(progress: Float): Float = alpha((progress - 0.5f) * 2f)
+    // Design-system section 7: mini content fades out over p 0 -> 0.25, full player content fades in over p 0.35 -> 1.
+    fun expandedAlpha(progress: Float): Float = alpha((progress - 0.35f) / 0.65f)
 
-    fun collapsedAlpha(progress: Float): Float = alpha(1f - progress * 2f)
+    fun collapsedAlpha(progress: Float): Float = alpha(1f - progress * 4f)
 }

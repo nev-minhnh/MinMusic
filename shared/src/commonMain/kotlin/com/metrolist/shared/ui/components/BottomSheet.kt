@@ -20,6 +20,7 @@ import androidx.compose.foundation.gestures.verticalDrag
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -40,6 +41,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.geometry.CornerRadius
@@ -72,6 +74,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
+import com.metrolist.shared.ui.components.minmusic.LocalMmPlayerArtworkFlight
+import com.metrolist.shared.ui.components.minmusic.MmPlayerArtworkFlight
 import com.metrolist.shared.ui.navigation.NavigationBackHandler
 import com.metrolist.shared.ui.player.LocalPlayerArtworkHandoff
 import com.metrolist.shared.ui.player.PlayerArtworkHandoff
@@ -198,6 +202,10 @@ fun BottomSheet(
     val density = LocalDensity.current
     val container = remember(morphCollapsedContainer) { if (morphCollapsedContainer) PlayerSheetContainerState() else null }
     val artworkHandoff = remember(morphCollapsedContainer) { if (morphCollapsedContainer) PlayerArtworkHandoff() else null }
+    val artworkFlight =
+        remember(morphCollapsedContainer, state) {
+            if (morphCollapsedContainer) MmPlayerArtworkFlight().apply { progress = { state.progress } } else null
+        }
     val outlineCache = remember { PlayerSheetOutlineCache() }
     val motionScheme = MaterialTheme.motionScheme
     val motion = remember(motionScheme) { PlayerSheetMotion(motionScheme) }
@@ -328,7 +336,10 @@ fun BottomSheet(
                         }
                     shadowElevation = if (style != null) style.elevation.toPx() * (1f - state.progress.coerceIn(0f, 0.5f) * 2f) else 0f
                     clip = true
-                }.onGloballyPositioned { container?.coordinates = it }
+                }.onGloballyPositioned {
+                    container?.coordinates = it
+                    artworkFlight?.sheetCoordinates = it
+                }
                 .drawWithContent {
                     val style = container?.style
                     val bounds = container?.bounds
@@ -378,6 +389,10 @@ fun BottomSheet(
                             compositingStrategy =
                                 if (state.progress > 0f && state.progress < 1f) CompositingStrategy.Offscreen else fadeStrategy
                             alpha = expandedAlpha(state.progress).coerceIn(0f, 1f)
+                            if (morphCollapsedContainer) {
+                                // Full player controls rise 16 dp while they fade in (design-system section 7).
+                                translationY = PlayerSheetContentRise.toPx() * (1f - alpha)
+                            }
                             if (backProgress != null) {
                                 applySheetBackTransform(backProgress.value, (state.expandedBound - state.value).toPx().coerceAtLeast(0f))
                             }
@@ -386,6 +401,7 @@ fun BottomSheet(
                 CompositionLocalProvider(
                     LocalSheetBackProgress provides backProgress,
                     LocalPlayerArtworkHandoff provides artworkHandoff,
+                    LocalMmPlayerArtworkFlight provides artworkFlight,
                 ) {
                     content()
                 }
@@ -434,9 +450,20 @@ fun BottomSheet(
                 CompositionLocalProvider(
                     LocalPlayerSheetContainer provides container,
                     LocalPlayerArtworkHandoff provides artworkHandoff,
+                    LocalMmPlayerArtworkFlight provides artworkFlight,
                 ) {
                     collapsedContent()
                 }
+            }
+
+            if (artworkFlight != null) {
+                // The shared-element artwork, drawn above both players only while the sheet moves.
+                Spacer(
+                    Modifier.fillMaxSize().drawBehind {
+                        val progress = state.progress
+                        if (progress > 0f && progress < 1f) artworkFlight.draw(this, progress)
+                    },
+                )
             }
         }
     }
@@ -738,6 +765,8 @@ internal fun bottomSheetAcceptsInput(
     isDragging: Boolean,
 ): Boolean = targetAnchor == EXPANDED_ANCHOR && (isSettledExpanded || isDragging)
 
+private val PlayerSheetContentRise = 16.dp
+
 const val EXPANDED_ANCHOR = 2
 const val COLLAPSED_ANCHOR = 1
 const val DISMISSED_ANCHOR = 0
@@ -749,6 +778,7 @@ fun rememberBottomSheetState(
     collapsedBound: Dp = dismissedBound,
     initialAnchor: Int = DISMISSED_ANCHOR,
     isDismissible: Boolean = true,
+    animationSpec: AnimationSpec<Dp>? = null,
 ): BottomSheetState {
     val density = LocalDensity.current
     val coroutineScope = rememberCoroutineScope()
@@ -770,7 +800,7 @@ fun rememberBottomSheetState(
             }
         }
     val currentDensity by rememberUpdatedState(density)
-    val spatialSpec = MaterialTheme.motionScheme.defaultSpatialSpec<Dp>()
+    val spatialSpec = animationSpec ?: MaterialTheme.motionScheme.defaultSpatialSpec<Dp>()
     val state =
         remember(coroutineScope, spatialSpec, isDismissible) {
             BottomSheetState(

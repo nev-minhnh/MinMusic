@@ -20,6 +20,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyGridState
@@ -81,9 +83,15 @@ import com.metrolist.shared.generated.resources.Res
 import com.metrolist.shared.generated.resources.display_density
 import com.metrolist.shared.generated.resources.filter_downloaded
 import com.metrolist.shared.generated.resources.library_load_failed
+import com.metrolist.shared.generated.resources.mm_library_downloaded
+import com.metrolist.shared.generated.resources.mm_library_new_album
+import com.metrolist.shared.generated.resources.mm_library_new_album_hint
+import com.metrolist.shared.generated.resources.mm_open
 import com.metrolist.shared.generated.resources.my_albums
+import com.metrolist.shared.generated.resources.n_song
 import com.metrolist.shared.generated.resources.playlist_direction_ascending
 import com.metrolist.shared.generated.resources.playlist_direction_descending
+import com.metrolist.shared.generated.resources.see_all
 import com.metrolist.shared.generated.resources.song_count
 import com.metrolist.shared.generated.resources.try_again
 import com.metrolist.shared.model.AlbumItem
@@ -126,6 +134,10 @@ import com.metrolist.shared.ui.components.albumPlayOverlay
 import com.metrolist.shared.ui.components.libraryArtwork
 import com.metrolist.shared.ui.components.libraryCover
 import com.metrolist.shared.ui.components.menuAnchorSemantics
+import com.metrolist.shared.ui.components.minmusic.MmCollectionTile
+import com.metrolist.shared.ui.components.minmusic.MmCreateTile
+import com.metrolist.shared.ui.components.minmusic.MmSectionHeader
+import com.metrolist.shared.ui.components.minmusic.MmTrackRow
 import com.metrolist.shared.ui.components.rememberItemPlayback
 import com.metrolist.shared.ui.haptics.HapticEvent
 import com.metrolist.shared.ui.haptics.rememberMetrolistHaptics
@@ -138,6 +150,7 @@ import com.metrolist.shared.ui.navigation.LocalUseDesktopUi
 import com.metrolist.shared.ui.navigation.blockInput
 import com.metrolist.shared.ui.player.staticConnectedLeadingButtonShapes
 import com.metrolist.shared.ui.player.staticConnectedTrailingButtonShapes
+import com.metrolist.shared.ui.theme.gridCellInset
 import com.metrolist.shared.ui.tv.tvFocusHighlight
 import com.metrolist.shared.ui.utils.DragScrollableGrid
 import com.metrolist.shared.ui.utils.desktopArrowScroll
@@ -151,6 +164,7 @@ import sh.calvin.reorderable.DragGestureDetector
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.ScrollMoveMode
 import sh.calvin.reorderable.rememberReorderableLazyGridState
+import androidx.compose.foundation.lazy.items as lazyItems
 
 enum class LibraryFilter {
     TRACKS,
@@ -255,6 +269,12 @@ fun LibraryContent(
     onPlayAlbum: ((AlbumItem) -> Unit)? = null,
     presentation: LibraryPresentation = remember { LibraryPresentation() },
     userAlbums: List<PlaylistItem> = emptyList(),
+    downloadedPreview: List<SongItem> = emptyList(),
+    downloadedSongCount: Int = 0,
+    onOpenDownloads: (() -> Unit)? = null,
+    onCreateUserAlbum: (() -> Unit)? = null,
+    onDownloadedSongClick: ((List<SongItem>, Int) -> Unit)? = null,
+    onDownloadedSongMenu: ((SongItem) -> Unit)? = null,
 ) {
     val currentSongIdState = rememberUpdatedState(currentSongId)
     val isPlayingState = rememberUpdatedState(isPlaying)
@@ -528,12 +548,86 @@ fun LibraryContent(
                             }
                         }
                     }
-                    if (visibleUserAlbums.isNotEmpty()) {
+                    // MinMusic "All" view: My albums as a horizontal shelf, then Downloaded with quality badges.
+                    val showOverviewSections = effectiveFilter == null && searchQuery.isBlank()
+                    if (showOverviewSections && (visibleUserAlbums.isNotEmpty() || onCreateUserAlbum != null)) {
                         item(key = "user_albums_header", contentType = "header", span = { GridItemSpan(maxLineSpan) }) {
-                            Text(
-                                stringResource(Res.string.my_albums),
-                                style = MaterialTheme.typography.titleMedium,
-                                modifier = Modifier.padding(top = 8.dp),
+                            MmSectionHeader(
+                                title = stringResource(Res.string.my_albums),
+                                actionLabel = stringResource(Res.string.see_all).takeIf { visibleUserAlbums.isNotEmpty() },
+                                onAction = { onFilterChange(LibraryFilter.ALBUMS) },
+                                topPadding = 16.dp,
+                                horizontalPadding = 0.dp,
+                            )
+                        }
+                        item(key = "user_albums_shelf", contentType = "user_albums_shelf", span = { GridItemSpan(maxLineSpan) }) {
+                            LazyRow(
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                modifier = Modifier.fillMaxWidth(),
+                            ) {
+                                if (onCreateUserAlbum != null) {
+                                    item(key = "new_user_album", contentType = "create") {
+                                        MmCreateTile(
+                                            title = stringResource(Res.string.mm_library_new_album),
+                                            subtitle = stringResource(Res.string.mm_library_new_album_hint),
+                                            icon = MetrolistIcons.Default.Add,
+                                            onClick = onCreateUserAlbum,
+                                        )
+                                    }
+                                }
+                                lazyItems(visibleUserAlbums, key = { "user_album_tile_${it.id}" }, contentType = { "user_album" }) { album ->
+                                    // Fixed width: the container is a weighted Row, which needs a bounded width in a LazyRow.
+                                    Box(Modifier.width(112.dp + gridCellInset() * 2)) {
+                                        itemContainer(HiddenLibraryItem.from(album), album, true, { onItemClick(album) }) {
+                                            MmCollectionTile(
+                                                title = album.title,
+                                                subtitle = album.songCount?.toIntOrNull()?.let { pluralStringResource(Res.plurals.n_song, it, it) },
+                                                thumbnailUrl = album.customThumbnail ?: album.thumbnail,
+                                                onClick = null,
+                                                size = 112.dp,
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    if (showOverviewSections && downloadedSongCount > 0) {
+                        item(key = "downloaded_header", contentType = "header", span = { GridItemSpan(maxLineSpan) }) {
+                            MmSectionHeader(
+                                title = stringResource(Res.string.mm_library_downloaded),
+                                subtitle = pluralStringResource(Res.plurals.n_song, downloadedSongCount, downloadedSongCount),
+                                actionLabel = stringResource(Res.string.mm_open).takeIf { onOpenDownloads != null },
+                                onAction = onOpenDownloads,
+                                bottomPadding = 4.dp,
+                                horizontalPadding = 0.dp,
+                            )
+                        }
+                        items(
+                            count = downloadedPreview.size,
+                            key = { "downloaded_${downloadedPreview[it].id}" },
+                            contentType = { "downloaded_song" },
+                            span = { GridItemSpan(maxLineSpan) },
+                        ) { index ->
+                            val song = downloadedPreview[index]
+                            val playback by rememberItemPlayback(song.id, currentSongIdState, isPlayingState)
+                            MmTrackRow(
+                                song = song,
+                                isCurrent = playback.isCurrent,
+                                isPlaying = playback.isPlaying,
+                                onClick = { onDownloadedSongClick?.invoke(downloadedPreview, index) },
+                                onShowMenu = { onDownloadedSongMenu?.invoke(song) },
+                                startPadding = 0.dp,
+                                endPadding = 0.dp,
+                            )
+                        }
+                    }
+                    if (visibleUserAlbums.isNotEmpty() && !showOverviewSections) {
+                        item(key = "user_albums_header", contentType = "header", span = { GridItemSpan(maxLineSpan) }) {
+                            MmSectionHeader(
+                                title = stringResource(Res.string.my_albums),
+                                topPadding = 8.dp,
+                                horizontalPadding = 0.dp,
                             )
                         }
                         items(

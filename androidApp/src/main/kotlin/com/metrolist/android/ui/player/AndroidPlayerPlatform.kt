@@ -90,6 +90,8 @@ class AndroidPlayerPlatform(
     private val activity: Activity?,
     private val playerConnection: PlayerConnection,
     private val listenTogetherManager: ListenTogetherManager?,
+    // Opens the full-screen equalizer route (collapsing the player first).
+    private val onOpenEqualizer: () -> Unit = {},
 ) : PlayerPlatform {
     override val supportsPictureInPicture = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
     override val supportsVideoPlayback = true
@@ -315,7 +317,38 @@ class AndroidPlayerPlatform(
             onNavigateToArtist = onNavigateToArtist,
             onNavigateToListenTogether = onNavigateToListenTogether,
             onShowSongDetails = onShowSongDetails,
+            onOpenEqualizer = onOpenEqualizer,
             extraActions = extraActions,
+        )
+    }
+
+    @Composable
+    override fun EqualizerShortcut(
+        viewModel: PlayerViewModel,
+        onDismiss: () -> Unit,
+        onNavigateToAlbum: (String) -> Unit,
+        onNavigateToArtist: (String) -> Unit,
+        onNavigateToListenTogether: () -> Unit,
+    ) {
+        val volume by playerConnection.volume.collectAsState()
+        val playbackSpeed by playerConnection.playbackSpeedFlow.collectAsState()
+        val playbackPitch by playerConnection.playbackPitchFlow.collectAsState()
+        // Same entry as the menu's "Equalizer" action, opened directly instead of the menu sheet.
+        AndroidPlayerMenu(
+            playerViewModel = viewModel,
+            volume = volume,
+            onVolumeChange = playerConnection::setVolume,
+            playbackSpeed = playbackSpeed,
+            onPlaybackSpeedChange = playerConnection::setPlaybackSpeed,
+            playbackPitch = playbackPitch,
+            onPlaybackPitchChange = playerConnection::setPlaybackPitch,
+            onDismiss = onDismiss,
+            onNavigateToAlbum = onNavigateToAlbum,
+            onNavigateToArtist = onNavigateToArtist,
+            onNavigateToListenTogether = onNavigateToListenTogether,
+            onShowSongDetails = onDismiss,
+            onOpenEqualizer = onOpenEqualizer,
+            startWithEqualizer = true,
         )
     }
 

@@ -207,6 +207,14 @@ fun LibraryScreen(
     val userAlbums by remember(database) {
         database.dao().userAlbums().map { albums -> albums.map { it.toPlaylistItem(it.remoteSongCount ?: 0) } }
     }.collectAsStateWithLifecycle(emptyList())
+    // Library "Downloaded" section: newest first, three rows; the full list opens the downloaded auto playlist.
+    val downloadedSongs by remember(database) {
+        database.dao().downloadedSongsByCreateDateAsc().map { songs -> songs.map { it.toSongItem() } }
+    }.collectAsStateWithLifecycle(emptyList())
+    val downloadedPreview =
+        remember(downloadedSongs, contentFilterVersion) {
+            BlockedContent.filterSongs(downloadedSongs.takeLast(DOWNLOADED_PREVIEW_COUNT * 2)).takeLast(DOWNLOADED_PREVIEW_COUNT).reversed()
+        }
     val libraryItems =
         remember(uiState.items, userAlbums) {
             val userAlbumIds = userAlbums.mapTo(mutableSetOf()) { it.id }
@@ -486,6 +494,12 @@ fun LibraryScreen(
                 text = libraryContentText(),
                 items = libraryItems,
                 userAlbums = userAlbums,
+                downloadedPreview = downloadedPreview,
+                downloadedSongCount = downloadedSongs.size,
+                onOpenDownloads = onNavigateToAutoPlaylist?.let { open -> { open("downloaded") } },
+                onCreateUserAlbum = onNavigateToAutoPlaylist?.let { open -> { open("downloaded") } },
+                onDownloadedSongClick = { songs, index -> playerConnection?.playQueue(songs, index) },
+                onDownloadedSongMenu = { song -> menuItem = HiddenLibraryItem.from(song) to song },
                 autoPlaylists = autoPlaylists,
                 hiddenItemKeys = hiddenItemKeys,
                 isLoading = uiState.isLoading,
@@ -967,3 +981,5 @@ private fun PlaylistNameDialog(
         },
     )
 }
+
+private const val DOWNLOADED_PREVIEW_COUNT = 3

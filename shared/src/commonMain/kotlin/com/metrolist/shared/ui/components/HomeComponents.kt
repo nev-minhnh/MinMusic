@@ -85,7 +85,8 @@ fun SectionTitle(
     onShuffleClick: (() -> Unit)? = null,
     isWide: Boolean = false,
 ) {
-    val titleStyle = if (isWide) MaterialTheme.typography.headlineMediumEmphasized else MaterialTheme.typography.headlineSmallEmphasized
+    // MinMusic section header: title 20/28 in ink, meta label 12 in ink3, "See all" as an accent text action.
+    val titleStyle = MaterialTheme.typography.titleLarge
     val rowHeight = if (isWide || label != null) 60.dp else 50.dp
 
     Row(
@@ -125,11 +126,10 @@ fun SectionTitle(
             if (label != null) {
                 Text(
                     text = label,
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Medium,
+                    style = MaterialTheme.typography.labelSmall,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
-                    color = MaterialTheme.colorScheme.onSurface,
+                    color = MaterialTheme.colorScheme.outline,
                 )
             }
 
@@ -138,27 +138,29 @@ fun SectionTitle(
                 style = titleStyle,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
-                color = MaterialTheme.colorScheme.primary,
+                color = MaterialTheme.colorScheme.onSurface,
             )
         }
 
         if (onClick != null) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                if (showSeeAllLabel && seeAllLabel != null) {
+                if (showSeeAllLabel) {
                     Text(
-                        text = seeAllLabel,
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.Medium,
+                        text = seeAllLabel ?: stringResource(Res.string.see_all),
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.primary,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(horizontal = 8.dp),
+                    )
+                } else {
+                    SectionActionButton(
+                        icon = MetrolistIcons.Outlined.ChevronRight,
+                        contentDescription = null,
+                        isWide = isWide,
                     )
                 }
-                SectionActionButton(
-                    icon = MetrolistIcons.Outlined.ChevronRight,
-                    contentDescription = null,
-                    isWide = isWide,
-                )
             }
         } else if (onShuffleClick != null) {
             SectionActionButton(

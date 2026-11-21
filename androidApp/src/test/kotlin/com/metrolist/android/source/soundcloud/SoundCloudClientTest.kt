@@ -154,6 +154,26 @@ class SoundCloudClientTest {
         assertEquals("audio/mpeg", SoundCloudStreamSelector.select(all.filter { it.url == "u-mp3" }, now)!!.mimeType)
     }
 
+    @Test
+    fun selectorPrefersAac160RegardlessOfListingOrder() {
+        // api-v2 lists aac_160k (quality "sq", free) before aac_96k ("lq"); abr_sq resolves to {} for public clients.
+        val listed =
+            listOf(
+                SoundCloudStreamCandidate("aac_160k", "u-160", isHls = true),
+                SoundCloudStreamCandidate("aac_96k", "u-96", isHls = true),
+                SoundCloudStreamCandidate("abr_sq", "u-abr", isHls = true),
+            )
+        for (candidates in listOf(listed, listed.reversed())) {
+            val chosen = SoundCloudStreamSelector.select(candidates, now)!!
+            assertEquals("aac_160k", chosen.preset)
+            assertEquals(160, chosen.bitrateKbps)
+        }
+        // Some uploads (e.g. sc:1056337348, the 2026-11-21 QA track) only offer aac_96k + abr_sq: 96 is the best there is.
+        val only96 = SoundCloudStreamSelector.select(listed.drop(1), now)!!
+        assertEquals("aac_96k", only96.preset)
+        assertEquals(96, only96.bitrateKbps)
+    }
+
     private fun trackRoutes(
         id: Long,
         trackJson: String,

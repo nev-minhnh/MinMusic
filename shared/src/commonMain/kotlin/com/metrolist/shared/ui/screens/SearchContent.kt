@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -74,20 +75,20 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.focusRestorer
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
@@ -96,6 +97,15 @@ import androidx.lifecycle.compose.currentStateAsState
 import com.metrolist.shared.generated.resources.Res
 import com.metrolist.shared.generated.resources.explicit
 import com.metrolist.shared.generated.resources.loading
+import com.metrolist.shared.generated.resources.mm_remove_history_item
+import com.metrolist.shared.generated.resources.mm_search_genre_bolero
+import com.metrolist.shared.generated.resources.mm_search_genre_indie
+import com.metrolist.shared.generated.resources.mm_search_genre_rap
+import com.metrolist.shared.generated.resources.mm_search_genre_vpop
+import com.metrolist.shared.generated.resources.mm_search_genres_title
+import com.metrolist.shared.generated.resources.mm_search_recent
+import com.metrolist.shared.generated.resources.mm_search_trending_subtitle
+import com.metrolist.shared.generated.resources.mm_search_trending_title
 import com.metrolist.shared.generated.resources.more_options
 import com.metrolist.shared.generated.resources.retry
 import com.metrolist.shared.generated.resources.saved
@@ -103,13 +113,13 @@ import com.metrolist.shared.generated.resources.search_load_more_failed
 import com.metrolist.shared.generated.resources.search_online_failed
 import com.metrolist.shared.generated.resources.search_source_failed
 import com.metrolist.shared.generated.resources.search_source_no_results
+import com.metrolist.shared.generated.resources.song_type
 import com.metrolist.shared.generated.resources.source_badge_nct
 import com.metrolist.shared.generated.resources.source_badge_zing
 import com.metrolist.shared.generated.resources.source_nhaccuatui
 import com.metrolist.shared.generated.resources.source_soundcloud
 import com.metrolist.shared.generated.resources.source_youtube
 import com.metrolist.shared.generated.resources.source_zing_mp3
-import com.metrolist.shared.generated.resources.song_type
 import com.metrolist.shared.model.AlbumItem
 import com.metrolist.shared.model.ArtistItem
 import com.metrolist.shared.model.ArtistTiny
@@ -130,11 +140,9 @@ import com.metrolist.shared.settings.Settings
 import com.metrolist.shared.settings.displayName
 import com.metrolist.shared.settings.displayTitle
 import com.metrolist.shared.source.SourceId
-import com.metrolist.shared.source.sourceOf
 import com.metrolist.shared.ui.components.AlbumPlayButton
 import com.metrolist.shared.ui.components.AlertDialog
 import com.metrolist.shared.ui.components.ArtistSubtitle
-import com.metrolist.shared.ui.components.BlurredArtworkBackground
 import com.metrolist.shared.ui.components.ChipShelf
 import com.metrolist.shared.ui.components.CollectionPreviews
 import com.metrolist.shared.ui.components.ContainedLoadingIndicator
@@ -142,12 +150,19 @@ import com.metrolist.shared.ui.components.FittingText
 import com.metrolist.shared.ui.components.PlaylistCoverImage
 import com.metrolist.shared.ui.components.PopupContent
 import com.metrolist.shared.ui.components.PopupVisibility
+import com.metrolist.shared.ui.components.QualityBadge
 import com.metrolist.shared.ui.components.SongThumbnailPlayingIndicator
-import com.metrolist.shared.ui.components.SourceBadge
+import com.metrolist.shared.ui.components.SourceQualityBadges
 import com.metrolist.shared.ui.components.VideoShelf
 import com.metrolist.shared.ui.components.YTListItem
 import com.metrolist.shared.ui.components.focusOutline
 import com.metrolist.shared.ui.components.images.AsyncImage
+import com.metrolist.shared.ui.components.minmusic.MmChip
+import com.metrolist.shared.ui.components.minmusic.MmSectionHeader
+import com.metrolist.shared.ui.components.minmusic.MmSourceColors
+import com.metrolist.shared.ui.components.minmusic.MmTrackRow
+import com.metrolist.shared.ui.components.minmusic.rememberMmVnCharts
+import com.metrolist.shared.ui.components.rememberSongQuality
 import com.metrolist.shared.ui.components.squareArtworkSlot
 import com.metrolist.shared.ui.icons.MetrolistIcons
 import com.metrolist.shared.ui.icons.SongStatusIcons
@@ -164,10 +179,8 @@ import com.metrolist.shared.ui.tv.RequestTvFocus
 import com.metrolist.shared.ui.tv.tvFocusHighlight
 import com.metrolist.shared.ui.utils.DragScrollableColumn
 import com.metrolist.shared.ui.utils.artistArtworkShape
-import com.metrolist.shared.ui.utils.artworkBlur
 import com.metrolist.shared.ui.utils.carouselScroll
 import com.metrolist.shared.ui.utils.desktopArrowScroll
-import com.metrolist.shared.ui.utils.supportsNativeBlur
 import com.metrolist.shared.utils.formatDuration
 import com.metrolist.shared.utils.monthlyAudienceText
 import com.metrolist.shared.utils.withoutPlaybackCountLabel
@@ -436,51 +449,135 @@ private fun SearchEmptyState(
         )
     }
 
+    // Never empty: recent queries, recent results, then Vietnamese trending from the Zing / NCT charts.
+    val chartTabs by rememberMmVnCharts()
+    val trendingQueries =
+        remember(chartTabs) {
+            chartTabs
+                .distinctBy { it.source }
+                .flatMap { tab -> tab.songs.take(4) }
+                .map { song -> song.title to listOfNotNull(song.title, song.artists.firstOrNull()?.name).joinToString(" ") }
+                .distinctBy { it.second.lowercase() }
+                .take(8)
+        }
+    val recentSongs = remember(recentSearchItems) { recentSearchItems.take(10).filterIsInstance<SongItem>() }
+    val recentOthers = remember(recentSearchItems) { recentSearchItems.take(10).filterNot { it is SongItem } }
+    val history = remember(searchHistory) { searchHistory.distinct() }
     val listState = rememberLazyListState()
     DragScrollableColumn(
         state = listState,
         modifier = modifier.fillMaxWidth().desktopArrowScroll(listState),
-        contentPadding = PaddingValues(top = 8.dp, bottom = 8.dp + bottomContentPadding),
-        verticalArrangement = Arrangement.spacedBy(24.dp),
+        contentPadding = PaddingValues(bottom = 16.dp + bottomContentPadding),
     ) {
-        if (recentSearchItems.isNotEmpty()) {
-            item {
-                Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
-                    Column(Modifier.widthIn(max = 1400.dp).fillMaxWidth()) {
-                        RecentSectionTitle(
-                            title = text.recentFromSearches,
-                            onClearClick = { confirmClearRecent = true },
-                            text = text,
+        if (history.isNotEmpty()) {
+            item(key = "recent_queries_header", contentType = "section_header") {
+                MmSectionHeader(
+                    title = stringResource(Res.string.mm_search_recent),
+                    actionLabel = text.clear,
+                    onAction = { confirmClearHistory = true },
+                    topPadding = 16.dp,
+                    bottomPadding = 4.dp,
+                )
+            }
+            items(history, key = { "recent_query_$it" }, contentType = { "recent_query" }) { historyItem ->
+                val removeLabel = stringResource(Res.string.mm_remove_history_item, historyItem)
+                Row(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 48.dp)
+                            .combinedClickable(
+                                onClick = { onHistoryItemClick(historyItem) },
+                                onLongClickLabel = text.useSearchText,
+                                onLongClick = { onHistoryItemInsert(historyItem) },
+                            ).padding(start = 16.dp, end = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Icon(
+                        MetrolistIcons.Outlined.History,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(20.dp),
+                    )
+                    Text(
+                        text = historyItem,
+                        style = MaterialTheme.typography.bodyMedium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f),
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    IconButton(onClick = { onRemoveHistoryItem(historyItem) }) {
+                        Icon(
+                            imageVector = MetrolistIcons.Default.Close,
+                            contentDescription = removeLabel,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(16.dp),
                         )
-                        Spacer(Modifier.height(12.dp))
-                        if (recentSearchItems.isVideoShelf()) {
-                            VideoShelf(
-                                items = recentSearchItems.take(10),
-                                onItemClick = onVideoItemClick,
-                                onItemLongClick = { recentItemToRemove = it },
-                                menuActionLabel = text.removeRecentSearchItemAction,
-                                isWide = isWide,
-                                contentPadding = PaddingValues(horizontal = 16.dp),
-                                modifier = Modifier.focusGroup().focusRestorer(),
-                            )
-                        } else {
-                            val recentSearchState = rememberLazyListState()
-                            LazyRow(
-                                state = recentSearchState,
-                                modifier = Modifier.focusGroup().focusRestorer().carouselScroll(recentSearchState),
-                                horizontalArrangement = Arrangement.spacedBy(if (isWide) 16.dp else 12.dp),
-                                contentPadding = PaddingValues(horizontal = 16.dp),
-                            ) {
-                                items(recentSearchItems.take(10), key = { it.id }) { item ->
-                                    RecentSearchItemCard(
-                                        item = item,
-                                        text = text,
-                                        onClick = { onRecentItemClick(item) },
-                                        onLongClickLabel = text.removeRecentSearchItemAction,
-                                        onLongClick = { recentItemToRemove = item },
-                                        isWide = isWide,
-                                    )
-                                }
+                    }
+                }
+            }
+        }
+
+        if (recentSearchItems.isNotEmpty()) {
+            item(key = "recent_items_header", contentType = "section_header") {
+                MmSectionHeader(
+                    title = text.recentFromSearches,
+                    actionLabel = text.clear,
+                    onAction = { confirmClearRecent = true },
+                    topPadding = if (history.isEmpty()) 16.dp else 24.dp,
+                    bottomPadding = 4.dp,
+                )
+            }
+            if (recentSearchItems.isVideoShelf()) {
+                item(key = "recent_items_videos", contentType = "recent_videos") {
+                    VideoShelf(
+                        items = recentSearchItems.take(10),
+                        onItemClick = onVideoItemClick,
+                        onItemLongClick = { recentItemToRemove = it },
+                        menuActionLabel = text.removeRecentSearchItemAction,
+                        isWide = isWide,
+                        contentPadding = PaddingValues(horizontal = 16.dp),
+                        modifier = Modifier.focusGroup().focusRestorer(),
+                    )
+                }
+            } else {
+                items(recentSongs, key = { "recent_song_${it.id}" }, contentType = { "recent_song" }) { song ->
+                    MmTrackRow(
+                        song = song,
+                        onClick = { onRecentItemClick(song) },
+                        onShowMenu = { recentItemToRemove = song },
+                        trailingContent = {
+                            IconButton(onClick = { recentItemToRemove = song }) {
+                                Icon(
+                                    imageVector = MetrolistIcons.Default.Close,
+                                    contentDescription = text.removeRecentSearchItemAction,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(16.dp),
+                                )
+                            }
+                        },
+                    )
+                }
+                if (recentOthers.isNotEmpty()) {
+                    item(key = "recent_items_cards", contentType = "recent_cards") {
+                        val recentSearchState = rememberLazyListState()
+                        LazyRow(
+                            state = recentSearchState,
+                            modifier = Modifier.padding(top = 8.dp).focusGroup().focusRestorer().carouselScroll(recentSearchState),
+                            horizontalArrangement = Arrangement.spacedBy(if (isWide) 16.dp else 12.dp),
+                            contentPadding = PaddingValues(horizontal = 16.dp),
+                        ) {
+                            items(recentOthers, key = { it.id }, contentType = { "recent_card" }) { item ->
+                                RecentSearchItemCard(
+                                    item = item,
+                                    text = text,
+                                    onClick = { onRecentItemClick(item) },
+                                    onLongClickLabel = text.removeRecentSearchItemAction,
+                                    onLongClick = { recentItemToRemove = item },
+                                    isWide = isWide,
+                                )
                             }
                         }
                     }
@@ -488,80 +585,102 @@ private fun SearchEmptyState(
             }
         }
 
-        if (searchHistory.isNotEmpty()) {
-            item {
-                Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
-                    Column(Modifier.widthIn(max = 1400.dp).fillMaxWidth()) {
-                        RecentSectionTitle(
-                            title = text.recentSearches,
-                            onClearClick = { confirmClearHistory = true },
-                            text = text,
+        if (trendingQueries.isNotEmpty()) {
+            item(key = "trending_header", contentType = "section_header") {
+                MmSectionHeader(
+                    title = stringResource(Res.string.mm_search_trending_title),
+                    subtitle = stringResource(Res.string.mm_search_trending_subtitle),
+                )
+            }
+            item(key = "trending_chips", contentType = "trending_chips") {
+                FlowRow(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    trendingQueries.forEachIndexed { index, (label, query) ->
+                        MmChip(
+                            text = label,
+                            selected = false,
+                            onClick = { onHistoryItemClick(query) },
+                            leadingText = (index + 1).toString(),
                         )
-                        Spacer(Modifier.height(12.dp))
-                        Column(
-                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                            verticalArrangement = Arrangement.spacedBy(2.dp),
-                        ) {
-                            searchHistory.forEach { historyItem ->
-                                Row(
-                                    modifier =
-                                        Modifier
-                                            .fillMaxWidth()
-                                            .heightIn(min = 60.dp)
-                                            .clip(RoundedCornerShape(ComponentShapes.SearchItemCornerRadius))
-                                            .combinedClickable(
-                                                onClick = { onHistoryItemClick(historyItem) },
-                                                onLongClickLabel = text.removeRecentSearchAction,
-                                                onLongClick = { historyItemToRemove = historyItem },
-                                            ).padding(horizontal = 16.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(16.dp),
-                                ) {
-                                    Icon(
-                                        MetrolistIcons.Outlined.History,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.size(24.dp),
-                                    )
-                                    Text(
-                                        text = historyItem,
-                                        style = MaterialTheme.typography.titleMedium,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                        modifier = Modifier.weight(1f),
-                                        color = MaterialTheme.colorScheme.onSurface,
-                                    )
-                                    IconButton(
-                                        onClick = { onHistoryItemInsert(historyItem) },
-                                        shapes = IconButtonDefaults.shapes(),
-                                    ) {
-                                        Icon(
-                                            imageVector = MetrolistIcons.AutoMirrored.Filled.ArrowBack,
-                                            contentDescription = text.useSearchText,
-                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            modifier = Modifier.size(22.dp).rotate(45f),
-                                        )
-                                    }
-                                }
-                            }
-                        }
                     }
                 }
             }
-        } else if (recentSearchItems.isEmpty()) {
-            item {
-                Box(
-                    modifier = Modifier.fillParentMaxSize(),
-                    contentAlignment = Alignment.Center,
+        }
+
+        // Genre tiles are always there, so the screen is never empty (also on a fresh install with no
+        // history and with the Vietnamese sources still off).
+        item(key = "genres_header", contentType = "section_header") {
+            MmSectionHeader(
+                title = stringResource(Res.string.mm_search_genres_title),
+                topPadding = if (history.isEmpty() && recentSearchItems.isEmpty() && trendingQueries.isEmpty()) 16.dp else 24.dp,
+            )
+        }
+        MmSearchGenres.chunked(2).forEachIndexed { rowIndex, rowGenres ->
+            item(key = "genres_row_$rowIndex", contentType = "genre_row") {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    Text(
-                        text = text.startTypingToSearch,
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                    rowGenres.forEach { genre ->
+                        val label = stringResource(genre.label)
+                        MmGenreTile(
+                            label = label,
+                            genre = genre,
+                            onClick = { onHistoryItemClick(label) },
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                    if (rowGenres.size == 1) Spacer(Modifier.weight(1f))
                 }
             }
         }
+    }
+}
+
+/** A "Thể loại" tile of the search empty state: a soft tint (pastel on light, low-alpha on dark) and its search query. */
+private class MmSearchGenre(
+    val label: StringResource,
+    val tint: Color,
+    val ink: Color,
+)
+
+private val MmSearchGenres =
+    listOf(
+        MmSearchGenre(Res.string.mm_search_genre_vpop, Color(0xFFF6DCD3), Color(0xFF5A170A)),
+        MmSearchGenre(Res.string.mm_search_genre_rap, Color(0xFFE2E0F2), Color(0xFF2B2A4A)),
+        MmSearchGenre(Res.string.mm_search_genre_indie, Color(0xFFDCEBDF), Color(0xFF1E3A2B)),
+        MmSearchGenre(Res.string.mm_search_genre_bolero, Color(0xFFF1E2BE), Color(0xFF5A3A12)),
+    )
+
+@Composable
+private fun MmGenreTile(
+    label: String,
+    genre: MmSearchGenre,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
+    val shape = RoundedCornerShape(12.dp)
+    Box(
+        modifier =
+            modifier
+                .height(64.dp)
+                .clip(shape)
+                .background(if (isDark) genre.tint.copy(alpha = 0.16f) else genre.tint, shape)
+                .clickable(onClick = onClick)
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = if (isDark) genre.tint else genre.ink,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }
 
@@ -1048,6 +1167,7 @@ private fun SearchResultsList(
                             onSelectionChange = onSourceSelected,
                             label = { source -> stringResource(sourceChipLabel(source)) },
                             allLabel = text.filterAll,
+                            dotColor = MmSourceColors::of,
                         )
                     }
                 }
@@ -1388,40 +1508,12 @@ private fun TopResultCard(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 8.dp),
-        shape = RoundedCornerShape(12.dp),
-        color = MaterialTheme.colorScheme.surfaceBright,
+                .padding(horizontal = 16.dp),
+        // Flat surface1 card (design-system: no blur on anything that scrolls).
+        shape = RoundedCornerShape(20.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
     ) {
         Box(modifier = Modifier.fillMaxWidth()) {
-            if (mainItem.thumbnail != null) {
-                if (!supportsNativeBlur()) {
-                    BlurredArtworkBackground(
-                        url = mainItem.thumbnail,
-                        modifier = Modifier.matchParentSize().graphicsLayer(alpha = 0.38f),
-                        blurRadiusPx = with(LocalDensity.current) { 56.dp.toPx() },
-                        crossfade = true,
-                    )
-                } else {
-                    AsyncImage(
-                        url = mainItem.thumbnail,
-                        modifier =
-                            Modifier
-                                .matchParentSize()
-                                .artworkBlur(56.dp, MaterialTheme.colorScheme.surfaceBright)
-                                .graphicsLayer(alpha = 0.38f),
-                        contentScale = ContentScale.Crop,
-                    )
-                }
-                Box(
-                    modifier =
-                        Modifier
-                            .matchParentSize()
-                            .background(
-                                MaterialTheme.colorScheme.surfaceBright.copy(alpha = 0.66f),
-                            ),
-                )
-            }
-
             BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
                 val isWideCard = maxWidth > 600.dp
 
@@ -2255,7 +2347,9 @@ private fun SearchResultItem(
     showSourceBadge: Boolean = false,
 ) {
     val isCurrentSong = item is SongItem && item.id == currentSongId
-    val songSource = (item as? SongItem)?.takeIf { showSourceBadge }?.let { sourceOf(it.id) }
+    // With a single source only a known quality is shown; rememberSongQuality reads the stored format (database).
+    val storedQuality = if (item is SongItem && !showSourceBadge) rememberSongQuality(item.id) else null
+    val showBadges = item is SongItem && (showSourceBadge || storedQuality != null)
 
     YTListItem(
         item = item,
@@ -2268,7 +2362,14 @@ private fun SearchResultItem(
         modifier = modifier,
         clickableMetadata = isWide,
         onAlbumPlay = onAlbumPlay,
-        badges = if (songSource != null) { { SourceBadge(songSource) } } else null,
+        // Source + quality badges go before the meta text: [Zing][320] Artist. With only one source the source
+        // badge is hidden, but a known quality (stored format, read from the database, never fetched) still shows.
+        badges =
+            when {
+                !showBadges -> null
+                showSourceBadge -> { { SourceQualityBadges(item.id) } }
+                else -> { { storedQuality?.let { QualityBadge(it) } } }
+            },
     )
 }
 
@@ -2278,24 +2379,12 @@ private fun SectionHeader(
     modifier: Modifier = Modifier,
     isWide: Boolean = false,
 ) {
-    val titleStyle = MaterialTheme.typography.headlineMediumEmphasized
-    val rowHeight = 64.dp
-
-    Row(
-        modifier =
-            modifier
-                .fillMaxWidth()
-                .heightIn(min = rowHeight)
-                .padding(start = 16.dp, end = 16.dp, top = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            text = title,
-            style = titleStyle,
-            color = MaterialTheme.colorScheme.primary,
-            maxLines = 1,
-        )
-    }
+    // Design-system section header: title 20/28 in ink, 24 above and 12 below.
+    MmSectionHeader(
+        title = title,
+        modifier = modifier,
+        horizontalPadding = if (isWide) 24.dp else 16.dp,
+    )
 }
 
 private fun searchSectionTitle(

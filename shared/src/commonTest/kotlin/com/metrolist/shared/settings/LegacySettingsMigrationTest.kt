@@ -547,7 +547,7 @@ class LegacySettingsMigrationTest {
 
         assertEquals("current", settings.lastFmUsername)
         assertEquals("secret", settings.lyricsAiApiKey)
-        assertEquals(ThemeMode.AUTO, settings.themeMode)
+        assertEquals(ThemeMode.DARK, settings.themeMode)
         assertEquals(10f, settings.crossfadeDuration)
     }
 

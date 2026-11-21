@@ -78,6 +78,7 @@ internal val navigationSavedStateConfiguration =
                     subclass(Screen.ListenTogetherLogs::class, Screen.ListenTogetherLogs.serializer())
                     subclass(Screen.History::class, Screen.History.serializer())
                     subclass(Screen.AndroidAuto::class, Screen.AndroidAuto.serializer())
+                    subclass(Screen.Equalizer::class, Screen.Equalizer.serializer())
                     subclass(Screen.Storage::class, Screen.Storage.serializer())
                     subclass(Screen.BackupRestore::class, Screen.BackupRestore.serializer())
                     subclass(Screen.Updates::class, Screen.Updates.serializer())

@@ -54,7 +54,8 @@ val LocalFloatingNavBar = compositionLocalOf { false }
 
 private val FloatingBarHeight = 64.dp
 private val FloatingItemHeight = 48.dp
-private val FloatingBarShadow = 6.dp
+// MinMusic: the nav pill uses accent-container (primaryContainer) and a light shadow; the bar is surface2.
+private val FloatingBarShadow = 3.dp
 private val NavSpring = spring<Float>(dampingRatio = 0.9f, stiffness = 700f)
 
 @Composable
@@ -144,11 +145,11 @@ private fun <T> FloatingNavigationBar(
         if (separateItem != null) {
             val selected = separateItem.key == selectedKey
             val container by animateColorAsState(
-                if (selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainer,
+                if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainer,
                 label = "floatingSearchContainer",
             )
             val content by animateColorAsState(
-                if (selected) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurface,
+                if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
                 label = "floatingSearchContent",
             )
             Surface(
@@ -178,11 +179,11 @@ private fun <T> FloatingNavigationItem(
     modifier: Modifier = Modifier,
 ) {
     val indicator by animateColorAsState(
-        if (selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0f),
+        if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0f),
         label = "floatingItemIndicator",
     )
     val contentColor by animateColorAsState(
-        if (selected) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
+        if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
         label = "floatingItemContent",
     )
     Row(

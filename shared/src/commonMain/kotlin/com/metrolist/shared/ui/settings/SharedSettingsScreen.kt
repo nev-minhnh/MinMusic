@@ -91,7 +91,6 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -758,7 +757,7 @@ private fun SettingsPageList(
                             Box(
                                 Modifier
                                     .padding(horizontal = 16.dp)
-                                    .padding(bottom = if (index == group.items.lastIndex) 0.dp else 4.dp),
+                                    .padding(bottom = if (index == group.items.lastIndex) 0.dp else SettingsListStyle.RowGap),
                             ) {
                                 SettingsItemRow(
                                     item =
@@ -888,16 +887,13 @@ private fun SettingsRootGroup(
     onPageSelected: (SettingsPageId) -> Unit,
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
-        Text(
+        SettingsOverline(
             text = group.title,
-            style = MaterialTheme.typography.titleSmall,
-            color = MaterialTheme.colorScheme.primary,
-            fontWeight = FontWeight.Medium,
-            modifier = Modifier.padding(start = 16.dp, end = 32.dp, top = 8.dp, bottom = 12.dp),
+            modifier = Modifier.padding(start = 32.dp, end = 32.dp, top = 8.dp, bottom = 8.dp),
         )
         Column(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
+            verticalArrangement = Arrangement.spacedBy(SettingsListStyle.RowGap),
         ) {
             group.pages.forEachIndexed { index, pageId ->
                 registry[pageId]?.let { page ->
@@ -909,6 +905,8 @@ private fun SettingsRootGroup(
                         first = index == 0,
                         last = index == group.pages.lastIndex,
                         onClick = { onPageSelected(pageId) },
+                        minHeight = SettingsListStyle.RootRowMinHeight,
+                        containerColor = MaterialTheme.colorScheme.settingsRowContainerColor(),
                     )
                 }
             }
@@ -933,25 +931,36 @@ internal fun SettingsNavigationRow(
         Icon(MetrolistIcons.Outlined.ChevronRight, null, tint = iconTint ?: MaterialTheme.colorScheme.onSurfaceVariant)
     },
     focusModifier: @Composable (Shape) -> Modifier = { Modifier },
+    minHeight: Dp = 72.dp,
+    containerColor: Color? = null,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val pressed by interactionSource.collectIsPressedAsState()
-    val shape = segmentedGroupShape(first, last, pressed)
-    val containerColor by animateColorAsState(
-        if (pressed) MaterialTheme.colorScheme.surfaceContainerHighest else MaterialTheme.colorScheme.surfaceContainer,
+    val shape =
+        if (containerColor != null) {
+            segmentedGroupShape(first, last, pressed = false, inner = SettingsListStyle.InnerCorner)
+        } else {
+            segmentedGroupShape(first, last, pressed)
+        }
+    val rowColor by animateColorAsState(
+        when {
+            pressed -> MaterialTheme.colorScheme.surfaceContainerHighest
+            containerColor != null -> containerColor
+            else -> MaterialTheme.colorScheme.surfaceContainer
+        },
         label = "settingsRootRow",
     )
     Row(
         modifier =
             modifier
                 .fillMaxWidth()
-                .heightIn(min = 72.dp)
+                .heightIn(min = minHeight)
                 .then(focusModifier(shape))
                 .clip(shape)
-                .background(containerColor)
+                .background(rowColor)
                 .focusOutline(shape)
                 .clickable(interactionSource = interactionSource, indication = ripple(), onClick = onClick)
-                .padding(horizontal = 16.dp, vertical = 16.dp),
+                .padding(horizontal = 16.dp, vertical = if (containerColor != null) 12.dp else 16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         val resolvedIconTint = iconTint ?: MaterialTheme.colorScheme.onSurfaceVariant
@@ -999,16 +1008,10 @@ internal fun SettingsItemGroup(
     Column(modifier = Modifier.fillMaxWidth().alpha(if (group.enabled) 1f else 0.6f)) {
         if (showHeading && group.title.isNotBlank()) {
             Column(
-                modifier = Modifier.padding(start = horizontalPadding, end = horizontalPadding * 2, bottom = 12.dp),
+                modifier = Modifier.padding(start = horizontalPadding * 2, end = horizontalPadding * 2, bottom = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
-                Text(
-                    text = group.title,
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.Medium,
-                    modifier = Modifier.semantics { heading() },
-                )
+                SettingsOverline(text = group.title)
                 group.description?.let {
                     Text(
                         it,
@@ -1020,7 +1023,7 @@ internal fun SettingsItemGroup(
         }
         Column(
             modifier = Modifier.fillMaxWidth().padding(horizontal = horizontalPadding),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
+            verticalArrangement = Arrangement.spacedBy(SettingsListStyle.RowGap),
         ) {
             group.items.forEachIndexed { index, item ->
                 SettingsItemRow(
@@ -1080,7 +1083,7 @@ private fun SettingsItemRow(
     }
     val interactionSource = remember { MutableInteractionSource() }
     val pressed by interactionSource.collectIsPressedAsState()
-    val shape = segmentedGroupShape(first, last, pressed)
+    val shape = segmentedGroupShape(first, last, pressed = false, inner = SettingsListStyle.InnerCorner)
     val background by animateColorAsState(
         targetValue =
             if (highlighted) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.settingsRowContainerColor(pressed),
@@ -1114,7 +1117,7 @@ private fun SettingsItemRow(
                 Modifier
                     .bringIntoViewRequester(bringIntoViewRequester)
                     .fillMaxWidth()
-                    .heightIn(min = 72.dp)
+                    .heightIn(min = SettingsListStyle.RowMinHeight)
                     .clip(shape)
                     .background(background)
                     .focusOutline(shape)
@@ -1145,10 +1148,10 @@ private fun SettingsItemRow(
                                     },
                             )
                         },
-                    ).padding(horizontal = 16.dp, vertical = 16.dp),
+                    ).padding(horizontal = 16.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         item.title,
@@ -1165,7 +1168,7 @@ private fun SettingsItemRow(
                 (item.annotatedDescription ?: item.description?.let(::AnnotatedString))?.let {
                     Text(
                         it,
-                        style = MaterialTheme.typography.bodyMedium,
+                        style = MaterialTheme.typography.bodySmall,
                         color = descriptionColor.copy(alpha = if (item.enabled) 1f else 0.38f),
                     )
                 }

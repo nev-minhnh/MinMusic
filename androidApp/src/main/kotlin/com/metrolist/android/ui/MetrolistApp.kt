@@ -51,6 +51,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.systemGestureExclusion
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
@@ -205,6 +207,7 @@ import com.metrolist.android.ui.screens.ArtistScreenHost
 import com.metrolist.android.ui.screens.AutoPlaylistScreen
 import com.metrolist.android.ui.screens.BrowseScreen
 import com.metrolist.android.ui.screens.DownloadsScreen
+import com.metrolist.android.ui.screens.EqualizerScreen
 import com.metrolist.android.ui.screens.HistoryScreen
 import com.metrolist.android.ui.screens.HomeScreen
 import com.metrolist.android.ui.screens.HomeSectionScreen
@@ -279,12 +282,14 @@ import com.metrolist.shared.generated.resources.listen_together_guest_queue
 import com.metrolist.shared.generated.resources.listen_together_guest_solo
 import com.metrolist.shared.generated.resources.menu_history
 import com.metrolist.shared.generated.resources.menu_stop
+import com.metrolist.shared.generated.resources.mm_home_more_actions
 import com.metrolist.shared.generated.resources.mysterious_fourth_tab
 import com.metrolist.shared.generated.resources.mysterious_fourth_tab_description
 import com.metrolist.shared.generated.resources.offline_mode
 import com.metrolist.shared.generated.resources.play
 import com.metrolist.shared.generated.resources.profile
 import com.metrolist.shared.generated.resources.search
+import com.metrolist.shared.generated.resources.settings
 import com.metrolist.shared.generated.resources.update_pending
 import com.metrolist.shared.generated.resources.updates_action
 import com.metrolist.shared.generated.resources.updates_available_message
@@ -325,6 +330,7 @@ import com.metrolist.shared.ui.components.PopupVisibility
 import com.metrolist.shared.ui.components.UnavailableSongSnackbar
 import com.metrolist.shared.ui.components.images.AsyncImage
 import com.metrolist.shared.ui.components.lyrics.LyricsTranslationSnackbar
+import com.metrolist.shared.ui.components.minmusic.MmGreetingTitle
 import com.metrolist.shared.ui.components.rememberBottomSheetState
 import com.metrolist.shared.ui.design.expressive.components.ExpressiveMiniPlayerHeight
 import com.metrolist.shared.ui.haptics.HapticEvent
@@ -368,6 +374,7 @@ import com.metrolist.shared.ui.player.shouldShowMusicVideoSurface
 import com.metrolist.shared.ui.screens.pageKey
 import com.metrolist.shared.ui.screens.toHomeSection
 import com.metrolist.shared.ui.settings.SettingsPageId
+import com.metrolist.shared.ui.theme.MinMotion
 import com.metrolist.shared.ui.theme.resolveThemeSeedColor
 import com.metrolist.shared.ui.tv.tvFocusHighlight
 import com.metrolist.shared.ui.utils.LocalMouseScrollFactors
@@ -697,9 +704,18 @@ fun MetrolistApp(
                 listenTogetherManager = AndroidListenTogetherManager.initialize(context, playerConnection)
             }
         }
+        // Set once the player sheet exists below, so opening the equalizer can collapse an expanded player first.
+        val collapseExpandedPlayer = remember { mutableStateOf<() -> Unit>({}) }
+        val openEqualizer: (String?) -> Unit =
+            remember(navigator) {
+                { autoEqQuery: String? ->
+                    collapseExpandedPlayer.value()
+                    navigator.navigate(Screen.Equalizer(autoEqQuery))
+                }
+            }
         val playerPlatform =
             remember(context, playerConnection, listenTogetherManager) {
-                AndroidPlayerPlatform(context.findActivity(), playerConnection, listenTogetherManager)
+                AndroidPlayerPlatform(context.findActivity(), playerConnection, listenTogetherManager) { openEqualizer(null) }
             }
         val playerViewModel: PlayerViewModel = koinInject()
         val downloadManager: SongDownloadManager = koinInject()
@@ -714,7 +730,7 @@ fun MetrolistApp(
         HiddenHomeItemsSnackbar(snackbarHostState)
         UnavailableSongSnackbar(snackbarHostState)
         YouTubeSyncSnackbar(snackbarHostState)
-        EqualizerDeviceSuggestion(snackbarHostState)
+        EqualizerDeviceSuggestion(snackbarHostState) { productName -> openEqualizer(productName) }
         LyricsTranslationSnackbar(snackbarHostState, playerViewModel.lyricsTranslationFailures)
         listenTogetherManager?.let { manager ->
             ListenTogetherGlobalEvents(manager) { snackbarHostState.showSnackbar(it) }
@@ -1094,7 +1110,14 @@ fun MetrolistApp(
                             collapsedBound = miniPlayerCollapsedBound,
                             expandedBound = maxHeight,
                             initialAnchor = DISMISSED_ANCHOR,
+                            // Mini <-> full player: the 380 ms container spring (design-system section 7).
+                            animationSpec = remember { MinMotion.container<Dp>() },
                         )
+                    SideEffect {
+                        collapseExpandedPlayer.value = {
+                            if (playerBottomSheetState.progress > 0f) playerBottomSheetState.collapseSoft()
+                        }
+                    }
                     ContentUndoHintsSnackbar(snackbarHostState) { page ->
                         coroutineScope.launch {
                             if (hasMedia) playerBottomSheetState.collapseSoft()
@@ -1483,27 +1506,32 @@ fun MetrolistApp(
                                         topBar = {
                                             if (shouldShowTopBar) {
                                                 val topBarTitle: @Composable () -> Unit = {
-                                                    AppTitleWithUpdateWarning(
-                                                        title =
-                                                            when (navigationState.topLevelRoute) {
-                                                                Screen.Home -> {
-                                                                    stringResource(Res.string.home)
-                                                                }
+                                                    if (navigationState.topLevelRoute == Screen.Home && !hasPendingUpdate) {
+                                                        // MinMusic Home header: 32 dp logo tile + time-of-day greeting.
+                                                        MmGreetingTitle()
+                                                    } else {
+                                                        AppTitleWithUpdateWarning(
+                                                            title =
+                                                                when (navigationState.topLevelRoute) {
+                                                                    Screen.Home -> {
+                                                                        stringResource(Res.string.home)
+                                                                    }
 
-                                                                Screen.Library -> {
-                                                                    stringResource(Res.string.filter_library)
-                                                                }
+                                                                    Screen.Library -> {
+                                                                        stringResource(Res.string.filter_library)
+                                                                    }
 
-                                                                Screen.EasterEgg -> {
-                                                                    stringResource(Res.string.mysterious_fourth_tab)
-                                                                }
+                                                                    Screen.EasterEgg -> {
+                                                                        stringResource(Res.string.mysterious_fourth_tab)
+                                                                    }
 
-                                                                else -> {
-                                                                    ""
-                                                                }
-                                                            },
-                                                        showWarning = hasPendingUpdate && navigationState.topLevelRoute == Screen.Home,
-                                                    )
+                                                                    else -> {
+                                                                        ""
+                                                                    }
+                                                                },
+                                                            showWarning = hasPendingUpdate && navigationState.topLevelRoute == Screen.Home,
+                                                        )
+                                                    }
                                                 }
                                                 val topBarSubtitle: @Composable () -> Unit = {
                                                     if (navigationState.topLevelRoute == Screen.Home &&
@@ -1521,8 +1549,11 @@ fun MetrolistApp(
                                                     } else {
                                                         emptyList()
                                                     }
+                                                // MinMusic Home on phones: history and Listen Together move into an overflow
+                                                // menu so the greeting keeps its width (design: logo + greeting + gear).
+                                                val homeOverflow = navigationState.topLevelRoute == Screen.Home && !useDesktopUi
                                                 val topBarActions: @Composable RowScope.() -> Unit = {
-                                                    if (navigationState.topLevelRoute == Screen.Home && Screen.History !in railScreens) {
+                                                    if (navigationState.topLevelRoute == Screen.Home && Screen.History !in railScreens && !homeOverflow) {
                                                         TopBarIconButton(
                                                             floating = useFloatingTopBar,
                                                             onClick = { navigator.navigate(Screen.History) },
@@ -1553,6 +1584,77 @@ fun MetrolistApp(
                                                             )
                                                         }
                                                     }
+                                                    val overflowHistory = homeOverflow && Screen.History !in railScreens
+                                                    val overflowListenTogether =
+                                                        homeOverflow && Settings.shared.listenTogetherEnabled && Screen.ListenTogether !in railScreens
+                                                    if (overflowHistory || overflowListenTogether) {
+                                                        var homeMenuExpanded by remember { mutableStateOf(false) }
+                                                        Box {
+                                                            TopBarIconButton(
+                                                                floating = useFloatingTopBar,
+                                                                onClick = { homeMenuExpanded = true },
+                                                                modifier =
+                                                                    Modifier.tvFocusHighlight(
+                                                                        CircleShape,
+                                                                        scale = 1.08f,
+                                                                        bringIntoView = false,
+                                                                    ),
+                                                            ) {
+                                                                Icon(
+                                                                    MetrolistIcons.Outlined.MoreVert,
+                                                                    contentDescription = stringResource(Res.string.mm_home_more_actions),
+                                                                    modifier = Modifier.size(24.dp),
+                                                                )
+                                                            }
+                                                            DropdownMenu(
+                                                                expanded = homeMenuExpanded,
+                                                                onDismissRequest = { homeMenuExpanded = false },
+                                                            ) {
+                                                                if (overflowHistory) {
+                                                                    DropdownMenuItem(
+                                                                        text = { Text(stringResource(Res.string.menu_history)) },
+                                                                        leadingIcon = {
+                                                                            Icon(MetrolistIcons.Outlined.MusicHistory, contentDescription = null)
+                                                                        },
+                                                                        onClick = {
+                                                                            homeMenuExpanded = false
+                                                                            navigator.navigate(Screen.History)
+                                                                        },
+                                                                    )
+                                                                }
+                                                                if (overflowListenTogether) {
+                                                                    DropdownMenuItem(
+                                                                        text = { Text(stringResource(Res.string.listen_together)) },
+                                                                        leadingIcon = {
+                                                                            Icon(MetrolistIcons.Outlined.Group, contentDescription = null)
+                                                                        },
+                                                                        onClick = {
+                                                                            homeMenuExpanded = false
+                                                                            navigator.navigate(Screen.ListenTogether)
+                                                                        },
+                                                                    )
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                    if (navigationState.topLevelRoute == Screen.Home && Screen.Settings !in railScreens) {
+                                                        TopBarIconButton(
+                                                            floating = useFloatingTopBar,
+                                                            onClick = { navigator.navigate(Screen.Settings) },
+                                                            modifier =
+                                                                Modifier.tvFocusHighlight(
+                                                                    CircleShape,
+                                                                    scale = 1.08f,
+                                                                    bringIntoView = false,
+                                                                ),
+                                                        ) {
+                                                            Icon(
+                                                                MetrolistIcons.Outlined.Settings,
+                                                                contentDescription = stringResource(Res.string.settings),
+                                                                modifier = Modifier.size(24.dp),
+                                                            )
+                                                        }
+                                                    }
                                                     if (Settings.shared.devtoolsUnlocked) {
                                                         TopBarIconButton(
                                                             floating = useFloatingTopBar,
@@ -1571,7 +1673,7 @@ fun MetrolistApp(
                                                             )
                                                         }
                                                     }
-                                                    if (Settings.shared.listenTogetherEnabled && Screen.ListenTogether !in railScreens) {
+                                                    if (Settings.shared.listenTogetherEnabled && Screen.ListenTogether !in railScreens && !homeOverflow) {
                                                         TopBarIconButton(
                                                             floating = useFloatingTopBar,
                                                             onClick = { navigator.navigate(Screen.ListenTogether) },
@@ -2199,7 +2301,8 @@ private fun AppTitleWithUpdateWarning(
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text(
             text = title,
-            style = MaterialTheme.typography.titleLargeEmphasized,
+            // MinMusic: top-level page titles use the display style (28/36, 600).
+            style = MaterialTheme.typography.headlineMedium,
         )
         if (showWarning) {
             Text(
@@ -2791,6 +2894,10 @@ fun getEntryProvider(
             AndroidAutoScreen(onNavigateBack = { navigator.goBack() })
         }
 
+        entry<Screen.Equalizer>(metadata = navTabMetadata) { route ->
+            EqualizerScreen(onNavigateBack = { navigator.goBack() }, autoEqQuery = route.autoEqQuery)
+        }
+
         entry<Screen.Settings>(metadata = navTabMetadata) {
             SettingsScreen(
                 onNavigateBack = {
@@ -2801,6 +2908,7 @@ fun getEntryProvider(
                 },
                 onNavigateToDownloads = { navigator.navigate(Screen.AutoPlaylist("downloaded")) },
                 onNavigateToArtist = { artistId -> navigator.navigate(Screen.Artist(artistId)) },
+                onNavigateToEqualizer = { navigator.navigate(Screen.Equalizer()) },
             )
         }
 
@@ -2815,6 +2923,7 @@ fun getEntryProvider(
                 },
                 onNavigateToDownloads = { navigator.navigate(Screen.AutoPlaylist("downloaded")) },
                 onNavigateToArtist = { navigator.navigate(Screen.Artist(it)) },
+                onNavigateToEqualizer = { navigator.navigate(Screen.Equalizer()) },
             )
         }
 
