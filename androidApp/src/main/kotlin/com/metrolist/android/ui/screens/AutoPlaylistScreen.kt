@@ -81,6 +81,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.metrolist.android.LocalMiniPlayerBottomInset
 import com.metrolist.android.LocalPlaylistAdder
+import com.metrolist.android.LocalSaveToFolder
 import com.metrolist.android.playback.AudioCacheManager
 import com.metrolist.android.playback.LocalPlayerConnection
 import com.metrolist.android.playback.SongDownloadManager
@@ -91,6 +92,7 @@ import com.metrolist.android.ui.components.SongMetadataRow
 import com.metrolist.android.ui.download.rememberDownloadPermissionGate
 import com.metrolist.android.ui.menu.CollectionExportDialog
 import com.metrolist.android.ui.menu.PlaylistMenu
+import com.metrolist.android.ui.menu.SaveToFolderBatch
 import com.metrolist.android.ui.menu.SongMenu
 import com.metrolist.android.viewmodels.AutoPlaylistPresentationInput
 import com.metrolist.android.viewmodels.prepareAutoPlaylistSongs
@@ -123,6 +125,8 @@ import com.metrolist.shared.generated.resources.remove
 import com.metrolist.shared.generated.resources.remove_all
 import com.metrolist.shared.generated.resources.remove_from_device
 import com.metrolist.shared.generated.resources.remove_selected_count
+import com.metrolist.shared.generated.resources.save_all_to_folder
+import com.metrolist.shared.generated.resources.save_to_folder_desc
 import com.metrolist.shared.generated.resources.search_no_results
 import com.metrolist.shared.generated.resources.songs
 import com.metrolist.shared.generated.resources.stored_clear_cache_title
@@ -162,6 +166,7 @@ import com.metrolist.shared.ui.components.AlertDialog
 import com.metrolist.shared.ui.components.CollectionFilterBar
 import com.metrolist.shared.ui.components.CollectionFilterBarText
 import com.metrolist.shared.ui.components.ContainedLoadingIndicator
+import com.metrolist.shared.ui.components.PlayerMenuAction
 import com.metrolist.shared.ui.components.PlaylistOrderControls
 import com.metrolist.shared.ui.components.PopupContent
 import com.metrolist.shared.ui.components.PopupVisibility
@@ -316,6 +321,7 @@ fun AutoPlaylistScreen(
     var topDirection by remember { mutableStateOf(SortDirection.DESCENDING) }
     val likedReorderMode = playlistSort.isReordering(Settings.shared.playlistEditLock, currentType == "liked")
     val addToPlaylist = LocalPlaylistAdder.current
+    val saveToFolder = LocalSaveToFolder.current
     val selection = rememberSelectionState(currentType)
     val downloadFilter = rememberDownloadPlaylistFilter(database)
     val downloadFilterState by downloadFilter.state.collectAsState()
@@ -618,6 +624,21 @@ fun AutoPlaylistScreen(
                     stringResource(Res.string.remove_selected_count, selectedSongs.size)
                 } else {
                     null
+                },
+            additionalActions =
+                if (currentType == "downloaded") {
+                    listOf(
+                        PlayerMenuAction(
+                            MetrolistIcons.Outlined.Storage,
+                            stringResource(Res.string.save_all_to_folder),
+                            stringResource(Res.string.save_to_folder_desc),
+                        ) {
+                            val ids = selectedSongs.map { it.id }
+                            saveToFolder { SaveToFolderBatch(ids) }
+                        },
+                    )
+                } else {
+                    emptyList()
                 },
         )
     }

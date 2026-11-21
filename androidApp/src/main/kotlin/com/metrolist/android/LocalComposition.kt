@@ -4,6 +4,7 @@ import androidx.compose.runtime.ProvidableCompositionLocal
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.metrolist.android.ui.menu.SaveToFolderBatch
 import com.metrolist.shared.listentogether.ListenTogetherManager
 import com.metrolist.shared.model.SongItem
 
@@ -21,3 +22,7 @@ val LocalListenTogetherManager: ProvidableCompositionLocal<ListenTogetherManager
 /** Requires the app-root provider; reading outside it fails. */
 val LocalPlaylistAdder: ProvidableCompositionLocal<(List<SongItem>) -> Unit> =
     compositionLocalOf { error("LocalPlaylistAdder was not provided") }
+
+/** Requires the app-root provider so the folder picker outlives the menu that starts it. */
+val LocalSaveToFolder: ProvidableCompositionLocal<(suspend () -> SaveToFolderBatch) -> Unit> =
+    compositionLocalOf { error("LocalSaveToFolder was not provided") }

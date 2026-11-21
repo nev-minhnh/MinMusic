@@ -2517,4 +2517,13 @@
     <string name="ai_setup_sign_in_again">Đăng nhập lại</string>
     <string name="ai_setup_key_limits">Xem lại giới hạn khóa</string>
     <string name="download_format_value">%1$s %2$d kbit/giây</string>
+    <string name="save_to_folder">Lưu vào thư mục</string>
+    <string name="save_all_to_folder">Lưu bản tải xuống vào thư mục</string>
+    <string name="save_to_folder_desc">Sao chép thành tệp âm thanh có thẻ thông tin</string>
+    <string name="saving_to_folder">Đang lưu vào thư mục…</string>
+    <plurals name="saved_to_folder">
+        <item quantity="other">Đã lưu %1$d bài hát vào thư mục</item>
+    </plurals>
+    <string name="save_to_folder_failed_count">Đã lưu %1$d, không lưu được %2$d</string>
+    <string name="save_to_folder_nothing">Không có bài hát đã tải xuống nào để lưu</string>
 </resources>

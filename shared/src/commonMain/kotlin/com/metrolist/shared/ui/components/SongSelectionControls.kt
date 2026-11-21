@@ -34,6 +34,7 @@ fun SongSelectionControls(
     downloadState: MediaDownloadState = MediaDownloadState.NOT_DOWNLOADED,
     isGuest: Boolean = false,
     removeLabel: String? = null,
+    additionalActions: List<PlayerMenuAction> = emptyList(),
 ) {
     var menuOpen by remember { mutableStateOf(false) }
     // Back leaves selection mode first instead of leaving the screen.
@@ -73,6 +74,15 @@ fun SongSelectionControls(
                             SongLikeState.addLikes(selectedSongs)
                         }
                     },
+                    additionalActions =
+                        additionalActions.map { action ->
+                            action.copy(
+                                onClick = {
+                                    dismiss()
+                                    action.onClick()
+                                },
+                            )
+                        },
                 ),
             onDismiss = dismiss,
         )

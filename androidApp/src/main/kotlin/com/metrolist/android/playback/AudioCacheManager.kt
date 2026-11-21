@@ -130,6 +130,24 @@ internal fun moveAudioToDirectory(
     }
 }
 
+/** A user-created album that replaces the album tags of exported songs, numbered in list order. */
+data class UserAlbumExport(
+    val name: String,
+    val artworkUrl: String?,
+)
+
+internal data class UserAlbumTrack(
+    val name: String,
+    val artworkUrl: String?,
+    val trackNumber: Int,
+    val trackTotal: Int,
+)
+
+data class SaveToFolderResult(
+    val saved: Int,
+    val failed: Int,
+)
+
 internal fun downloadFileBaseName(song: SongItem): String =
     downloadFileBaseName(song.artists.joinToString(", ") { it.name }.trim(), song.title.trim(), song.id)
 
@@ -1093,7 +1111,7 @@ class AudioCacheManager(
         }
     }
 
-    // Tags come from the stored song, album and lyrics rows.
+    // Tags come from the stored song, album and lyrics rows; a user album replaces the album, cover and track fields.
     private suspend fun exportMetadata(
         songId: String,
         title: String,
@@ -1101,6 +1119,7 @@ class AudioCacheManager(
         album: String?,
         thumbnailUrl: String?,
         song: SongItem? = null,
+        userAlbum: UserAlbumTrack? = null,
     ): AudioExportMetadata {
         val dao = database.dao()
         val stored = dao.getSongById(songId)
@@ -1108,6 +1127,17 @@ class AudioCacheManager(
             dao.cachedLyrics(songId)?.let { entry ->
                 entry.userLyrics ?: entry.lyrics.takeIf { entry.provider != LyricsEntity.LYRICS_NOT_FOUND }
             }?.takeIf { it.isNotBlank() && it != LyricsEntity.LYRICS_NOT_FOUND }
+        if (userAlbum != null) {
+            return AudioExportMetadata(
+                title,
+                artist,
+                userAlbum.name,
+                artwork = downloadedArtwork.exportArtwork(userAlbum.artworkUrl ?: thumbnailUrl),
+                trackNumber = userAlbum.trackNumber,
+                trackTotal = userAlbum.trackTotal,
+                lyrics = lyrics,
+            )
+        }
         val albumId = stored?.album?.id ?: stored?.song?.albumId ?: song?.album?.id
         val storedAlbum = albumId?.let { dao.album(it).first() }
         val trackNumber =
@@ -1125,6 +1155,65 @@ class AudioCacheManager(
             trackTotal = song?.totalTrackCount ?: storedAlbum?.album?.songCount?.takeIf { trackNumber != null && it >= trackNumber },
             lyrics = lyrics,
         )
+    }
+
+    /**
+     * Copies downloaded songs into a document tree as tagged files named "Artist - Title".
+     * The stored downloads are left in place. Songs without a download are skipped.
+     */
+    suspend fun saveDownloadsToFolder(
+        songIds: List<String>,
+        treeUri: String,
+        userAlbum: UserAlbumExport? = null,
+    ): SaveToFolderResult =
+        withContext(Dispatchers.IO) {
+            require(treeUri.isNotBlank()) { "No folder selected" }
+            var saved = 0
+            var failed = 0
+            songIds.forEachIndexed { index, songId ->
+                try {
+                    val track = userAlbum?.let { UserAlbumTrack(it.name, it.artworkUrl, index + 1, songIds.size) }
+                    if (storageLock.song(songId) { saveDownloadToFolder(songId, treeUri, track) }) saved++
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (error: Exception) {
+                    Timber.tag(TAG).w(error, "Failed to save download to folder songId=%s", songId)
+                    failed++
+                }
+            }
+            SaveToFolderResult(saved, failed)
+        }
+
+    private suspend fun saveDownloadToFolder(
+        songId: String,
+        treeUri: String,
+        userAlbum: UserAlbumTrack?,
+    ): Boolean {
+        val entry = database.dao().cachedAudio(songId)?.takeIf { it.kind == KIND_DOWNLOAD && audioAvailable(it.filePath) } ?: return false
+        val safeId = songId.replace(Regex("[^A-Za-z0-9._-]"), "_")
+        val tempDir = File(context.cacheDir, "download-export").also(File::mkdirs)
+        val copiedFile = File(tempDir, "$safeId.save.tmp")
+        val temporaryFiles = listOf(copiedFile, File(tempDir, "$safeId.save.opus.tmp"), File(tempDir, "$safeId.save.m4a.tmp"))
+        synchronized(activeAudioFiles) { activeAudioFiles.addAll(temporaryFiles.map { it.canonicalFile }) }
+        try {
+            copyAudioTo(entry.filePath, copiedFile)
+            check(copiedFile.length() >= MIN_AUDIO_BYTES) { "Downloaded audio is too small" }
+            val (sourceFile, mimeType) =
+                prepareStoredAudio(
+                    copiedFile,
+                    entry.mimeType,
+                    publicStorage = true,
+                    metadata = exportMetadata(entry.songId, entry.title, entry.artist, entry.album, entry.thumbnailUrl, userAlbum = userAlbum),
+                )
+            val baseName = downloadFileBaseName(entry.artist, entry.title, safeId)
+            publishCustomAudio(sourceFile, "$baseName${extensionForMimeType(mimeType)}", mimeType, treeUri)
+            return true
+        } finally {
+            synchronized(activeAudioFiles) {
+                temporaryFiles.forEach { it.delete() }
+                activeAudioFiles.removeAll(temporaryFiles.map { it.canonicalFile }.toSet())
+            }
+        }
     }
 
     private suspend fun publishStoredAudio(
@@ -1490,8 +1579,8 @@ class AudioCacheManager(
         source: File,
         fileName: String,
         mimeType: String?,
+        customUriString: String = Settings.shared.customDownloadPath,
     ): String {
-        val customUriString = Settings.shared.customDownloadPath
         if (customUriString.isBlank()) {
             val fallbackDir = internalDirectory(KIND_DOWNLOAD)
             return moveAudioToDirectory(source, fallbackDir, fileName)

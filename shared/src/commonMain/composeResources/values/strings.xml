@@ -5535,4 +5535,21 @@
     <string name="ai_setup_key_limits">Review key limits</string>
     <!-- Translators: Codec and bitrate of a downloaded song in the downloads list, for example Opus 160 kbps. -->
     <string name="download_format_value">%1$s %2$d kbps</string>
+    <!-- Translators: Song menu action that copies a downloaded song into the chosen folder. -->
+    <string name="save_to_folder">Save to folder</string>
+    <!-- Translators: Menu action that copies the downloaded songs of an album, playlist or selection into the chosen folder. -->
+    <string name="save_all_to_folder">Save downloads to folder</string>
+    <!-- Translators: Description of the save to folder actions. -->
+    <string name="save_to_folder_desc">Copy as a tagged audio file</string>
+    <!-- Translators: Message shown while downloaded songs are copied into the chosen folder. -->
+    <string name="saving_to_folder">Saving to folder…</string>
+    <!-- Translators: Message shown after downloaded songs were copied into the chosen folder. -->
+    <plurals name="saved_to_folder">
+        <item quantity="one">Saved %1$d song to the folder</item>
+        <item quantity="other">Saved %1$d songs to the folder</item>
+    </plurals>
+    <!-- Translators: Message shown when some downloaded songs could not be copied. %1$d is the saved count, %2$d the failed count. -->
+    <string name="save_to_folder_failed_count">Saved %1$d, could not save %2$d</string>
+    <!-- Translators: Message shown when none of the chosen songs are downloaded. -->
+    <string name="save_to_folder_nothing">No downloaded songs to save</string>
 </resources>
