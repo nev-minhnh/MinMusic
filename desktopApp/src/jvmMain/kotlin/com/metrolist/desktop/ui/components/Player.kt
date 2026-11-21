@@ -139,6 +139,8 @@ import com.metrolist.shared.ui.components.PlayerPrimaryControls
 import com.metrolist.shared.ui.components.PopupVisibility
 import com.metrolist.shared.ui.components.VintagePlayerControls
 import com.metrolist.shared.ui.components.VintagePlayerControlsText
+import com.metrolist.shared.ui.components.minmusic.MmPlayerPlayButton
+import com.metrolist.shared.ui.components.minmusic.MmPlayerProgressTrack
 import com.metrolist.shared.ui.components.rememberTrackMarquee
 import com.metrolist.shared.ui.components.sliders.PlaybackProgressSlider
 import com.metrolist.shared.ui.icons.MetrolistIcons
@@ -148,6 +150,7 @@ import com.metrolist.shared.ui.menu.rememberCursorContextMenuState
 import com.metrolist.shared.ui.navigation.blockInput
 import com.metrolist.shared.ui.navigation.navigationPopupSource
 import com.metrolist.shared.ui.playback.retainPlaybackKeyFocus
+import com.metrolist.shared.ui.theme.LocalBrand
 import com.metrolist.shared.ui.theme.uiEnhanced
 import com.metrolist.shared.utils.ShareUrls
 import com.metrolist.shared.utils.formatDuration
@@ -375,7 +378,12 @@ fun PlayerSlider(
     enabled: Boolean = true,
     showThumb: Boolean = true,
     valueProvider: () -> Float = { value },
+    mmStyle: Boolean = false,
 ) {
+    // MinMusic: the played part uses the brand gradient; the default style gets the MinMusic 4 dp track, the other
+    // styles (wavy, slim, squiggly, linear) keep the user's shape and thickness and only swap in the gradient.
+    val brandColors = if (mmStyle) LocalBrand.current.gradientColors else null
+    val bufferedFraction = bufferedValue
     PlaybackProgressSlider(
         value = value,
         valueProvider = valueProvider,
@@ -396,6 +404,19 @@ fun PlayerSlider(
             ),
         bufferedFraction = bufferedValue,
         modifier = modifier,
+        track =
+            if (mmStyle && style == SliderStyle.DEFAULT) {
+                { state ->
+                    MmPlayerProgressTrack(
+                        progress = { state.value },
+                        bufferedFraction = { bufferedFraction },
+                        showThumb = showThumb,
+                    )
+                }
+            } else {
+                null
+            },
+        activeGradientColors = brandColors,
     )
 }
 
@@ -460,6 +481,7 @@ private fun StandardPlayerProgress(colorScheme: ColorScheme) {
     }
 
     val canSeek = !isListenTogetherGuest && !isLive
+    val mmStyle = isMinMusicPlayer()
 
     val displayPosition = {
         when {
@@ -527,10 +549,11 @@ private fun StandardPlayerProgress(colorScheme: ColorScheme) {
                 },
                 style = Settings.shared.sliderStyle,
                 isPlaying = isPlaying,
-                color = colorScheme.primary,
+                color = if (mmStyle) colorScheme.onSurface else colorScheme.primary,
                 modifier = Modifier.weight(1f).onSizeChanged { sliderWidthPx = it.width },
                 bufferedValue = bufferedProgress,
                 enabled = canSeek,
+                mmStyle = mmStyle,
             )
             Text(
                 text = formatDuration(playerDuration),
@@ -680,6 +703,9 @@ fun StandardBottomPlayer(
                                 trackMarquee,
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
+                                if (isMinMusicPlayer()) {
+                                    MmDesktopNowPlayingBadges(Modifier.padding(end = 6.dp))
+                                }
                                 artists.forEachIndexed { idx, artist ->
                                     Text(
                                         text = artist.displayName,
@@ -734,7 +760,16 @@ fun StandardBottomPlayer(
                             iconSize = 18.dp,
                         )
 
-                        if (!isListenTogetherGuest) {
+                        if (!isListenTogetherGuest && isMinMusicPlayer()) {
+                            Spacer(Modifier.width(8.dp))
+                            MmPlayerPlayButton(
+                                isPlaying = PlayerState.isPlaying,
+                                isLoading = PlayerState.isPlaybackLoading,
+                                onClick = { PlayerState.togglePlay() },
+                                size = 40.dp,
+                                useRoundedRect = Settings.shared.useRoundedRectPlayButton,
+                            )
+                        } else if (!isListenTogetherGuest) {
                             Spacer(Modifier.width(8.dp))
 
                             Surface(
@@ -919,6 +954,9 @@ fun StandardBottomPlayer(
                                     trackMarquee,
                                     verticalAlignment = Alignment.CenterVertically,
                                 ) {
+                                    if (isMinMusicPlayer()) {
+                                        MmDesktopNowPlayingBadges(Modifier.padding(end = 6.dp))
+                                    }
                                     artists.forEachIndexed { idx, artist ->
                                         Text(
                                             text = artist.displayName,
@@ -1002,7 +1040,9 @@ fun StandardBottomPlayer(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = if (swapControls) Arrangement.Start else Arrangement.Center,
                         ) {
-                            if (!isListenTogetherGuest) {
+                            if (!isListenTogetherGuest && isMinMusicPlayer()) {
+                                MmDesktopBarTransport(playButtonSize = if (isMedium) 44.dp else 48.dp)
+                            } else if (!isListenTogetherGuest) {
                                 if (Settings.shared.playerType == PlayerType.VINTAGE ||
                                     Settings.shared.playerType == PlayerType.CLASSIC
                                 ) {
@@ -1103,6 +1143,10 @@ fun StandardBottomPlayer(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.End,
                     ) {
+                        if (isMinMusicPlayer()) {
+                            MmDesktopEqualizerButton()
+                            Spacer(Modifier.width(4.dp))
+                        }
                         PlayerConnectedButtonGroup(
                             onQueueClick = UiState::togglePersistentPlayerDrawer,
                             onLyricsClick = {
