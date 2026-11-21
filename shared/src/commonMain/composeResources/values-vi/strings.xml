@@ -2608,4 +2608,6 @@
     <string name="theme_color_minmusic">MinMusic</string>
     <string name="app_font_reset_default_description">Dùng phông chữ mặc định (Be Vietnam Pro) và xóa phông chữ đã nhập</string>
     <string name="app_font_reset_default_confirm">Xóa phông chữ đã nhập và dùng phông chữ mặc định?</string>
+    <string name="metroeq_tab_bands">Dải tần (%1$d/%2$d)</string>
+    <string name="metroeq_tab_effects">Hiệu ứng</string>
 </resources>
