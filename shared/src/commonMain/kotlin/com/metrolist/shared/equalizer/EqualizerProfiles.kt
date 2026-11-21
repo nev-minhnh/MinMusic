@@ -625,8 +625,8 @@ fun parseEqualizerText(content: String): Pair<Double, List<ParametricEqBand>>? =
 /**
  * Converts an AutoEq "GraphicEQ: f g; f g; ..." curve to log-spaced peaking bands, one per third of an octave
  * from 20 Hz to 20 kHz. Each band starts at the curve's gain at its centre (linear interpolation over log
- * frequency), then the gains are corrected a few times by the difference between the curve and the summed
- * response at every centre, which removes most of the overlap between neighbouring bands.
+ * frequency), then the gains are corrected repeatedly (damped) by the difference between the curve and the
+ * summed response at every centre, which removes most of the overlap between neighbouring bands.
  */
 fun parseGraphicEq(content: String): Pair<Double, List<ParametricEqBand>>? {
     val line = content.lineSequence().map { it.trim() }.firstOrNull { it.startsWith("GraphicEQ:", ignoreCase = true) } ?: return null
@@ -651,7 +651,9 @@ fun parseGraphicEq(content: String): Pair<Double, List<ParametricEqBand>>? {
         return if (f1 == f0) g1 else g0 + (g1 - g0) * ln(frequency / f0) / ln(f1 / f0)
     }
 
-    val template = createEqualizerBands(GRAPHIC_EQ_BANDS)
+    // Third-octave centres with wider bands than a graphic EQ uses: Q 2 overlaps neighbours enough that the
+    // summed response has no dips between centres, and the damped correction below converges without ringing.
+    val template = createEqualizerBands(GRAPHIC_EQ_BANDS).map { it.copy(q = GRAPHIC_EQ_Q) }
     val targets = template.map { curve(it.frequency) }
     val gains = targets.toDoubleArray()
     val analyzer = ParametricEqualizer(GRAPHIC_EQ_SAMPLE_RATE, 1)
@@ -659,7 +661,9 @@ fun parseGraphicEq(content: String): Pair<Double, List<ParametricEqBand>>? {
         analyzer.update(EqualizerProfile("graphic", "graphic", template.mapIndexed { index, band -> band.copy(gain = gains[index]) }))
         val responses = template.map { analyzer.responseDb(it.frequency) }
         for (index in gains.indices) {
-            gains[index] = (gains[index] + targets[index] - responses[index]).coerceIn(MIN_EQUALIZER_BAND_GAIN_DB, MAX_EQUALIZER_BAND_GAIN_DB)
+            gains[index] =
+                (gains[index] + GRAPHIC_EQ_DAMPING * (targets[index] - responses[index]))
+                    .coerceIn(MIN_EQUALIZER_BAND_GAIN_DB, MAX_EQUALIZER_BAND_GAIN_DB)
         }
     }
     return 0.0 to template.mapIndexed { index, band -> band.copy(gain = round(gains[index] * 10) / 10) }
@@ -690,7 +694,9 @@ fun EqualizerProfile.toParametricEqText(): String =
     }
 
 private const val GRAPHIC_EQ_BANDS = 30
-private const val GRAPHIC_EQ_ITERATIONS = 12
+private const val GRAPHIC_EQ_ITERATIONS = 40
+private const val GRAPHIC_EQ_Q = 2.0
+private const val GRAPHIC_EQ_DAMPING = 0.5
 private const val GRAPHIC_EQ_SAMPLE_RATE = 48_000
 
 /** Locale-independent fixed-point text, as Equalizer APO files and numeric entry expect. */
