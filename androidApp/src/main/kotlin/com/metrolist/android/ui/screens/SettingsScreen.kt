@@ -8,11 +8,9 @@ import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -26,7 +24,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
@@ -57,15 +54,16 @@ import com.metrolist.android.ui.screens.settings.AndroidAboutScreen
 import com.metrolist.android.ui.screens.settings.AndroidAutoScreen
 import com.metrolist.android.ui.screens.settings.BackupRestoreScreen
 import com.metrolist.android.ui.screens.settings.DevtoolsSettingsScreen
+import com.metrolist.android.ui.screens.settings.NctLoginSheet
 import com.metrolist.android.ui.screens.settings.PlaybackBenchmarkSettingsScreen
 import com.metrolist.android.ui.screens.settings.StorageSettingsScreen
 import com.metrolist.android.ui.screens.settings.UpdateDetailsScreen
 import com.metrolist.android.ui.screens.settings.UpdatesScreen
+import com.metrolist.android.ui.screens.settings.ZingLoginScreen
+import com.metrolist.android.ui.screens.settings.rememberSourceSettingsUi
 import com.metrolist.android.update.AppUpdateManager
 import com.metrolist.android.update.AppUpdateState
 import com.metrolist.android.utils.AppFontManager
-import com.metrolist.android.utils.AppIcon
-import com.metrolist.android.utils.IconUtils
 import com.metrolist.android.utils.QuickFontManager
 import com.metrolist.android.viewmodels.HomeViewModel
 import com.metrolist.android.viewmodels.SearchViewModel
@@ -81,8 +79,8 @@ import com.metrolist.shared.generated.resources.app_font_import_custom
 import com.metrolist.shared.generated.resources.app_font_installed
 import com.metrolist.shared.generated.resources.app_font_invalid
 import com.metrolist.shared.generated.resources.app_font_reset
-import com.metrolist.shared.generated.resources.app_font_reset_confirm
-import com.metrolist.shared.generated.resources.app_font_reset_description
+import com.metrolist.shared.generated.resources.app_font_reset_default_confirm
+import com.metrolist.shared.generated.resources.app_font_reset_default_description
 import com.metrolist.shared.generated.resources.app_language_system
 import com.metrolist.shared.generated.resources.calculating
 import com.metrolist.shared.generated.resources.device_language
@@ -174,21 +172,6 @@ fun SettingsScreen(
         remember(contentLanguageChoices, deviceLanguageLabel) {
             listOf(SettingsChoice("device", deviceLanguageLabel)) + contentLanguageChoices.drop(1)
         }
-    val appIconChoices =
-        AppIcon.entries.map { icon ->
-            SettingsChoice(
-                id = icon.name,
-                label = stringResource(icon.labelRes),
-                preview = {
-                    Box(Modifier.size(44.dp).clip(RoundedCornerShape(10.dp))) {
-                        icon.previewBackgroundRes?.let { background ->
-                            Image(painterResource(background), contentDescription = null, modifier = Modifier.matchParentSize())
-                        }
-                        Image(painterResource(icon.previewRes), contentDescription = null, modifier = Modifier.matchParentSize())
-                    }
-                },
-            )
-        }
     val customFontFile = SharedPreferences.shared.androidCustomFontFile
     val hasCustomFont = AppFontManager.hasImportedFont(context, customFontFile)
     var downloadingFontId by remember { mutableStateOf<String?>(null) }
@@ -224,8 +207,8 @@ fun SettingsScreen(
             SettingsHostAction(
                 id = "resetFont",
                 title = stringResource(Res.string.app_font_reset),
-                description = stringResource(Res.string.app_font_reset_description),
-                confirmationMessage = if (hasCustomFont) stringResource(Res.string.app_font_reset_confirm) else null,
+                description = stringResource(Res.string.app_font_reset_default_description),
+                confirmationMessage = if (hasCustomFont) stringResource(Res.string.app_font_reset_default_confirm) else null,
                 enabled =
                     hasCustomFont || SharedPreferences.shared.androidActiveFontId != QuickFontManager.SYSTEM_ID ||
                         SharedPreferences.shared.appFont != FontOption.SYSTEM,
@@ -293,6 +276,9 @@ fun SettingsScreen(
                 },
             )
         }
+    var showZingLogin by remember { mutableStateOf(false) }
+    var showNctLogin by remember { mutableStateOf(false) }
+    val sourceSettings = rememberSourceSettingsUi(onZingLogin = { showZingLogin = true }, onNctLogin = { showNctLogin = true })
     var totalCacheSize by remember { mutableLongStateOf(0L) }
     var freeStorageSize by remember { mutableLongStateOf(0L) }
     var isCalculatingCacheSize by remember { mutableStateOf(true) }
@@ -444,7 +430,6 @@ fun SettingsScreen(
                             SettingsHostChoice.CONTENT_COUNTRY to contentCountryChoices,
                             SettingsHostChoice.APP_LANGUAGE to contentLanguageChoices,
                             SettingsHostChoice.LYRICS_TARGET_LANGUAGE to lyricsTargetLanguageChoices,
-                            SettingsHostChoice.APP_ICON to appIconChoices,
                         ),
                     onHostChoiceSelected = { choice, selected ->
                         when (choice) {
@@ -468,12 +453,7 @@ fun SettingsScreen(
                                 SharedPreferences.shared.lyricsAiTargetLanguage = selected
                             }
 
-                            SettingsHostChoice.APP_ICON -> {
-                                val icon = AppIcon.fromPreference(selected)
-                                SharedPreferences.shared.appIcon = icon.name
-                                IconUtils.setIcon(context, icon)
-                            }
-
+                            SettingsHostChoice.APP_ICON,
                             SettingsHostChoice.ARTIST_ICON_SOURCE,
                             SettingsHostChoice.ARTIST_BANNER_SOURCE,
                             -> {
@@ -491,6 +471,8 @@ fun SettingsScreen(
                     fontPrimaryActions = fontPrimaryActions,
                     fontDownloadActions = fontDownloadActions,
                     onClearSearchHistory = searchViewModel.shared::clearSearchHistory,
+                    sourceStatuses = sourceSettings.statuses,
+                    sourceAccountActions = sourceSettings.accountActions,
                     onOpenPage = { page ->
                         if (page == SettingsPageId.SUPPORTED_LINKS) openSupportedLinks()
                     },
@@ -583,6 +565,12 @@ fun SettingsScreen(
                 ),
             modifier = Modifier.fillMaxSize(),
         )
+        if (showZingLogin) {
+            ZingLoginScreen(onLoggedIn = { showZingLogin = false }, onNavigateBack = { showZingLogin = false })
+        }
+        if (showNctLogin) {
+            NctLoginSheet(onLoggedIn = { showNctLogin = false }, onDismiss = { showNctLogin = false })
+        }
     }
 }
 

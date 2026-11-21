@@ -32,6 +32,7 @@ import com.metrolist.shared.model.MlxSong
 import com.metrolist.shared.model.WordTimestamp
 import com.metrolist.shared.model.lyricsProviderLabel
 import com.metrolist.shared.settings.Settings
+import com.metrolist.shared.source.isForeignSourceId
 import com.metrolist.shared.state.GlobalYouTube
 import com.metrolist.shared.utils.systemCountryCode
 import com.metrolist.shared.youtube.playback.PlaybackEventKind
@@ -296,6 +297,7 @@ class LyricsRepository(
         }
 
     suspend fun getSongwriters(videoId: String): List<String> {
+        if (isForeignSourceId(videoId)) return emptyList()
         songwritersCacheGuard.withLock {
             songwritersCache[videoId]?.let { return it }
         }

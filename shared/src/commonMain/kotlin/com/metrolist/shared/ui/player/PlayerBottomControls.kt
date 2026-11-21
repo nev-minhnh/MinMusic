@@ -69,6 +69,7 @@ import com.metrolist.shared.model.isVideoSong
 import com.metrolist.shared.model.isVideoType
 import com.metrolist.shared.playback.LocalPlayerSession
 import com.metrolist.shared.playback.SleepTimerState
+import com.metrolist.shared.source.isYouTubeId
 import com.metrolist.shared.ui.LocalIsTv
 import com.metrolist.shared.ui.components.PlayerConnectedButtonGroup
 import com.metrolist.shared.ui.components.focusOutline
@@ -317,7 +318,7 @@ internal fun shouldShowVideoButton(
     if (isListenTogetherGuest) return false
     if (hideVideoSongs || !videoPlaybackEnabled) return false
     if (songId == null) return false
-    if (songId.startsWith("local_")) return false
+    if (!isYouTubeId(songId)) return false
     return true
 }
 

@@ -237,7 +237,7 @@ internal class AndroidQueueTransitions(
             shouldRequestQueueVideo(
                 isVideoSong = nextSong.isVideoSong,
                 isVideoModeActive = Settings.shared.videoViewerVisible,
-                isLocal = nextSong.isLocal || nextSong.id.startsWith("local_"),
+                isLocal = !nextSong.isYouTube,
                 isPodcast = nextSong.isPodcast,
                 videoPlaybackEnabled = Settings.shared.musicVideoPlaybackEnabled,
             )
@@ -282,6 +282,7 @@ internal class AndroidQueueTransitions(
                 if (resource == null || !isCurrentPreloadTarget(sessionId, trigger, currentVideoId, nextSong, wantNextVideo)) {
                     return@launch
                 }
+                if (resource.expiresTooSoonForPreload()) return@launch
                 if (playbackSong.isPodcast && episodeResumePosition(playbackSong, resource.durationSeconds?.times(1000L) ?: 0L) > 0L) {
                     return@launch
                 }
@@ -671,7 +672,7 @@ internal class AndroidQueueTransitions(
             shouldRequestQueueVideo(
                 isVideoSong = nextSong.isVideoSong,
                 isVideoModeActive = Settings.shared.videoViewerVisible,
-                isLocal = nextSong.isLocal || nextSong.id.startsWith("local_"),
+                isLocal = !nextSong.isYouTube,
                 isPodcast = nextSong.isPodcast,
                 videoPlaybackEnabled = Settings.shared.musicVideoPlaybackEnabled,
             ) == wantVideo

@@ -84,8 +84,9 @@ import com.metrolist.shared.ui.components.sliders.PlaybackProgressSlider
 import com.metrolist.shared.ui.haptics.HapticEvent
 import com.metrolist.shared.ui.haptics.rememberMetrolistHaptics
 import com.metrolist.shared.ui.icons.MetrolistIcons
+import com.metrolist.shared.ui.theme.DefaultThemeColor
+import com.metrolist.shared.ui.theme.appColorScheme
 import com.metrolist.shared.ui.theme.parseThemeSeedColor
-import com.metrolist.shared.ui.theme.themeColorScheme
 import org.jetbrains.compose.resources.stringResource
 import sh.calvin.reorderable.ReorderableColumn
 import kotlin.math.roundToInt
@@ -441,6 +442,7 @@ internal fun ThemeSeedColorSetting(
     val presets =
         remember {
             listOf(
+                DefaultThemeColor to Res.string.theme_color_minmusic,
                 Color(0xFF6750A4) to Res.string.theme_color_purple,
                 Color(0xFF006A6A) to Res.string.theme_color_teal,
                 Color(0xFF386A20) to Res.string.theme_color_green,
@@ -461,7 +463,7 @@ internal fun ThemeSeedColorSetting(
             presets.forEach { (color, labelResource) ->
                 val label = stringResource(labelResource)
                 val isSelected = color.toHexRgb() == selectedColor.toHexRgb()
-                val scheme = remember(color, isDark, paletteStyle) { themeColorScheme(color, isDark, paletteStyle) }
+                val scheme = remember(color, isDark, paletteStyle) { appColorScheme(color, isDark, paletteStyle) }
                 Surface(
                     modifier =
                         Modifier
@@ -478,7 +480,8 @@ internal fun ThemeSeedColorSetting(
                     color = scheme.surfaceContainerHighest,
                     onClick = {
                         hex = color.toHexRgb()
-                        onColorSelected(color.value.toLong())
+                        // 0 is "unset", which resolves to the fixed MinMusic scheme.
+                        onColorSelected(if (color == DefaultThemeColor) 0L else color.value.toLong())
                         focusManager.clearFocus()
                         keyboardController?.hide()
                     },

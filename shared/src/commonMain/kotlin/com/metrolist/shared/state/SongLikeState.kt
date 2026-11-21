@@ -25,6 +25,7 @@ import com.metrolist.shared.settings.BlockedContent
 import com.metrolist.shared.settings.ContentUndoHints
 import com.metrolist.shared.settings.ContentUndoPage
 import com.metrolist.shared.settings.Settings
+import com.metrolist.shared.source.isYouTubeId
 import com.metrolist.shared.viewmodels.LIBRARY_REFRESH_TTL_MILLIS
 import com.metrolist.shared.youtube.logging.YtLogger
 import kotlinx.atomicfu.atomic
@@ -242,7 +243,7 @@ object SongLikeState {
         remoteSyncGeneration.begin()
         successfulRefresh = null
         remotePreview = null
-        savePendingVotes(localLikes.orEmpty().filterNot(SongItem::isLocal).associate { it.id to SongVote.LIKE })
+        savePendingVotes(localLikes.orEmpty().filter(SongItem::isYouTube).associate { it.id to SongVote.LIKE })
         voteRevision.incrementAndGet()
         customOrdersCache = null
         val savedOrder = savedCustomOrder(current)
@@ -357,7 +358,7 @@ object SongLikeState {
         }
         savePendingVotes(pending)
         songs.filter { pending[it.id] == null }.forEach { removeDislike(it.id, sync = false) }
-        val pendingLikes = _likedSongsFlow.value.filter { it.isLocal || pending[it.id] == SongVote.LIKE }
+        val pendingLikes = _likedSongsFlow.value.filter { !it.isYouTube || pending[it.id] == SongVote.LIKE }
         val reconciledRemote = (pendingLikes + songs.filter { pending[it.id] == null }).distinctBy(SongItem::id)
         val snapshotIds = localSnapshot.mapTo(hashSetOf(), SongItem::id)
         val concurrentLikes =
@@ -654,7 +655,7 @@ object SongLikeState {
             toAdd.forEach { removeDislike(it.id, sync = false) }
             saveLikedSongs()
         }
-        val votes = acknowledged.filterNot(SongItem::isLocal).associate { it.id to SongVote.LIKE }
+        val votes = acknowledged.filter(SongItem::isYouTube).associate { it.id to SongVote.LIKE }
         if (votes.isNotEmpty()) queueVotes(votes, sync = false)
     }
 
@@ -819,6 +820,11 @@ object SongLikeState {
             pending.forEach { (id, vote) ->
                 if (Settings.shared.likedSongsOrderAccount != account) return@withLock
                 if (remoteSyncGate.withLock { pendingVotes()[id] } != vote) return@forEach
+                // Local files and other sources keep their vote in the library only.
+                if (!isYouTubeId(id)) {
+                    remoteSyncGate.withLock { if (pendingVotes()[id] == vote) savePendingVotes(pendingVotes() - id) }
+                    return@forEach
+                }
                 try {
                     val succeeded =
                         when (vote) {

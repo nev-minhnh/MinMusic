@@ -12,6 +12,7 @@ import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialExpressiveTheme
 import androidx.compose.material3.MotionScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -37,7 +38,11 @@ import com.metrolist.shared.utils.artworkColors
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-val DefaultThemeColor = Color(0xFF6750A4)
+/**
+ * The MinMusic brand seed (periwinkle end of the logo gradient). A seed equal to this selects the fixed
+ * MinMusic scheme instead of a generated one; see [appColorScheme].
+ */
+val DefaultThemeColor = MinMusicPalette.BrandBlue
 
 // Official material-color-utilities Score fallback (Google Blue), used when the artwork has no usable colour.
 val ArtworkFallbackSeedColor = Color(0xFF4285F4)
@@ -108,7 +113,11 @@ fun MetrolistTheme(
             typography = MetrolistTypography(),
             shapes = MetrolistShapes,
             motionScheme = motionScheme,
-            content = { MetrolistHapticsProvider(content) },
+            content = {
+                CompositionLocalProvider(LocalBrand provides MinMusicBrand.of(darkTheme)) {
+                    MetrolistHapticsProvider(content)
+                }
+            },
         )
     }
 }
@@ -120,9 +129,25 @@ fun rememberDynamicColorScheme(
 ): ColorScheme {
     val paletteStyle = Settings.shared.themePaletteStyle
     return remember(seedColor, isDark, paletteStyle) {
-        themeColorScheme(seedColor, isDark, paletteStyle)
+        appColorScheme(seedColor, isDark, paletteStyle)
     }
 }
+
+/**
+ * The app scheme for a seed: the fixed MinMusic scheme for the brand seed ([DefaultThemeColor], also what an unset
+ * theme colour resolves to), otherwise a scheme generated from the seed.
+ */
+fun appColorScheme(
+    seedColor: Color,
+    isDark: Boolean,
+    paletteStyle: ThemePaletteStyle,
+    contrastLevel: Double = 0.0,
+): ColorScheme =
+    if (seedColor == DefaultThemeColor) {
+        minMusicColorScheme(isDark)
+    } else {
+        themeColorScheme(seedColor, isDark, paletteStyle, contrastLevel)
+    }
 
 fun themeColorScheme(
     seedColor: Color,
@@ -162,18 +187,19 @@ private fun generatedColorScheme(
         specVersion = ColorSpec.SpecVersion.SPEC_2025,
     )
 
+/** OLED variant: black page with the brand's pure-black tonal layers, so cards and sheets stay distinguishable. */
 fun ColorScheme.pureBlack() =
     copy(
         surface = Color.Black,
         background = Color.Black,
         surfaceDim = Color.Black,
-        surfaceBright = Color.Black,
+        surfaceBright = MinMusicPalette.BlackSurface3,
         surfaceContainerLowest = Color.Black,
-        surfaceContainerLow = Color.Black,
-        surfaceContainer = Color.Black,
-        surfaceContainerHigh = Color.Black,
-        surfaceContainerHighest = Color.Black,
-        surfaceVariant = Color.Black,
+        surfaceContainerLow = MinMusicPalette.BlackSurface1,
+        surfaceContainer = MinMusicPalette.BlackSurface2,
+        surfaceContainerHigh = MinMusicPalette.BlackSurface2,
+        surfaceContainerHighest = MinMusicPalette.BlackSurface3,
+        surfaceVariant = MinMusicPalette.BlackSurface3,
     )
 
 expect class ThemeColorExtractor() {

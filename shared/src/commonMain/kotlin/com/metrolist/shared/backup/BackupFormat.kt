@@ -1,5 +1,6 @@
 package com.metrolist.shared.backup
 
+import com.metrolist.shared.db.BACKFILL_LOCAL_SONG_SOURCE_SQL
 import com.metrolist.shared.db.DATABASE_VERSION
 import com.metrolist.shared.db.MIGRATION_44_45_DATA_SQL
 import com.metrolist.shared.db.MIGRATION_45_46_SQL
@@ -108,7 +109,8 @@ fun requireSupportedBackupDatabaseTables(
             version < 50 -> ROOM_DATA_TABLES
             version < 51 -> ROOM_DATA_TABLES + "import_track_match"
             else -> ROOM_DATA_TABLES + setOf("import_track_match", "history_snapshot", "history_provenance", "history_import_policy")
-        } + (if (version >= 58) setOf("pending_scrobble") else emptySet())
+        } + (if (version >= 58) setOf("pending_scrobble") else emptySet()) +
+            (if (version >= 69) setOf("source_account") else emptySet())
     val supported =
         when {
             version == 1 -> {
@@ -123,7 +125,8 @@ fun requireSupportedBackupDatabaseTables(
                 ROOM_DATA_TABLES + "cached_audio" +
                     (if (version >= 50) setOf("import_track_match") else emptySet()) +
                     (if (version >= 51) setOf("history_snapshot", "history_provenance", "history_import_policy") else emptySet()) +
-                    (if (version >= 58) setOf("pending_scrobble") else emptySet())
+                    (if (version >= 58) setOf("pending_scrobble") else emptySet()) +
+                    (if (version >= 69) setOf("source_account") else emptySet())
             }
         }
     val speedDialTables = tables.intersect(setOf("speed_dial", "speed_dial_item"))
@@ -146,6 +149,7 @@ fun legacyBackupDataMigrations(version: Int): List<String> {
             add("UPDATE event SET playTimeKnown = 0 WHERE source = 'YOUTUBE'")
             add("INSERT INTO history_import_policy (id, enabled) VALUES (1, 0)")
         }
+        if (version < 69) add(BACKFILL_LOCAL_SONG_SOURCE_SQL)
     }
 }
 

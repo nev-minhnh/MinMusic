@@ -68,6 +68,7 @@
         android:name="com.metrolist.android.App"
         android:banner="@mipmap/tv_banner"
         android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
         android:allowBackup="true"
         android:fullBackupContent="@xml/backup_rules"
         android:dataExtractionRules="@xml/data_extraction_rules"
@@ -227,209 +228,13 @@
             android:taskAffinity=""
             android:theme="@android:style/Theme.Translucent.NoTitleBar" />
 
+        <!-- The single MinMusic launcher entry; the alias name stays stable for existing home-screen shortcuts. -->
         <activity-alias
             android:name=".MainActivityOriginal"
             android:enabled="true"
             android:exported="true"
             android:icon="@mipmap/ic_launcher"
-            android:label="${appLabel}"
-            android:targetActivity="com.metrolist.android.MainActivity">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-                <category android:name="android.intent.category.APP_MUSIC" />
-                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
-            </intent-filter>
-            <meta-data
-                android:name="android.app.shortcuts"
-                android:resource="@xml/shortcuts" />
-        </activity-alias>
-
-        <activity-alias
-            android:name=".MainActivityArcticHaze"
-            android:enabled="false"
-            android:exported="true"
-            android:icon="@mipmap/ic_launcher_arctic_haze"
-            android:label="${appLabel}"
-            android:targetActivity="com.metrolist.android.MainActivity">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-                <category android:name="android.intent.category.APP_MUSIC" />
-                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
-            </intent-filter>
-            <meta-data
-                android:name="android.app.shortcuts"
-                android:resource="@xml/shortcuts" />
-        </activity-alias>
-
-        <activity-alias
-            android:name=".MainActivityLavenderLeap"
-            android:enabled="false"
-            android:exported="true"
-            android:icon="@mipmap/ic_launcher_lavender_leap"
-            android:label="${appLabel}"
-            android:targetActivity="com.metrolist.android.MainActivity">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-                <category android:name="android.intent.category.APP_MUSIC" />
-                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
-            </intent-filter>
-            <meta-data
-                android:name="android.app.shortcuts"
-                android:resource="@xml/shortcuts" />
-        </activity-alias>
-
-        <activity-alias
-            android:name=".MainActivityMetromallow"
-            android:enabled="false"
-            android:exported="true"
-            android:icon="@mipmap/ic_launcher_metromallow"
-            android:label="${appLabel}"
-            android:targetActivity="com.metrolist.android.MainActivity">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-                <category android:name="android.intent.category.APP_MUSIC" />
-                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
-            </intent-filter>
-            <meta-data
-                android:name="android.app.shortcuts"
-                android:resource="@xml/shortcuts" />
-        </activity-alias>
-
-        <activity-alias
-            android:name=".MainActivityPrideSpecial"
-            android:enabled="false"
-            android:exported="true"
-            android:icon="@mipmap/ic_launcher_pride_special"
-            android:label="${appLabel}"
-            android:targetActivity="com.metrolist.android.MainActivity">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-                <category android:name="android.intent.category.APP_MUSIC" />
-                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
-            </intent-filter>
-            <meta-data
-                android:name="android.app.shortcuts"
-                android:resource="@xml/shortcuts" />
-        </activity-alias>
-
-        <activity-alias
-            android:name=".MainActivityDynamicBg"
-            android:enabled="false"
-            android:exported="true"
-            android:icon="@mipmap/ic_launcher"
-            android:label="${appLabel}"
-            android:targetActivity="com.metrolist.android.MainActivity">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-                <category android:name="android.intent.category.APP_MUSIC" />
-                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
-            </intent-filter>
-            <meta-data
-                android:name="android.app.shortcuts"
-                android:resource="@xml/shortcuts" />
-        </activity-alias>
-
-        <activity-alias
-            android:name=".MainActivityKayeStatic"
-            android:enabled="false"
-            android:exported="true"
-            android:icon="@mipmap/ic_launcher_kaye_static"
-            android:label="${appLabel}"
-            android:targetActivity="com.metrolist.android.MainActivity">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-                <category android:name="android.intent.category.APP_MUSIC" />
-                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
-            </intent-filter>
-            <meta-data
-                android:name="android.app.shortcuts"
-                android:resource="@xml/shortcuts" />
-        </activity-alias>
-
-        <activity-alias
-            android:name=".MainActivityZenithBlack"
-            android:enabled="false"
-            android:exported="true"
-            android:icon="@mipmap/ic_launcher_zenith_black"
-            android:label="${appLabel}"
-            android:targetActivity="com.metrolist.android.MainActivity">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-                <category android:name="android.intent.category.APP_MUSIC" />
-                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
-            </intent-filter>
-            <meta-data
-                android:name="android.app.shortcuts"
-                android:resource="@xml/shortcuts" />
-        </activity-alias>
-
-        <activity-alias
-            android:name=".MainActivityZenithWhite"
-            android:enabled="false"
-            android:exported="true"
-            android:icon="@mipmap/ic_launcher_zenith_white"
-            android:label="${appLabel}"
-            android:targetActivity="com.metrolist.android.MainActivity">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-                <category android:name="android.intent.category.APP_MUSIC" />
-                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
-            </intent-filter>
-            <meta-data
-                android:name="android.app.shortcuts"
-                android:resource="@xml/shortcuts" />
-        </activity-alias>
-
-        <activity-alias
-            android:name=".MainActivityGradient"
-            android:enabled="false"
-            android:exported="true"
-            android:icon="@mipmap/ic_launcher_gradient"
-            android:label="${appLabel}"
-            android:targetActivity="com.metrolist.android.MainActivity">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-                <category android:name="android.intent.category.APP_MUSIC" />
-                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
-            </intent-filter>
-            <meta-data
-                android:name="android.app.shortcuts"
-                android:resource="@xml/shortcuts" />
-        </activity-alias>
-
-        <activity-alias
-            android:name=".MainActivityDefault"
-            android:enabled="false"
-            android:exported="true"
-            android:icon="@mipmap/ic_launcher"
-            android:label="${appLabel}"
-            android:targetActivity="com.metrolist.android.MainActivity">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-                <category android:name="android.intent.category.APP_MUSIC" />
-                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
-            </intent-filter>
-            <meta-data
-                android:name="android.app.shortcuts"
-                android:resource="@xml/shortcuts" />
-        </activity-alias>
-
-        <activity-alias
-            android:name=".MainActivityDynamic"
-            android:enabled="false"
-            android:exported="true"
-            android:icon="@mipmap/ic_launcher"
+            android:roundIcon="@mipmap/ic_launcher_round"
             android:label="${appLabel}"
             android:targetActivity="com.metrolist.android.MainActivity">
             <intent-filter>

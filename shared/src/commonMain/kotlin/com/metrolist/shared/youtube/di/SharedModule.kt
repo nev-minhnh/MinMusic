@@ -20,6 +20,10 @@ import com.metrolist.shared.api.lyrics.LyricsTranslationClient
 import com.metrolist.shared.api.lyrics.YouTubeLyricsApi
 import com.metrolist.shared.api.musicvideo.MusicVideoResolver
 import com.metrolist.shared.repository.LyricsRepository
+import com.metrolist.shared.source.BestSourceSelector
+import com.metrolist.shared.source.MusicSource
+import com.metrolist.shared.source.SourceRegistry
+import com.metrolist.shared.source.SourceRoutingStreamResolver
 import com.metrolist.shared.state.GlobalYouTube
 import com.metrolist.shared.youtube.logging.MetrolistInnerTubeLogger
 import com.metrolist.shared.youtube.lyrics.InnerTubeLyricsApi
@@ -71,15 +75,25 @@ val sharedModule =
             )
         }
 
+        // Android registers each MusicSource adapter with `bind MusicSource::class`; other platforms have none.
+        single { SourceRegistry(getAll<MusicSource>()) }
+        single { BestSourceSelector(get()) }
+
         single<StreamResolver> {
-            DefaultStreamResolver(
-                extractor = get(),
-                innerTube = get(),
-                tokenProvider = getOrNull(),
-                clientHealthTracker = get(),
-                playerConfigRefresh = { get<YouTubeCipherService>().refreshAfterStreamRejection() },
-                musicVideoResolver = get(),
+            SourceRoutingStreamResolver(
+                delegate =
+                    DefaultStreamResolver(
+                        extractor = get(),
+                        innerTube = get(),
+                        tokenProvider = getOrNull(),
+                        clientHealthTracker = get(),
+                        playerConfigRefresh = { get<YouTubeCipherService>().refreshAfterStreamRejection() },
+                        musicVideoResolver = get(),
+                        localAudioSource = getOrNull<LocalAudioSource>(),
+                    ),
+                registry = get(),
                 localAudioSource = getOrNull<LocalAudioSource>(),
+                bestSource = get(),
             )
         }
 
@@ -98,6 +112,7 @@ val sharedModule =
                         signingKeyBase64 = BuildConfig.LYPRIO_HMAC_KEY,
                         allowInsecureHttp = BuildConfig.DEBUG,
                     ),
+                sourceRegistry = get(),
             )
         }
         single<LyricsFetcher> { get<LyricsClient>() }

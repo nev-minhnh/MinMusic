@@ -3,6 +3,8 @@ package com.metrolist.shared.settings
 import com.metrolist.shared.constants.DiscordPendingAuthSessionKey
 import com.metrolist.shared.constants.LyricsOpenRouterOAuthKey
 import com.metrolist.shared.constants.LyricsOpenRouterOAuthSessionKey
+import com.metrolist.shared.constants.NctSourceTokenKey
+import com.metrolist.shared.constants.ZingSourceCookieKey
 
 internal val secureSettingsKeys =
     setOf(
@@ -31,4 +33,6 @@ internal val secureSettingsKeys =
         "deviceConnectPairedDevices",
         "listenTogetherPairedRoomCode",
         "spotifySession",
+        ZingSourceCookieKey,
+        NctSourceTokenKey,
     )

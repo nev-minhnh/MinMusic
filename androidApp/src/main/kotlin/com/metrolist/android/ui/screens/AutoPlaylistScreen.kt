@@ -116,7 +116,6 @@ import com.metrolist.shared.generated.resources.cancel
 import com.metrolist.shared.generated.resources.create_album
 import com.metrolist.shared.generated.resources.create_album_desc
 import com.metrolist.shared.generated.resources.delete
-import com.metrolist.shared.generated.resources.download_format_value
 import com.metrolist.shared.generated.resources.edit_playlist_cover
 import com.metrolist.shared.generated.resources.episodes_for_later
 import com.metrolist.shared.generated.resources.error_unknown
@@ -165,6 +164,7 @@ import com.metrolist.shared.settings.SavedPlaylistCollectionSorting
 import com.metrolist.shared.settings.SavedPlaylistSongSorting
 import com.metrolist.shared.settings.Settings
 import com.metrolist.shared.settings.displayName
+import com.metrolist.shared.source.sourceOf
 import com.metrolist.shared.state.GlobalYouTubeRepository
 import com.metrolist.shared.state.SongLikeState
 import com.metrolist.shared.state.SongMetadataState
@@ -176,11 +176,14 @@ import com.metrolist.shared.ui.components.PlayerMenuAction
 import com.metrolist.shared.ui.components.PlaylistOrderControls
 import com.metrolist.shared.ui.components.PopupContent
 import com.metrolist.shared.ui.components.PopupVisibility
+import com.metrolist.shared.ui.components.QualityBadge
 import com.metrolist.shared.ui.components.RefreshIndicator
 import com.metrolist.shared.ui.components.SongSelectionControls
+import com.metrolist.shared.ui.components.SourceBadge
 import com.metrolist.shared.ui.components.TopPlaylistOrderControls
 import com.metrolist.shared.ui.components.images.AsyncImage
 import com.metrolist.shared.ui.components.libraryCover
+import com.metrolist.shared.ui.components.qualityLabel
 import com.metrolist.shared.ui.components.rememberDownloadPlaylistFilter
 import com.metrolist.shared.ui.components.topPlaylistOrderControlsText
 import com.metrolist.shared.ui.icons.MetrolistIcons
@@ -824,16 +827,13 @@ fun AutoPlaylistScreen(
                     trackTrailingContent = { song, _ ->
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             if (currentType == "downloaded") {
-                                downloadFormats[song.id]?.let { format ->
-                                    val codec = format.codecDisplayName()
-                                    if (codec != null && format.bitrate > 0) {
-                                        Text(
-                                            stringResource(Res.string.download_format_value, codec, format.bitrate / 1000),
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            maxLines = 1,
-                                        )
-                                    }
+                                // Downloads mix sources, so each row says where it came from and what was saved.
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    SourceBadge(sourceOf(song.id))
+                                    downloadFormats[song.id]?.qualityLabel()?.let { QualityBadge(it) }
                                 }
                             }
                             if (selection.active) {
@@ -1156,17 +1156,6 @@ fun AutoPlaylistScreen(
                 ) { Text(stringResource(Res.string.cancel)) }
             },
         )
-    }
-}
-
-// Codec identifiers are technical names, not translatable text.
-private fun FormatEntity.codecDisplayName(): String? {
-    val codec = codecs.substringBefore('.').trim().lowercase()
-    return when {
-        codec == "opus" -> "Opus"
-        codec == "mp4a" -> "AAC"
-        codec.isNotBlank() -> codec.uppercase()
-        else -> null
     }
 }
 

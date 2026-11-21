@@ -128,7 +128,9 @@ import timber.log.Timber
 import java.io.IOException
 import java.net.InetAddress
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.time.Clock
 import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 import com.metrolist.shared.generated.resources.Res as SharedRes
 import com.metrolist.shared.generated.resources.shuffle as sharedShuffle
@@ -136,6 +138,12 @@ import com.metrolist.shared.generated.resources.start_radio as sharedStartRadio
 
 internal const val NEXT_TRACK_PRELOAD_DELAY_MS = 5_000L
 internal const val NEXT_TRACK_PRELOAD_SETTLE_DELAY_MS = 500L
+
+/**
+ * Short-lived stream URLs (SoundCloud's last about four minutes) could expire before a track preloaded now starts;
+ * such tracks are resolved at the transition instead.
+ */
+internal fun PlaybackResource.expiresTooSoonForPreload(): Boolean = expiresAt?.let { it < Clock.System.now() + 10.minutes } == true
 internal const val CROSSFADE_UPDATE_INTERVAL_MS = 16L
 
 internal typealias AndroidCrossfadeState = PlaybackCrossfadeState<SongItem>
@@ -326,7 +334,7 @@ internal fun isQueuePlaybackModeCurrent(
         shouldRequestQueueVideo(
             isVideoSong = song.isVideoSong,
             isVideoModeActive = currentVideoViewerVisible,
-            isLocal = song.isLocal || song.id.startsWith("local_"),
+            isLocal = !song.isYouTube,
             isPodcast = song.isPodcast,
             videoPlaybackEnabled = videoPlaybackEnabled,
         )

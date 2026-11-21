@@ -11,6 +11,8 @@ import com.metrolist.shared.model.YTItem
 import com.metrolist.shared.model.filterAvailableSearchFilters
 import com.metrolist.shared.settings.BlockedContent
 import com.metrolist.shared.settings.Settings
+import com.metrolist.shared.source.SourceId
+import com.metrolist.shared.source.SourceRegistry
 import com.metrolist.shared.state.GlobalYouTubeRepository
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -26,6 +28,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import org.koin.mp.KoinPlatform
 import kotlin.time.Duration.Companion.milliseconds
 
 class SearchViewModel(
@@ -53,6 +56,8 @@ class SearchViewModel(
     private var unfilteredRecentSearchItems = emptyList<YTItem>()
     private var localSearchHistory = emptyList<String>()
     private var historySession = repository.sessionSnapshot()
+    private val sourceRegistry: SourceRegistry? by lazy { KoinPlatform.getKoinOrNull()?.getOrNull<SourceRegistry>() }
+    private var sourceSearchJob: Job? = null
 
     init {
         sessionJob =
@@ -129,6 +134,7 @@ class SearchViewModel(
             submitQuery(newQuery)
         } else if (newQuery.isEmpty()) {
             clearResults()
+            clearSourceSearch()
         }
     }
 
@@ -156,6 +162,7 @@ class SearchViewModel(
         if (currentQuery.isEmpty()) return
         if (recordSearchHistory) addSearchHistory(currentQuery)
         val pendingHistoryMutation = historyMutationJob.takeIf { recordSearchHistory }
+        searchSources(currentQuery)
 
         searchJob?.cancel()
         filterJob?.cancel()
@@ -199,6 +206,65 @@ class SearchViewModel(
                     }
                 }
             }
+    }
+
+    /** Searches every enabled non-YouTube source for songs; each source fills its own section as it answers. */
+    private fun searchSources(query: String) {
+        sourceSearchJob?.cancel()
+        val registry = sourceRegistry
+        val sources = registry?.searchableSources().orEmpty()
+        _uiState.update { state ->
+            val selected = state.sourceSearch.selectedSource?.takeIf { it == SourceId.YT || it in sources }
+            state.copy(
+                sourceSearch =
+                    SourceSearchState(
+                        query = query,
+                        sources = sources,
+                        selectedSource = selected,
+                        sections = sources.associateWith { SourceSearchSection(isLoading = true) },
+                    ),
+            )
+        }
+        if (registry == null || sources.isEmpty()) return
+        sourceSearchJob =
+            scope.launch {
+                sources.forEach { source ->
+                    launch {
+                        val section =
+                            try {
+                                val page = registry.call(source) { it.search(query, SearchFilter.SONG, 0) }
+                                SourceSearchSection(items = BlockedContent.filterItems(page.items).filterIsInstance<SongItem>())
+                            } catch (e: CancellationException) {
+                                throw e
+                            } catch (_: Exception) {
+                                SourceSearchSection(failed = true)
+                            }
+                        _uiState.update { state ->
+                            if (state.sourceSearch.query != query) {
+                                state
+                            } else {
+                                state.copy(sourceSearch = state.sourceSearch.copy(sections = state.sourceSearch.sections + (source to section)))
+                            }
+                        }
+                    }
+                }
+            }
+    }
+
+    /** Null shows every source; [SourceId.YT] or another source narrows the results to that catalogue. */
+    fun selectSource(source: SourceId?) {
+        _uiState.update { state ->
+            if (source != null && source != SourceId.YT && source !in state.sourceSearch.sources) {
+                state
+            } else {
+                state.copy(sourceSearch = state.sourceSearch.copy(selectedSource = source))
+            }
+        }
+    }
+
+    private fun clearSourceSearch() {
+        sourceSearchJob?.cancel()
+        _uiState.update { it.copy(sourceSearch = SourceSearchState(selectedSource = it.sourceSearch.selectedSource)) }
     }
 
     fun searchFiltered(filter: SearchFilter) {
@@ -566,6 +632,7 @@ class SearchViewModel(
         suggestionsJob?.cancel()
         searchJob?.cancel()
         filterJob?.cancel()
+        sourceSearchJob?.cancel()
         cancelLoadMore()
         _uiState.update {
             it.copy(
@@ -581,6 +648,7 @@ class SearchViewModel(
                 searchSuggestions = null,
                 loadMoreFailed = false,
                 isSearching = false,
+                sourceSearch = SourceSearchState(),
             )
         }
     }
@@ -602,6 +670,7 @@ class SearchViewModel(
         suggestionsJob?.cancel()
         searchJob?.cancel()
         filterJob?.cancel()
+        sourceSearchJob?.cancel()
         loadMoreJob?.cancel()
         historySyncJob?.cancel()
         historyMutationJob?.cancel()
@@ -625,6 +694,7 @@ class SearchViewModel(
         val isLoadingMore: Boolean = false,
         val searchFailed: Boolean = false,
         val loadMoreFailed: Boolean = false,
+        val sourceSearch: SourceSearchState = SourceSearchState(),
     )
 }
 

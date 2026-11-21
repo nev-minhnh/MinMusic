@@ -141,7 +141,7 @@ data class DownloadedFile(
             expiresAt = null,
             clientName = "local",
             allowPlaybackTrackingFallback =
-                song != null && song.id == songId && !song.isLocal && !song.isUploaded && !song.isPodcast && !songId.startsWith("local_"),
+                song != null && song.id == songId && song.isYouTube && !song.isUploaded && !song.isPodcast,
             profileId = "downloaded-audio",
         )
 

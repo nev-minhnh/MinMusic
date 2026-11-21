@@ -75,6 +75,7 @@ internal fun <Credentials> ProviderLoginShell(
     onNavigateBack: () -> Unit,
     onWebViewError: (WebResourceError, WebResourceRequest) -> Unit = { _, _ -> },
     onWebViewDisposed: () -> Unit = {},
+    banner: (@Composable () -> Unit)? = null,
 ) {
     BlockScreenshots()
     val loginError = stringResource(loginErrorRes)
@@ -116,15 +117,18 @@ internal fun <Credentials> ProviderLoginShell(
     ProviderLoginWindow(onDismissRequest = onNavigateBack) {
         Scaffold(
             topBar = {
-                TopAppBar(
-                    title = { Text(stringResource(titleRes)) },
-                    navigationIcon = {
-                        IconButton(onClick = onNavigateBack, shapes = IconButtonDefaults.shapes()) {
-                            Icon(MetrolistIcons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(Res.string.back))
-                        }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
-                )
+                Column {
+                    TopAppBar(
+                        title = { Text(stringResource(titleRes)) },
+                        navigationIcon = {
+                            IconButton(onClick = onNavigateBack, shapes = IconButtonDefaults.shapes()) {
+                                Icon(MetrolistIcons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(Res.string.back))
+                            }
+                        },
+                        colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
+                    )
+                    banner?.invoke()
+                }
             },
         ) { paddingValues ->
             Box(Modifier.fillMaxSize().padding(paddingValues)) {

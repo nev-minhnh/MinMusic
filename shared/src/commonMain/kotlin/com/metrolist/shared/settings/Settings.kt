@@ -36,6 +36,7 @@ import com.metrolist.shared.constants.AppleMusicArtistVideosKey
 import com.metrolist.shared.constants.ArtistNameAliasesJsonKey
 import com.metrolist.shared.constants.AudioBoostDbKey
 import com.metrolist.shared.constants.AudioTrackPlaybackParamsKey
+import com.metrolist.shared.constants.AutoBestSourceKey
 import com.metrolist.shared.constants.AutoPureBlackKey
 import com.metrolist.shared.constants.BlockAiSlopArtistsKey
 import com.metrolist.shared.constants.BlockedArtistsUndoHintShownKey
@@ -133,6 +134,8 @@ import com.metrolist.shared.constants.MinimumSongDurationSecondsKey
 import com.metrolist.shared.constants.MusicVideoCacheJsonKey
 import com.metrolist.shared.constants.MusicVideoPlaybackEnabledKey
 import com.metrolist.shared.constants.MusicVideoQualityKey
+import com.metrolist.shared.constants.NctSourceEnabledKey
+import com.metrolist.shared.constants.NctSourceTokenKey
 import com.metrolist.shared.constants.PauseOnMuteKey
 import com.metrolist.shared.constants.PendingContinuePlaybackKey
 import com.metrolist.shared.constants.PendingRemoteLibraryRemovalKeysJsonKey
@@ -178,6 +181,7 @@ import com.metrolist.shared.constants.SleepTimerDefaultFinishCurrentSongKey
 import com.metrolist.shared.constants.SleepTimerDefaultMinutesKey
 import com.metrolist.shared.constants.SliderTrackThicknessDpKey
 import com.metrolist.shared.constants.SlimNavBarKey
+import com.metrolist.shared.constants.SoundCloudSourceEnabledKey
 import com.metrolist.shared.constants.SpeedDialArtworkRefreshTimesKey
 import com.metrolist.shared.constants.SpeedDialSurprisePinnedKey
 import com.metrolist.shared.constants.SponsorBlockEnabledKey
@@ -194,6 +198,8 @@ import com.metrolist.shared.constants.VideoViewerVisibleKey
 import com.metrolist.shared.constants.VoiceSearchEnabledKey
 import com.metrolist.shared.constants.YouTubeCanvasModeKey
 import com.metrolist.shared.constants.YouTubeCanvasQualityKey
+import com.metrolist.shared.constants.ZingSourceCookieKey
+import com.metrolist.shared.constants.ZingSourceEnabledKey
 import com.metrolist.shared.model.CollectionSort
 import com.metrolist.shared.model.LyricsProvider
 import com.metrolist.shared.model.PlaylistPickerSort
@@ -314,12 +320,21 @@ class Settings(
     var hideShortSongs by preference(HideShortSongsKey, false)
     var minimumSongDurationSeconds by preference(MinimumSongDurationSecondsKey, 30)
     var blockAiSlopArtists by preference(BlockAiSlopArtistsKey, true)
+    var soundCloudSourceEnabled by preference(SoundCloudSourceEnabledKey, false)
+    var zingSourceEnabled by preference(ZingSourceEnabledKey, false)
+    var nctSourceEnabled by preference(NctSourceEnabledKey, false)
+    var autoBestSource by preference(AutoBestSourceKey, true)
+
+    // The user's own source sessions. Both keys are secure settings: encrypted at rest and never exported or backed up.
+    var zingSourceCookie by preference(ZingSourceCookieKey, "")
+    var nctSourceToken by preference(NctSourceTokenKey, "")
     var aiSlopBlocklistCache by blobPreference(AiSlopBlocklistCacheKey)
     var aiSlopBlocklistUpdatedAt by preference(AiSlopBlocklistUpdatedAtKey, 0L)
     var knownUploadIdsJson by preference(KnownUploadIdsJsonKey, "")
     var hasNewUploads by preference(HasNewUploadsKey, false)
 
-    var materialYouEnabled by preference(true)
+    // MinMusic: brand colours by default; wallpaper (Material You) colours are opt-in.
+    var materialYouEnabled by preference(false)
     var uiEnhancements by preference(true)
     var dynamicTheme by preference(true)
     var themeMode by preference(ThemeMode.AUTO)
@@ -1340,6 +1355,8 @@ class Settings(
                     "spotifySession",
                     LyricsOpenRouterOAuthSessionKey,
                     DiscordPendingAuthSessionKey,
+                    ZingSourceCookieKey,
+                    NctSourceTokenKey,
                 )
         private val nonPortableKeys =
             secureSettingsKeys +

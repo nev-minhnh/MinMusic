@@ -42,12 +42,16 @@ import com.metrolist.shared.ui.LocalIsTv
 import com.metrolist.shared.ui.components.FocusOutlineProvider
 import com.metrolist.shared.ui.haptics.MetrolistHapticsProvider
 import com.metrolist.shared.ui.theme.DefaultThemeColor
+import com.metrolist.shared.ui.theme.LocalBrand
 import com.metrolist.shared.ui.theme.MetrolistShapes
+import com.metrolist.shared.ui.theme.MinMusicBrand
 import com.metrolist.shared.ui.theme.ThemeColorExtractor
 import com.metrolist.shared.ui.theme.animateColorScheme
+import com.metrolist.shared.ui.theme.appColorScheme
 import com.metrolist.shared.ui.theme.orIfIllegible
 import com.metrolist.shared.ui.theme.pureBlack
 import com.metrolist.shared.ui.theme.themeColorScheme
+import com.metrolist.shared.ui.theme.withBrandNeutrals
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import timber.log.Timber
@@ -58,7 +62,7 @@ fun MetrolistTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     pureBlack: Boolean = false,
     themeColor: Color = DefaultThemeColor,
-    dynamicColor: Boolean = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S,
+    dynamicColor: Boolean = false,
     content: @Composable () -> Unit,
 ) {
     val context = LocalContext.current
@@ -85,18 +89,21 @@ fun MetrolistTheme(
             val wallpaperSeed = colorResource(android.R.color.system_accent1_500)
             remember(context, configuration, darkTheme, contrast, paletteStyle, wallpaperSeed) {
                 val generated = { themeColorScheme(wallpaperSeed, darkTheme, paletteStyle, contrast.toDouble()) }
-                if (paletteStyle == ThemePaletteStyle.TONAL_SPOT) {
-                    systemDynamicColorScheme(context, darkTheme).orIfIllegible(darkTheme) {
-                        Timber.w("System dynamic colors are illegible on %s; generating from the wallpaper seed", Build.MANUFACTURER)
+                val wallpaperScheme =
+                    if (paletteStyle == ThemePaletteStyle.TONAL_SPOT) {
+                        systemDynamicColorScheme(context, darkTheme).orIfIllegible(darkTheme) {
+                            Timber.w("System dynamic colors are illegible on %s; generating from the wallpaper seed", Build.MANUFACTURER)
+                            generated()
+                        }
+                    } else {
                         generated()
                     }
-                } else {
-                    generated()
-                }
+                // Material You only swaps the accents; the stage neutrals stay MinMusic's.
+                wallpaperScheme.withBrandNeutrals(darkTheme)
             }
         } else {
             val generateScheme = {
-                themeColorScheme(themeColor, darkTheme, paletteStyle, contrast.toDouble())
+                appColorScheme(themeColor, darkTheme, paletteStyle, contrast.toDouble())
             }
             key(darkTheme, contrast) {
                 val initial = remember { (themeColor to paletteStyle) to generateScheme() }
@@ -139,7 +146,7 @@ fun MetrolistTheme(
         shapes = MetrolistShapes,
         motionScheme = motionScheme,
     ) {
-        CompositionLocalProvider(LocalIsTv provides isTv) {
+        CompositionLocalProvider(LocalIsTv provides isTv, LocalBrand provides MinMusicBrand.of(darkTheme)) {
             MetrolistHapticsProvider {
                 FocusOutlineProvider(enabled = isTv, content = content)
             }

@@ -32,7 +32,7 @@ internal fun canSkipPodcastSegments(
     song: SongItem?,
     enabled: Boolean,
 ): Boolean =
-    enabled && song != null && !song.isLocal && !song.isUploaded && !song.id.startsWith("local_") &&
+    enabled && song != null && song.isYouTube && !song.isUploaded &&
         parseMusicVideoType(song.musicVideoType) == MusicVideoType.PODCAST_EPISODE
 
 internal data class SponsorBlockSegment(

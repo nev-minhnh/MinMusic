@@ -197,8 +197,24 @@ internal fun cacheableAudioResource(
 
 internal fun playbackCaptureDirectory(context: Context): File = File(context.cacheDir, "playback-tee")
 
+/** An HLS playlist, as SoundCloud serves its AAC streams. */
+internal fun PlaybackResource.isHlsAudio(): Boolean =
+    mimeType.orEmpty().contains("mpegurl", ignoreCase = true) || url.substringBefore('?').endsWith(".m3u8", ignoreCase = true)
+
+// Lossless source streams declare no bitrate; the stored file's average keeps their format row.
+private fun PlaybackResource.withMeasuredBitrate(
+    storedBytes: Long,
+    durationSeconds: Long?,
+): PlaybackResource =
+    if (bitrate != null || durationSeconds == null || durationSeconds <= 0L || storedBytes <= 0L) {
+        this
+    } else {
+        copy(bitrate = (storedBytes * 8 / durationSeconds).coerceAtMost(Int.MAX_VALUE.toLong()).toInt())
+    }
+
 internal fun requireDownloadableAudioResource(resource: PlaybackResource) {
     if (resource.isSabr) return
+    if (resource.isHlsAudio() && resource.url.startsWith("https://", ignoreCase = true)) return
     if (!resource.isDirectFile || !resource.url.startsWith("https://", ignoreCase = true)) {
         throw DownloadTransferException(IllegalArgumentException("Resolved audio is not a downloadable file"))
     }
@@ -367,7 +383,7 @@ class AudioCacheManager(
                 clientName = "local",
                 profileId = CACHED_AUDIO_PROFILE_ID,
                 requireBoundedRange = false,
-                allowPlaybackTrackingFallback = !song.isLocal && !song.isUploaded && !song.isPodcast && !song.id.startsWith("local_"),
+                allowPlaybackTrackingFallback = song.isYouTube && !song.isUploaded && !song.isPodcast,
             ).withCachedFormat(database.dao().format(songId).first())
         }
 
@@ -934,7 +950,16 @@ class AudioCacheManager(
             }
         tempDir.mkdirs()
         val tempFile = File(tempDir, "$safeId.tmp")
-        val temporaryFiles = listOf(tempFile, File(tempDir, "$safeId.opus.tmp"), File(tempDir, "$safeId.m4a.tmp")).map { it.canonicalFile }
+        val temporaryFiles =
+            listOf(
+                tempFile,
+                File(tempDir, "$safeId.opus.tmp"),
+                File(tempDir, "$safeId.m4a.tmp"),
+                File(tempDir, "$safeId.mp3.tmp"),
+                File(tempDir, "$safeId.flac.tmp"),
+                File(tempDir, "$safeId.hls.mp4.tmp"),
+                File(tempDir, "$safeId.hls.ts.tmp"),
+            ).map { it.canonicalFile }
         synchronized(activeAudioFiles) { activeAudioFiles.addAll(temporaryFiles) }
 
         try {
@@ -968,6 +993,21 @@ class AudioCacheManager(
                                 )
                             }
                             checkNotNull(resource.sabrBootstrap).mimeType.substringBefore(';')
+                        } else if (resource.isHlsAudio()) {
+                            // Segments are remuxed to one M4A without re-encoding; see downloadHlsAudioToM4a.
+                            withSabrDownloadControl(control) {
+                                downloadHlsAudioToM4a(
+                                    playlistUrl = resource.url,
+                                    target = tempFile,
+                                    metadata =
+                                        AudioExportMetadata(song.title, song.artists.joinToString(", ") { it.name }, song.album?.name),
+                                    tempDir = tempDir,
+                                    headers = resource.headers,
+                                    maxBytes = maxBytes,
+                                    onProgress = { progress -> onProgress(progress.bytes, null) },
+                                )
+                            }
+                            "audio/mp4"
                         } else {
                             downloadWithRangeFallback(
                                 control = control,
@@ -1065,7 +1105,10 @@ class AudioCacheManager(
                                     kind = kind,
                                 ),
                             )
-                            resource.toCachedFormatEntity(song.id, storedMimeType, storedBytes)?.let { database.dao().upsert(it) }
+                            resource
+                                .withMeasuredBitrate(storedBytes, song.duration)
+                                .toCachedFormatEntity(song.id, storedMimeType, storedBytes)
+                                ?.let { database.dao().upsert(it) }
                             if (kind == KIND_DOWNLOAD) {
                                 database.dao().updateDownloadedInfo(song.id, true, Clock.System.now().toLocalDateTime(TimeZone.UTC))
                                 database.dao().updateCachedInfo(song.id, false)
@@ -1193,7 +1236,14 @@ class AudioCacheManager(
         val safeId = songId.replace(Regex("[^A-Za-z0-9._-]"), "_")
         val tempDir = File(context.cacheDir, "download-export").also(File::mkdirs)
         val copiedFile = File(tempDir, "$safeId.save.tmp")
-        val temporaryFiles = listOf(copiedFile, File(tempDir, "$safeId.save.opus.tmp"), File(tempDir, "$safeId.save.m4a.tmp"))
+        val temporaryFiles =
+            listOf(
+                copiedFile,
+                File(tempDir, "$safeId.save.opus.tmp"),
+                File(tempDir, "$safeId.save.m4a.tmp"),
+                File(tempDir, "$safeId.save.mp3.tmp"),
+                File(tempDir, "$safeId.save.flac.tmp"),
+            )
         synchronized(activeAudioFiles) { activeAudioFiles.addAll(temporaryFiles.map { it.canonicalFile }) }
         try {
             copyAudioTo(entry.filePath, copiedFile)

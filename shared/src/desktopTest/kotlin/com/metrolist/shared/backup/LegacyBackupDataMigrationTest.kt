@@ -14,7 +14,7 @@ class LegacyBackupDataMigrationTest {
             val connection = JdbcSQLiteDriver().open(":memory:")
             try {
                 listOf(
-                    "CREATE TABLE song (id TEXT PRIMARY KEY, lyricsOffset INTEGER NOT NULL DEFAULT 0)",
+                    "CREATE TABLE song (id TEXT PRIMARY KEY, lyricsOffset INTEGER NOT NULL DEFAULT 0, source TEXT NOT NULL DEFAULT 'yt')",
                     "CREATE TABLE lyrics (id TEXT PRIMARY KEY, offsetMs INTEGER NOT NULL DEFAULT 0)",
                     "CREATE TABLE speed_dial (id TEXT PRIMARY KEY, type TEXT NOT NULL)",
                     "CREATE TABLE playlist (id TEXT PRIMARY KEY, name TEXT NOT NULL, browseId TEXT, isEditable INTEGER NOT NULL, isLocal INTEGER NOT NULL, remoteSongCount INTEGER NOT NULL, thumbnailUrl TEXT)",
@@ -23,7 +23,8 @@ class LegacyBackupDataMigrationTest {
                     "CREATE TABLE event (id INTEGER PRIMARY KEY, source TEXT NOT NULL, playTime INTEGER NOT NULL, playTimeKnown INTEGER NOT NULL)",
                     "INSERT INTO event VALUES (1, 'LOCAL', 30000, 1)",
                     "INSERT INTO event VALUES (2, 'YOUTUBE', 240000, 1)",
-                    "INSERT INTO song VALUES ('song', 425)",
+                    "INSERT INTO song (id, lyricsOffset) VALUES ('song', 425)",
+                    "INSERT INTO song (id) VALUES ('local_42')",
                     "INSERT INTO lyrics VALUES ('song', ${if (version < 45) 0 else 425})",
                     "INSERT INTO speed_dial VALUES ('MPSPpodcast', '${if (version < 45) "PLAYLIST" else "PODCAST"}')",
                     "INSERT INTO playlist VALUES ('LP12345678', 'Playlist', NULL, 0, 0, 0, NULL)",
@@ -61,6 +62,14 @@ class LegacyBackupDataMigrationTest {
                 }
                 connection.prepare("SELECT 1 FROM playlist WHERE id = 'LP12345678'").use {
                     assertEquals(version >= 46, it.step(), "placeholder playlist for version $version")
+                }
+                if (version < 69) {
+                    connection.prepare("SELECT id, source FROM song ORDER BY id").use {
+                        assertEquals(true, it.step())
+                        assertEquals("local_42" to "local", it.getText(0) to it.getText(1), "local file source for version $version")
+                        assertEquals(true, it.step())
+                        assertEquals("song" to "yt", it.getText(0) to it.getText(1), "YouTube song source for version $version")
+                    }
                 }
             } finally {
                 connection.close()
@@ -109,6 +118,11 @@ class LegacyBackupDataMigrationTest {
         requireSupportedBackupDatabaseTables(57, version57Tables)
         requireSupportedBackupDatabaseTables(58, version57Tables + "pending_scrobble")
         requireSupportedBackupDatabaseTables(59, version57Tables + "pending_scrobble")
+        requireSupportedBackupDatabaseTables(69, version57Tables + "pending_scrobble" + "source_account")
+        assertFailsWith<IllegalArgumentException> {
+            requireSupportedBackupDatabaseTables(68, version57Tables + "pending_scrobble" + "source_account")
+        }
+        assertFailsWith<IllegalArgumentException> { requireSupportedBackupDatabaseTables(69, version57Tables + "pending_scrobble") }
         assertFailsWith<IllegalArgumentException> { requireSupportedBackupDatabaseTables(57, version57Tables + "pending_scrobble") }
         assertFailsWith<IllegalArgumentException> { requireSupportedBackupDatabaseTables(58, version57Tables) }
         assertFailsWith<IllegalArgumentException> { requireSupportedBackupDatabaseTables(59, version57Tables) }

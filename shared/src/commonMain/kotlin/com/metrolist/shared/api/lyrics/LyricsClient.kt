@@ -10,6 +10,11 @@ import com.metrolist.shared.model.LyricsWithProvider
 import com.metrolist.shared.network.QuietHttpFailures
 import com.metrolist.shared.repository.usableProviderLyrics
 import com.metrolist.shared.settings.Settings
+import com.metrolist.shared.source.SourceCapability
+import com.metrolist.shared.source.SourceId
+import com.metrolist.shared.source.SourceRegistry
+import com.metrolist.shared.source.isForeignSourceId
+import com.metrolist.shared.source.sourceOf
 import io.ktor.client.HttpClient
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.withContext
@@ -40,6 +45,7 @@ class LyricsClient(
     httpClient: HttpClient,
     youtubeLyricsApi: YouTubeLyricsApi,
     private val lyprioLyricsProvider: LyprioLyricsProvider?,
+    private val sourceRegistry: SourceRegistry? = null,
 ) : LyricsFetcher {
     private val betterLyricsProvider = BetterLyricsProvider(httpClient)
     private val unisonLyricsProvider = UnisonProvider(httpClient)
@@ -74,6 +80,8 @@ class LyricsClient(
     ): LyricsWithProvider? {
         val durationMs = duration ?: 0L
         val durationSec = durationMs / 1000
+        // Ids of other sources mean nothing to YouTube; title-search providers still run for them.
+        val youTubeVideoId = videoId?.takeUnless(::isForeignSourceId)
         return when (provider) {
             LyricsProvider.USER -> {
                 null
@@ -81,7 +89,7 @@ class LyricsClient(
 
             LyricsProvider.LYPRIO -> {
                 val lyprio = checkNotNull(lyprioLyricsProvider) { "Lyprio is not configured" }
-                lyprio.getLyrics(title, artist, duration, album, videoId)
+                lyprio.getLyrics(title, artist, duration, album, youTubeVideoId)
             }
 
             LyricsProvider.BETTERLYRICS -> {
@@ -89,15 +97,15 @@ class LyricsClient(
             }
 
             LyricsProvider.LRCRED -> {
-                result("lrc.red") { lrcredLyricsProvider.getLyrics(title, artist, duration, album, videoId) }
+                result("lrc.red") { lrcredLyricsProvider.getLyrics(title, artist, duration, album, youTubeVideoId) }
             }
 
             LyricsProvider.UNISON -> {
-                result("Unison") { unisonLyricsProvider.getLyrics(title, artist, duration, album, videoId, isVideoContext) }
+                result("Unison") { unisonLyricsProvider.getLyrics(title, artist, duration, album, youTubeVideoId, isVideoContext) }
             }
 
             LyricsProvider.SIMPMUSIC -> {
-                result("SimpMusic") { videoId?.let { simpMusicProvider.getLyrics(it, duration) } }
+                result("SimpMusic") { youTubeVideoId?.let { simpMusicProvider.getLyrics(it, duration) } }
             }
 
             LyricsProvider.LRCLIB -> {
@@ -113,14 +121,16 @@ class LyricsClient(
             }
 
             LyricsProvider.YOUTUBESUBTITLE -> {
-                result("YouTube Subtitle") { videoId?.let { youtubeSubtitleLyricsProvider.getLyricsOrNull(it) } }
+                result("YouTube Subtitle") { youTubeVideoId?.let { youtubeSubtitleLyricsProvider.getLyricsOrNull(it) } }
             }
 
             LyricsProvider.YOUTUBE -> {
-                result("YouTube Music") { videoId?.let { youtubeLyricsProvider.getLyrics(it) } }
+                result("YouTube Music") { youTubeVideoId?.let { youtubeLyricsProvider.getLyrics(it) } }
             }
 
             LyricsProvider.AUTO -> {
+                // A song's own source has synced lyrics for exactly this recording, so it goes first.
+                if (videoId != null && isForeignSourceId(videoId)) sourceLyrics(videoId)?.let { return it }
                 var failure: Exception? = null
                 var lyrics: LyricsWithProvider? = null
                 val providers =
@@ -164,6 +174,25 @@ class LyricsClient(
                 listOfNotNull(fetchLyrics(title, artist, duration, album, videoId, provider, isVideoContext))
             }
         }
+
+    private suspend fun sourceLyrics(id: String): LyricsWithProvider? {
+        val source = sourceRegistry?.available(sourceOf(id))?.takeIf { SourceCapability.LYRICS in it.capabilities } ?: return null
+        val lyrics =
+            try {
+                source.lyrics(id)
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Exception) {
+                null
+            }
+        val name =
+            when (source.id) {
+                SourceId.ZING -> "Zing MP3"
+                SourceId.NCT -> "NhacCuaTui"
+                else -> return null
+            }
+        return lyrics?.takeIf(String::isNotBlank)?.let { LyricsWithProvider(it, name) }
+    }
 
     private suspend fun result(
         provider: String,

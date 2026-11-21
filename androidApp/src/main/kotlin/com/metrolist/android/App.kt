@@ -37,10 +37,11 @@ import com.metrolist.android.playlistimport.AndroidPlaylistImportNotifier
 import com.metrolist.android.quicksettings.MusicRecognizerTileService
 import com.metrolist.android.recognition.MusicRecognitionService
 import com.metrolist.android.scrobble.LastFmSessionNotification
+import com.metrolist.android.source.sourceModule
 import com.metrolist.android.ui.GlobalPlaybackNetworkMonitor
 import com.metrolist.android.update.AppUpdateManager
 import com.metrolist.android.utils.CrashHandler
-import com.metrolist.android.utils.IconUtils
+import com.metrolist.android.utils.LauncherAlias
 import com.metrolist.android.utils.createAppImageLoader
 import com.metrolist.android.utils.isAndroidTv
 import com.metrolist.android.widget.MusicWidgetReceiver
@@ -244,7 +245,7 @@ class App :
         val koinStart = SystemClock.elapsedRealtime()
         startKoin {
             androidContext(this@App)
-            modules(coreModule, sharedModule, appModule)
+            modules(coreModule, sharedModule, appModule, sourceModule)
         }
         Timber.tag(TAG).d("Koin init complete elapsed=%dms", SystemClock.elapsedRealtime() - koinStart)
 
@@ -256,7 +257,7 @@ class App :
         }
 
         get<CoroutineScope>().launch {
-            IconUtils.syncWithPreference(this@App)
+            LauncherAlias.ensureEnabled(this@App)
         }
 
         get<CoroutineScope>().launch {

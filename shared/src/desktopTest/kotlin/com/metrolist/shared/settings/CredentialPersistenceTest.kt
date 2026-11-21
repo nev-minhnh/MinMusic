@@ -24,6 +24,8 @@ import kotlin.test.assertTrue
 class CredentialPersistenceTest {
     @Test
     fun startupDeadlineKeepsTimedOutLinuxCredentialsPendingForRecovery() {
+        // Linux keyring timing; the deadline behaves differently on Windows hosts.
+        assumeTrue(!System.getProperty("os.name").startsWith("Windows"))
         val directory = Files.createTempDirectory("metrolist-startup-deadline").toFile()
         try {
             val store =
