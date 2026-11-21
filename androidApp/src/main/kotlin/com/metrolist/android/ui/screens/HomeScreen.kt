@@ -101,6 +101,8 @@ import com.metrolist.shared.ui.components.ChipShelf
 import com.metrolist.shared.ui.components.HomeLoadingPlaceholder
 import com.metrolist.shared.ui.components.PopupVisibility
 import com.metrolist.shared.ui.components.RefreshIndicator
+import com.metrolist.shared.ui.components.minmusic.MmChartsShelf
+import com.metrolist.shared.ui.components.minmusic.rememberMmVnCharts
 import com.metrolist.shared.ui.icons.MetrolistIcons
 import com.metrolist.shared.ui.navigation.LocalRootContentActive
 import com.metrolist.shared.ui.screens.HomeContent
@@ -202,6 +204,8 @@ fun HomeScreen(
         }
 
     val selectedChip = uiState.selectedChip
+    // VN charts shelf: only when Zing / NCT are enabled and answered; never placeholder data.
+    val vnCharts by rememberMmVnCharts()
 
     val miniPlayerInset = LocalMiniPlayerBottomInset.current
     val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
@@ -229,6 +233,7 @@ fun HomeScreen(
 
     val homeContent: @Composable () -> Unit = {
         val sharedText = homeContentText()
+        val chartCurrentSongId = remember(currentSong) { derivedStateOf { currentSong.value?.id } }
         val onHomeItemClick: (YTItem) -> Unit = { item ->
             handleItemClick(
                 item,
@@ -265,6 +270,25 @@ fun HomeScreen(
             onItemLongClick = { selectedMenuItem = it },
             onShuffleSongs = { songs -> playerConnection?.shuffleQueue(songs, queueTitle = sharedText.shuffle) },
             onPlaySongs = { songs -> playerConnection?.playQueue(songs, queueTitle = sharedText.quickPicks) },
+            afterQuickPicks =
+                if (vnCharts.isNotEmpty() && !uiState.showLoadingPlaceholder && selectedChip == null) {
+                    {
+                        item(key = "mm_vn_charts", contentType = "mm_vn_charts") {
+                            MmChartsShelf(
+                                tabs = vnCharts,
+                                onSongClick = { songs, index ->
+                                    playerConnection?.playQueue(songs, startIndex = index, queueTitle = sharedText.charts)
+                                },
+                                onSongMenu = { selectedMenuItem = it },
+                                onPlayAll = { songs -> playerConnection?.playQueue(songs, queueTitle = sharedText.charts) },
+                                currentSongId = chartCurrentSongId,
+                                isPlaying = isPlaying,
+                            )
+                        }
+                    }
+                } else {
+                    null
+                },
             onLibraryClick = onNavigateToLibrary,
             onLocalShelfClick = onNavigateToHomeSection,
             onArtistClick = { artistId -> onNavigateToArtist(artistId) },
