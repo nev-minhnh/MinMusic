@@ -709,7 +709,7 @@ private class EqualizerEditHistory {
 
     fun undo(active: EqualizerProfile?) {
         val current = active?.withoutOutputGain() ?: return
-        val settled = committed ?: return
+        val settled = committed?.takeIf { it.id == current.id } ?: return
         if (current != settled) {
             redo.add(current)
             EqualizerProfiles.editCurrent(settled)
@@ -724,6 +724,7 @@ private class EqualizerEditHistory {
     fun redo(active: EqualizerProfile?) {
         val current = active?.withoutOutputGain() ?: return
         if (redo.isEmpty()) return
+        if (redo.last().id != current.id) return
         val target = redo.removeAt(redo.lastIndex)
         undo.add(current)
         committed = target
@@ -854,7 +855,11 @@ private fun EqualizerGraph(
     val range =
         dragRange ?: maxOf(
             MAX_EQUALIZER_BAND_GAIN_DB + abs(preamp),
-            ceil((response.maxOfOrNull { abs(it.second) } ?: 0.0) / MAX_AUDIO_BOOST_DB) * MAX_AUDIO_BOOST_DB,
+            // Notch and pass-filter stopbands fall far below the band range; they are clipped instead of shrinking the plot.
+            ceil(
+                (response.maxOfOrNull { abs(it.second.coerceAtLeast(-MAX_EQUALIZER_BAND_GAIN_DB - abs(preamp))) } ?: 0.0) /
+                    MAX_AUDIO_BOOST_DB,
+            ) * MAX_AUDIO_BOOST_DB,
         ).coerceAtMost(96.0)
     val currentRange by rememberUpdatedState(range)
     val currentSpan by rememberUpdatedState(logarithmicSpan)
