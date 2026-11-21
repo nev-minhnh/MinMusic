@@ -94,7 +94,7 @@ class WidgetActionReceiver : BroadcastReceiver() {
                         val type =
                             intent.getStringExtra(PlaylistWidgetReceiver.EXTRA_TARGET_TYPE)
                         if (type == PlaylistWidgetReceiver.TARGET_TYPE_ONLINE && BuiltinPlaylist.fromId(id) == null) {
-                            connection.playPlaylist(id, title.orEmpty())
+                            connection.playPlaylist(id, title.orEmpty(), expandPlayer = false)
                         } else {
                             val songs =
                                 withContext(Dispatchers.IO) {
@@ -113,7 +113,7 @@ class WidgetActionReceiver : BroadcastReceiver() {
                                         emptyList()
                                     }
                                 }
-                            if (songs.isNotEmpty()) connection.playQueue(songs, queueTitle = title, finite = true)
+                            if (songs.isNotEmpty()) connection.playQueue(songs, queueTitle = title, finite = true, expandPlayer = false)
                         }
                     }
                 }
