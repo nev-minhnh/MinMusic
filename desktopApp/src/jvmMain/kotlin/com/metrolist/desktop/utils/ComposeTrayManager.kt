@@ -18,9 +18,11 @@ import com.metrolist.shared.generated.resources.tray_by
 import com.metrolist.shared.generated.resources.tray_hide_miniplayer
 import com.metrolist.shared.generated.resources.tray_hide_window
 import com.metrolist.shared.generated.resources.tray_next_track
+import com.metrolist.shared.generated.resources.tray_open_app
 import com.metrolist.shared.generated.resources.tray_pause
 import com.metrolist.shared.generated.resources.tray_play
 import com.metrolist.shared.generated.resources.tray_previous_track
+import com.metrolist.shared.generated.resources.tray_quit
 import com.metrolist.shared.generated.resources.tray_quit_metrolist
 import com.metrolist.shared.generated.resources.tray_settings
 import com.metrolist.shared.generated.resources.tray_show_miniplayer
@@ -187,13 +189,13 @@ object ComposeTrayManager {
         val playPauseLabel = if (isPlaying) strPause else strPlay
         val windowToggleLabel = if (isWindowVisible.value) strHideWindow else strShowWindow
         val miniplayerToggleLabel = if (PlayerState.showMiniplayer) strHideMiniplayer else strShowMiniplayer
+        val strOpenApp = stringResource(Res.string.tray_open_app)
+        val strQuit = stringResource(Res.string.tray_quit)
         val onTrayAction: () -> Unit = {
-            if (Settings.shared.desktopTrayToggleOnClick) {
-                if (isWindowVisible.value) {
-                    hideWindow()
-                } else {
-                    showWindow()
-                }
+            when {
+                // MinMusic: on Windows a left click always brings a hidden or minimized window back.
+                OsUtil.isWindows && !isWindowVisible.value -> showWindow()
+                Settings.shared.desktopTrayToggleOnClick -> toggleWindow()
             }
         }
 
@@ -246,7 +248,9 @@ object ComposeTrayManager {
                     }
 
                     Item(text = windowToggleLabel, onClick = { toggleWindow() })
-                    Item(text = miniplayerToggleLabel, onClick = { PlayerState.showMiniplayer = !PlayerState.showMiniplayer })
+                    if (PlayerState.miniplayerAvailable) {
+                        Item(text = miniplayerToggleLabel, onClick = { PlayerState.toggleMiniplayer() })
+                    }
                     Separator()
                     Item(
                         text = strSettings,
@@ -266,18 +270,8 @@ object ComposeTrayManager {
                 icon = icon,
                 tooltip = tooltip,
                 primaryAction = onTrayAction,
+                // MinMusic menu (owner decision): Play/Pause, Previous, Next, Open MinMusic, Quit. The tooltip names the song.
                 menuContent = {
-                    currentTrack?.let {
-                        Item(label = currentTitleLabel) { showWindow() }
-                        Item(label = currentArtistLabel ?: "", isEnabled = currentArtistId != null) {
-                            currentArtistId?.let {
-                                showWindow()
-                                EventQueue.invokeLater { DesktopNavigation.navigate(Screen.Artist(it)) }
-                            }
-                        }
-                        Divider()
-                    }
-
                     if (!isListenTogetherGuest) {
                         Item(
                             label = playPauseLabel,
@@ -287,21 +281,22 @@ object ComposeTrayManager {
                         }
 
                         if (currentTrack != null) {
-                            Item(label = strNextTrack, isEnabled = mediaControls.next) {
-                                PlayerState.skipNext()
-                            }
-
                             Item(label = strPreviousTrack, isEnabled = mediaControls.previous) {
                                 PlayerState.skipPrevious()
+                            }
+
+                            Item(label = strNextTrack, isEnabled = mediaControls.next) {
+                                PlayerState.skipNext()
                             }
                         }
 
                         Divider()
                     }
 
-                    Item(label = windowToggleLabel) { toggleWindow() }
-                    Item(label = miniplayerToggleLabel) { PlayerState.showMiniplayer = !PlayerState.showMiniplayer }
-                    Divider()
+                    Item(label = strOpenApp) { showWindow() }
+                    if (PlayerState.miniplayerAvailable) {
+                        Item(label = miniplayerToggleLabel) { PlayerState.toggleMiniplayer() }
+                    }
                     Item(label = strSettings) {
                         UiState.showSettings = true
                         if (!isWindowVisible.value) {
@@ -309,7 +304,7 @@ object ComposeTrayManager {
                         }
                     }
                     Divider()
-                    Item(label = strQuitMetrolist) { onQuit?.invoke() }
+                    Item(label = strQuit) { onQuit?.invoke() }
                 },
             )
         }
