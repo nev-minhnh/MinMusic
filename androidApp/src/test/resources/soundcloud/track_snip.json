@@ -1,0 +1,58 @@
+{
+ "artwork_url": "https://i1.sndcdn.com/artworks-rZlknkAoRPwC-0-large.jpg",
+ "duration": 30000,
+ "full_duration": 226116,
+ "id": 2181406707,
+ "kind": "track",
+ "media": {
+  "transcodings": [
+   {
+    "url": "https://api-v2.soundcloud.com/media/soundcloud:tracks:2181406707/9d03d1bf-c7d9-4ff0-803c-8cf09d12d79a/preview/hls",
+    "preset": "mp3_1_0",
+    "duration": 30000,
+    "snipped": true,
+    "format": {
+     "protocol": "hls",
+     "mime_type": "audio/mpeg"
+    },
+    "quality": "sq"
+   },
+   {
+    "url": "https://api-v2.soundcloud.com/media/soundcloud:tracks:2181406707/9d03d1bf-c7d9-4ff0-803c-8cf09d12d79a/preview/progressive",
+    "preset": "mp3_1_0",
+    "duration": 30000,
+    "snipped": true,
+    "format": {
+     "protocol": "progressive",
+     "mime_type": "audio/mpeg"
+    },
+    "quality": "sq"
+   }
+  ]
+ },
+ "permalink_url": "https://soundcloud.com/taylorswiftofficial/the-fate-of-ophelia",
+ "policy": "SNIP",
+ "publisher_metadata": {
+  "id": 2181406707,
+  "artist": "Taylor Swift",
+  "album_title": "The Life of a Showgirl"
+ },
+ "streamable": true,
+ "title": "The Fate of Ophelia",
+ "track_authorization": "fixture-track-authorization",
+ "user": {
+  "id": 207963889,
+  "username": "Taylor Swift",
+  "permalink_url": "https://soundcloud.com/taylorswiftofficial",
+  "avatar_url": "https://i1.sndcdn.com/avatars-sjNcX6AFcRz63FAD-piyajw-large.jpg",
+  "verified": true
+ },
+ "created_at": "2025-10-03T05:53:26Z",
+ "description": "",
+ "genre": "Pop",
+ "tag_list": "",
+ "sharing": "public",
+ "playback_count": 2832001,
+ "likes_count": 65290,
+ "downloadable": false
+}

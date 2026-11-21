@@ -40,6 +40,8 @@ dependencyResolutionManagement {
                 includeGroup("com.github.nyxiereal.glyphmind")
                 includeGroup("com.github.MetrolistGroup.innertubex")
                 includeGroup("com.github.MetrolistGroup.quackjs")
+                // NewPipeExtractor and its nanojson fork.
+                includeGroup("com.github.TeamNewPipe")
             }
         }
         maven { setUrl("https://maven.aliyun.com/repository/public") }

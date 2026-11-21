@@ -444,6 +444,7 @@ dependencies {
     implementation(libs.ktor.client.cio)
     implementation(libs.ktor.client.websockets)
     implementation(libs.okhttp)
+    implementation(libs.newpipe.extractor)
     implementation(libs.splashscreen)
 
     androidTestImplementation(libs.androidx.test.runner)
