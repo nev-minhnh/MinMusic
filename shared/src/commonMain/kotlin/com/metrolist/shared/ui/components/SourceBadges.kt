@@ -35,6 +35,7 @@ import com.metrolist.shared.source.SourceId
 import com.metrolist.shared.source.sourceOf
 import com.metrolist.shared.ui.theme.LocalBrand
 import com.metrolist.shared.youtube.playback.PlaybackResource
+import com.metrolist.shared.youtube.playback.audioCodecs
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 import org.jetbrains.compose.resources.StringResource
@@ -84,7 +85,9 @@ fun FormatEntity.qualityLabel(): AudioQualityLabel? = audioQualityLabel(codecs, 
 
 /** The quality of a resolved stream, known as soon as it resolves (the stored format only exists once cached). */
 fun PlaybackResource.qualityLabel(): AudioQualityLabel? {
-    val codecs = codecs?.takeIf(String::isNotBlank) ?: return null
+    // YouTube streams may carry the codec only inside the MIME type (`audio/webm; codecs="opus"`), or only the
+    // itag (SABR); fall back to those before giving up.
+    val codecs = audioCodecs() ?: return null
     return audioQualityLabel(codecs, mimeType.orEmpty(), bitrate ?: 0, itag ?: -1)
 }
 

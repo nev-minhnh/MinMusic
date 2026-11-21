@@ -140,7 +140,6 @@ import com.metrolist.shared.settings.Settings
 import com.metrolist.shared.settings.displayName
 import com.metrolist.shared.settings.displayTitle
 import com.metrolist.shared.source.SourceId
-import com.metrolist.shared.source.sourceOf
 import com.metrolist.shared.ui.components.AlbumPlayButton
 import com.metrolist.shared.ui.components.AlertDialog
 import com.metrolist.shared.ui.components.ArtistSubtitle
@@ -151,6 +150,7 @@ import com.metrolist.shared.ui.components.FittingText
 import com.metrolist.shared.ui.components.PlaylistCoverImage
 import com.metrolist.shared.ui.components.PopupContent
 import com.metrolist.shared.ui.components.PopupVisibility
+import com.metrolist.shared.ui.components.QualityBadge
 import com.metrolist.shared.ui.components.SongThumbnailPlayingIndicator
 import com.metrolist.shared.ui.components.SourceQualityBadges
 import com.metrolist.shared.ui.components.VideoShelf
@@ -162,6 +162,7 @@ import com.metrolist.shared.ui.components.minmusic.MmSectionHeader
 import com.metrolist.shared.ui.components.minmusic.MmSourceColors
 import com.metrolist.shared.ui.components.minmusic.MmTrackRow
 import com.metrolist.shared.ui.components.minmusic.rememberMmVnCharts
+import com.metrolist.shared.ui.components.rememberSongQuality
 import com.metrolist.shared.ui.components.squareArtworkSlot
 import com.metrolist.shared.ui.icons.MetrolistIcons
 import com.metrolist.shared.ui.icons.SongStatusIcons
@@ -2346,7 +2347,9 @@ private fun SearchResultItem(
     showSourceBadge: Boolean = false,
 ) {
     val isCurrentSong = item is SongItem && item.id == currentSongId
-    val songSource = (item as? SongItem)?.takeIf { showSourceBadge }?.let { sourceOf(it.id) }
+    // With a single source only a known quality is shown; rememberSongQuality reads the stored format (database).
+    val storedQuality = if (item is SongItem && !showSourceBadge) rememberSongQuality(item.id) else null
+    val showBadges = item is SongItem && (showSourceBadge || storedQuality != null)
 
     YTListItem(
         item = item,
@@ -2359,8 +2362,14 @@ private fun SearchResultItem(
         modifier = modifier,
         clickableMetadata = isWide,
         onAlbumPlay = onAlbumPlay,
-        // Source + quality badges go before the meta text: [Zing][320] Artist.
-        badges = if (songSource != null) { { SourceQualityBadges(item.id) } } else null,
+        // Source + quality badges go before the meta text: [Zing][320] Artist. With only one source the source
+        // badge is hidden, but a known quality (stored format, read from the database, never fetched) still shows.
+        badges =
+            when {
+                !showBadges -> null
+                showSourceBadge -> { { SourceQualityBadges(item.id) } }
+                else -> { { storedQuality?.let { QualityBadge(it) } } }
+            },
     )
 }
 

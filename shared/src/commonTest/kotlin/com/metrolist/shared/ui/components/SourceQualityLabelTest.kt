@@ -35,6 +35,13 @@ class SourceQualityLabelTest {
     }
 
     @Test
+    fun youTubeCodecFromMimeTypeOrItag() {
+        assertEquals(AudioQualityLabel("Opus", 160), resource(null, "audio/webm; codecs=\"opus\"", 141_000, itag = 251).qualityLabel())
+        assertEquals(AudioQualityLabel("AAC", 128), resource(null, "audio/mp4; codecs=\"mp4a.40.2\"", 130_000).qualityLabel())
+        assertEquals(AudioQualityLabel("AAC", 128), resource(null, null, null, itag = 140).qualityLabel())
+    }
+
+    @Test
     fun unknownCodecHasNoLabel() {
         assertNull(resource(null, "audio/mp4", 128_000).qualityLabel())
         assertNull(resource("", null, null, itag = null).qualityLabel())
