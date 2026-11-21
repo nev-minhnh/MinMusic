@@ -2641,4 +2641,10 @@
     <string name="mm_player_this_device">Thiết bị này</string>
     <string name="mm_player_lyrics_peek_hint">Vuốt lên để mở</string>
     <string name="mm_player_lyrics_peek_empty">Chạm để mở lời bài hát</string>
+    <string name="mm_search_genres_title">Thể loại</string>
+    <string name="mm_search_genre_vpop">V-Pop</string>
+    <string name="mm_search_genre_rap">Rap Việt</string>
+    <string name="mm_search_genre_indie">Indie Việt</string>
+    <string name="mm_search_genre_bolero">Bolero</string>
+    <string name="mm_home_more_actions">Thêm</string>
 </resources>

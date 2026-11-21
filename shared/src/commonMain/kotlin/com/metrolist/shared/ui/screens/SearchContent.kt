@@ -87,6 +87,8 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
@@ -96,6 +98,11 @@ import com.metrolist.shared.generated.resources.Res
 import com.metrolist.shared.generated.resources.explicit
 import com.metrolist.shared.generated.resources.loading
 import com.metrolist.shared.generated.resources.mm_remove_history_item
+import com.metrolist.shared.generated.resources.mm_search_genre_bolero
+import com.metrolist.shared.generated.resources.mm_search_genre_indie
+import com.metrolist.shared.generated.resources.mm_search_genre_rap
+import com.metrolist.shared.generated.resources.mm_search_genre_vpop
+import com.metrolist.shared.generated.resources.mm_search_genres_title
 import com.metrolist.shared.generated.resources.mm_search_recent
 import com.metrolist.shared.generated.resources.mm_search_trending_subtitle
 import com.metrolist.shared.generated.resources.mm_search_trending_title
@@ -602,20 +609,77 @@ private fun SearchEmptyState(
             }
         }
 
-        if (history.isEmpty() && recentSearchItems.isEmpty() && trendingQueries.isEmpty()) {
-            item(key = "search_start_typing") {
-                Box(
-                    modifier = Modifier.fillParentMaxSize(),
-                    contentAlignment = Alignment.Center,
+        // Genre tiles are always there, so the screen is never empty (also on a fresh install with no
+        // history and with the Vietnamese sources still off).
+        item(key = "genres_header", contentType = "section_header") {
+            MmSectionHeader(
+                title = stringResource(Res.string.mm_search_genres_title),
+                topPadding = if (history.isEmpty() && recentSearchItems.isEmpty() && trendingQueries.isEmpty()) 16.dp else 24.dp,
+            )
+        }
+        MmSearchGenres.chunked(2).forEachIndexed { rowIndex, rowGenres ->
+            item(key = "genres_row_$rowIndex", contentType = "genre_row") {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    Text(
-                        text = text.startTypingToSearch,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                    rowGenres.forEach { genre ->
+                        val label = stringResource(genre.label)
+                        MmGenreTile(
+                            label = label,
+                            genre = genre,
+                            onClick = { onHistoryItemClick(label) },
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                    if (rowGenres.size == 1) Spacer(Modifier.weight(1f))
                 }
             }
         }
+    }
+}
+
+/** A "Thể loại" tile of the search empty state: a soft tint (pastel on light, low-alpha on dark) and its search query. */
+private class MmSearchGenre(
+    val label: StringResource,
+    val tint: Color,
+    val ink: Color,
+)
+
+private val MmSearchGenres =
+    listOf(
+        MmSearchGenre(Res.string.mm_search_genre_vpop, Color(0xFFF6DCD3), Color(0xFF5A170A)),
+        MmSearchGenre(Res.string.mm_search_genre_rap, Color(0xFFE2E0F2), Color(0xFF2B2A4A)),
+        MmSearchGenre(Res.string.mm_search_genre_indie, Color(0xFFDCEBDF), Color(0xFF1E3A2B)),
+        MmSearchGenre(Res.string.mm_search_genre_bolero, Color(0xFFF1E2BE), Color(0xFF5A3A12)),
+    )
+
+@Composable
+private fun MmGenreTile(
+    label: String,
+    genre: MmSearchGenre,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
+    val shape = RoundedCornerShape(12.dp)
+    Box(
+        modifier =
+            modifier
+                .height(64.dp)
+                .clip(shape)
+                .background(if (isDark) genre.tint.copy(alpha = 0.16f) else genre.tint, shape)
+                .clickable(onClick = onClick)
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = if (isDark) genre.tint else genre.ink,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }
 

@@ -5763,4 +5763,12 @@
     <string name="mm_player_lyrics_peek_empty">Tap to open lyrics</string>
     <!-- Remaining playback time under the player progress bar; %1$s is a duration such as 1:55. -->
     <string name="mm_player_time_remaining" translatable="false">−%1$s</string>
+    <!-- Search empty state: section of genre tiles; tapping a tile searches for the genre name. -->
+    <string name="mm_search_genres_title">Genres</string>
+    <string name="mm_search_genre_vpop">V-Pop</string>
+    <string name="mm_search_genre_rap">Rap Việt</string>
+    <string name="mm_search_genre_indie">Indie Việt</string>
+    <string name="mm_search_genre_bolero">Bolero</string>
+    <!-- Home top bar overflow button that holds History and Listen Together on phones. -->
+    <string name="mm_home_more_actions">More</string>
 </resources>
