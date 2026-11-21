@@ -141,8 +141,8 @@ internal fun SettingsUiRegistryBuilder.registerPrivacySettings(host: SharedSetti
             }
         }
         group("diagnostics", stringResource(Res.string.privacy_diagnostics)) {
-            // MinMusic for Android sends no telemetry, so it never offers third-party crash reporting.
-            if (host.platform != SettingsPlatform.ANDROID && isCrashReportingAvailable()) {
+            // MinMusic sends no telemetry (Android and Windows), so it never offers third-party crash reporting.
+            if (host.platform != SettingsPlatform.ANDROID && host.platform != SettingsPlatform.DESKTOP && isCrashReportingAvailable()) {
                 switch(
                     id = "sentry",
                     title = stringResource(Res.string.sentry_reporting),

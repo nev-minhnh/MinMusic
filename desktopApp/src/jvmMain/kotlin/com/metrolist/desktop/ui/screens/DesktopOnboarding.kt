@@ -111,7 +111,7 @@ fun DesktopOnboarding(onComplete: (sendCrashReports: Boolean, openLogin: Boolean
         remember {
             buildList {
                 add(OnboardingPage.WELCOME)
-                if (isCrashReportingAvailable()) add(OnboardingPage.CRASH_REPORTS)
+                // MinMusic sends no telemetry: the crash-report consent page is never shown (W1 removes Sentry).
                 add(OnboardingPage.LANGUAGE_LYRICS)
                 add(OnboardingPage.PLAYBACK)
                 add(OnboardingPage.FINISH)
