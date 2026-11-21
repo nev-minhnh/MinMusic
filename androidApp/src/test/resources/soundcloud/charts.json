@@ -1,0 +1,138 @@
+{
+ "genre": "soundcloud:genres:all-music",
+ "kind": "trending",
+ "collection": [
+  {
+   "track": {
+    "artwork_url": "https://i1.sndcdn.com/artworks-ybOpDoNK578b-0-large.jpg",
+    "duration": 30000,
+    "full_duration": 170403,
+    "id": 2320209185,
+    "kind": "track",
+    "media": {
+     "transcodings": [
+      {
+       "url": "https://api-v2.soundcloud.com/media/soundcloud:tracks:2320209185/740b97e2-9e3d-4ce0-a2c0-cd6aab9df89a/preview/hls",
+       "preset": "mp3_1_0",
+       "duration": 30000,
+       "snipped": true,
+       "format": {
+        "protocol": "hls",
+        "mime_type": "audio/mpeg"
+       },
+       "quality": "sq"
+      },
+      {
+       "url": "https://api-v2.soundcloud.com/media/soundcloud:tracks:2320209185/740b97e2-9e3d-4ce0-a2c0-cd6aab9df89a/preview/progressive",
+       "preset": "mp3_1_0",
+       "duration": 30000,
+       "snipped": true,
+       "format": {
+        "protocol": "progressive",
+        "mime_type": "audio/mpeg"
+       },
+       "quality": "sq"
+      }
+     ]
+    },
+    "permalink_url": "https://soundcloud.com/user-10135919/surf7-goose-coat",
+    "policy": "SNIP",
+    "publisher_metadata": {
+     "id": 2320209185,
+     "artist": "Surf7",
+     "album_title": "GOOSE COAT"
+    },
+    "streamable": true,
+    "title": "GOOSE COAT",
+    "track_authorization": "fixture-track-authorization",
+    "user": {
+     "id": 335549515,
+     "username": "Surf7",
+     "permalink_url": "https://soundcloud.com/user-10135919",
+     "avatar_url": "https://i1.sndcdn.com/avatars-SY1p1zxGVQ1ir81Q-yO1ogA-large.jpg",
+     "verified": true
+    },
+    "created_at": "2026-05-14T02:26:46Z",
+    "description": "",
+    "genre": "Hip Hop/Rap",
+    "tag_list": "",
+    "sharing": "public",
+    "playback_count": 2312709,
+    "likes_count": 47960,
+    "downloadable": false
+   },
+   "score": 0.8495453018559033
+  },
+  {
+   "track": {
+    "artwork_url": "https://i1.sndcdn.com/artworks-xf4z5cZTdexkuWqb-mgXAzw-large.jpg",
+    "duration": 331921,
+    "full_duration": 331912,
+    "id": 2274228401,
+    "kind": "track",
+    "media": {
+     "transcodings": [
+      {
+       "url": "https://api-v2.soundcloud.com/media/soundcloud:tracks:2274228401/4b2820f4-96d3-444f-b3c1-062a02a4495b/stream/hls",
+       "preset": "aac_160k",
+       "duration": 331921,
+       "snipped": false,
+       "format": {
+        "protocol": "hls",
+        "mime_type": "audio/mp4; codecs=\"mp4a.40.2\""
+       },
+       "quality": "sq"
+      },
+      {
+       "url": "https://api-v2.soundcloud.com/media/soundcloud:tracks:2274228401/e6683e56-84ee-4fcd-8eb9-9357adb77029/stream/hls",
+       "preset": "aac_96k",
+       "duration": 331921,
+       "snipped": false,
+       "format": {
+        "protocol": "hls",
+        "mime_type": "audio/mp4; codecs=\"mp4a.40.2\""
+       },
+       "quality": "lq"
+      },
+      {
+       "url": "https://api-v2.soundcloud.com/media/soundcloud:tracks:2274228401/06526cad-aa8c-4172-ae4d-782a5f829d2e/stream/hls",
+       "preset": "abr_sq",
+       "duration": 331921,
+       "snipped": false,
+       "format": {
+        "protocol": "hls",
+        "mime_type": "audio/mpegurl"
+       },
+       "quality": "sq"
+      }
+     ]
+    },
+    "permalink_url": "https://soundcloud.com/user-673759314/nafe-smallz-know-me-better",
+    "policy": "ALLOW",
+    "publisher_metadata": {
+     "id": 2274228401
+    },
+    "streamable": true,
+    "title": "Nafe Smallz - Know me better (Louca's Groove Edit)  [FREE DL]",
+    "track_authorization": "fixture-track-authorization",
+    "user": {
+     "id": 1043284588,
+     "username": "Louca's Groove",
+     "permalink_url": "https://soundcloud.com/user-673759314",
+     "avatar_url": "https://i1.sndcdn.com/avatars-XvuiyA5Emrlityky-emvg6w-large.jpg",
+     "verified": false
+    },
+    "created_at": "2026-02-27T00:11:57Z",
+    "description": "",
+    "genre": "",
+    "tag_list": "",
+    "sharing": "public",
+    "playback_count": 805120,
+    "likes_count": 14201,
+    "downloadable": false
+   },
+   "score": 0.7663523186687915
+  }
+ ],
+ "next_href": "https://api-v2.soundcloud.com/charts?genre=soundcloud%3Agenres%3Aall-music&query_urn=soundcloud%3Acharts%3A72d45faf702945cb99b3800b9867d376&offset=3&kind=trending&limit=3"
+}

@@ -1,0 +1,164 @@
+{
+ "artwork_url": "https://i1.sndcdn.com/artworks-69w3TzoluUm8kQIy-D5uwGw-large.jpg",
+ "id": 352480527,
+ "kind": "playlist",
+ "permalink_url": "https://soundcloud.com/lofi_chill/sets/lofi-chill",
+ "title": "𝘾𝙃𝙄𝙇𝙇",
+ "track_count": 4,
+ "is_album": false,
+ "set_type": "",
+ "user": {
+  "id": 173899647,
+  "username": "LoFi",
+  "permalink_url": "https://soundcloud.com/lofi_chill",
+  "avatar_url": "https://i1.sndcdn.com/avatars-4yYzwz3O2GL0S0uz-81tVGA-large.jpg"
+ },
+ "tracks": [
+  {
+   "artwork_url": "https://i1.sndcdn.com/artworks-ZgqDPcSH3XYgNjJN-TjuYug-large.jpg",
+   "duration": 125852,
+   "full_duration": 125832,
+   "id": 1004445667,
+   "kind": "track",
+   "media": {
+    "transcodings": [
+     {
+      "url": "https://api-v2.soundcloud.com/media/soundcloud:tracks:1004445667/6d75f792-2ba4-43b7-b1c3-22710865ad6e/stream/hls",
+      "preset": "aac_160k",
+      "duration": 125852,
+      "snipped": false,
+      "format": {
+       "protocol": "hls",
+       "mime_type": "audio/mp4; codecs=\"mp4a.40.2\""
+      },
+      "quality": "sq"
+     },
+     {
+      "url": "https://api-v2.soundcloud.com/media/soundcloud:tracks:1004445667/1bc78054-140b-478b-a7d5-4ec7f5c1d7c3/stream/hls",
+      "preset": "aac_96k",
+      "duration": 125852,
+      "snipped": false,
+      "format": {
+       "protocol": "hls",
+       "mime_type": "audio/mp4; codecs=\"mp4a.40.2\""
+      },
+      "quality": "lq"
+     },
+     {
+      "url": "https://api-v2.soundcloud.com/media/soundcloud:tracks:1004445667/e0611df6-4714-4983-b0dd-cf6f6f4d212f/stream/hls",
+      "preset": "abr_sq",
+      "duration": 125852,
+      "snipped": false,
+      "format": {
+       "protocol": "hls",
+       "mime_type": "audio/mpegurl"
+      },
+      "quality": "sq"
+     }
+    ]
+   },
+   "permalink_url": "https://soundcloud.com/david_sanya/my-love",
+   "policy": "ALLOW",
+   "publisher_metadata": {
+    "id": 1004445667,
+    "artist": "David Sanya"
+   },
+   "streamable": true,
+   "title": "𝙈𝙮 𝙇𝙤𝙫𝙚 // 𝘿𝙖𝙫𝙞𝙙 𝙎𝙖𝙣𝙮𝙖 // 𝘿𝙖𝙫𝙞𝙙𝙎𝙖𝙣𝙮𝙖𝘽𝙚𝙖𝙩𝙨.𝙘𝙤𝙢",
+   "track_authorization": "fixture-track-authorization",
+   "user": {
+    "id": 171315858,
+    "username": "𝘿𝙖𝙫𝙞𝙙 𝙎𝙖𝙣𝙮𝙖",
+    "permalink_url": "https://soundcloud.com/david_sanya",
+    "avatar_url": "https://i1.sndcdn.com/avatars-7y5CtP96sP3eFh97-e29oZQ-large.jpg",
+    "verified": false
+   },
+   "created_at": "2021-03-11T00:11:21Z",
+   "description": "",
+   "genre": "",
+   "tag_list": "\"Lounge Music\" Christmas \"Christmas songs\"",
+   "sharing": "public",
+   "playback_count": null,
+   "likes_count": null,
+   "downloadable": false
+  },
+  {
+   "artwork_url": null,
+   "duration": 188990,
+   "full_duration": 188970,
+   "id": 1345949935,
+   "kind": "track",
+   "media": {
+    "transcodings": [
+     {
+      "url": "https://api-v2.soundcloud.com/media/soundcloud:tracks:1345949935/56ca8146-cf6b-49d8-9dda-4002f0e4a8fb/stream/hls",
+      "preset": "aac_160k",
+      "duration": 188990,
+      "snipped": false,
+      "format": {
+       "protocol": "hls",
+       "mime_type": "audio/mp4; codecs=\"mp4a.40.2\""
+      },
+      "quality": "sq"
+     },
+     {
+      "url": "https://api-v2.soundcloud.com/media/soundcloud:tracks:1345949935/a8f2563a-a984-48c5-a7a5-2621de51fe90/stream/hls",
+      "preset": "aac_96k",
+      "duration": 188990,
+      "snipped": false,
+      "format": {
+       "protocol": "hls",
+       "mime_type": "audio/mp4; codecs=\"mp4a.40.2\""
+      },
+      "quality": "lq"
+     },
+     {
+      "url": "https://api-v2.soundcloud.com/media/soundcloud:tracks:1345949935/9a0277cc-1317-4d66-8eae-c11d93c8e91a/stream/hls",
+      "preset": "abr_sq",
+      "duration": 188990,
+      "snipped": false,
+      "format": {
+       "protocol": "hls",
+       "mime_type": "audio/mpegurl"
+      },
+      "quality": "sq"
+     }
+    ]
+   },
+   "permalink_url": "https://soundcloud.com/david_sanya/burden",
+   "policy": "ALLOW",
+   "publisher_metadata": {
+    "id": 1345949935,
+    "artist": "David Sanya"
+   },
+   "streamable": true,
+   "title": "𝘽𝙪𝙧𝙙𝙚𝙣 // 𝘿𝙖𝙫𝙞𝙙 𝙎𝙖𝙣𝙮𝙖 // 𝘿𝙖𝙫𝙞𝙙𝙎𝙖𝙣𝙮𝙖𝘽𝙚𝙖𝙩𝙨.𝙘𝙤𝙢",
+   "track_authorization": "fixture-track-authorization",
+   "user": {
+    "id": 171315858,
+    "username": "𝘿𝙖𝙫𝙞𝙙 𝙎𝙖𝙣𝙮𝙖",
+    "permalink_url": "https://soundcloud.com/david_sanya",
+    "avatar_url": "https://i1.sndcdn.com/avatars-7y5CtP96sP3eFh97-e29oZQ-large.jpg",
+    "verified": false
+   },
+   "created_at": "2022-09-18T01:12:33Z",
+   "description": "",
+   "genre": "R&B & Soul",
+   "tag_list": "Lo-Fi",
+   "sharing": "public",
+   "playback_count": null,
+   "likes_count": null,
+   "downloadable": false
+  },
+  {
+   "id": 951866101,
+   "kind": "track",
+   "policy": "ALLOW"
+  },
+  {
+   "id": 1080322432,
+   "kind": "track",
+   "policy": "ALLOW"
+  }
+ ]
+}
