@@ -40,7 +40,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.MotionDurationScale
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.platform.LocalDensity
@@ -68,6 +72,7 @@ fun PlaybackProgressSlider(
     trackThicknessDp: Float = Settings.shared.sliderTrackThicknessDp,
     valueProvider: () -> Float = { value },
     track: (@Composable (SliderState) -> Unit)? = null,
+    activeGradientColors: List<Color>? = null,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
 
@@ -186,6 +191,7 @@ fun PlaybackProgressSlider(
                         progress = { state.value },
                         bufferedFraction = bufferedFraction,
                         color = activeColor,
+                        gradientColors = activeGradientColors,
                         isPlaying = isPlaying,
                         isDragging = dragging,
                         animate = motionEnabled,
@@ -215,6 +221,7 @@ fun PlaybackProgressSlider(
                             bufferedFraction = bufferedFraction,
                             amplitude = amplitude,
                             color = activeColor,
+                            gradientColors = activeGradientColors,
                             trackColor = inactiveColor,
                             stroke = stroke,
                             gapSize = WavyProgressIndicatorDefaults.LinearIndicatorTrackGapSize + if (showThumb) thumbRadius else 0.dp,
@@ -226,7 +233,11 @@ fun PlaybackProgressSlider(
                             Canvas(Modifier.fillMaxWidth().height(thumbRadius * 2)) {
                                 val fraction = if (layoutDirection == LayoutDirection.Rtl) 1f - state.value else state.value
                                 drawCircle(
-                                    color = if (enabled) colors.thumbColor else colors.disabledThumbColor,
+                                    brush =
+                                        progressBrush(
+                                            activeGradientColors,
+                                            if (enabled) colors.thumbColor else colors.disabledThumbColor,
+                                        ),
                                     radius = thumbRadius.toPx(),
                                     center = Offset(size.width * fraction, center.y),
                                 )
@@ -251,7 +262,13 @@ fun PlaybackProgressSlider(
                                     StrokeCap.Round,
                                 )
                             }
-                            drawLine(activeColor, Offset(0f, center.y), Offset(playedX, center.y), strokeWidth, StrokeCap.Round)
+                            drawLine(
+                                progressBrush(activeGradientColors, activeColor),
+                                Offset(0f, center.y),
+                                Offset(playedX, center.y),
+                                strokeWidth,
+                                StrokeCap.Round,
+                            )
                         }
                     }
                 }
@@ -259,3 +276,19 @@ fun PlaybackProgressSlider(
         },
     )
 }
+
+/**
+ * Paint for the played part of a progress track: a left-to-right gradient across the whole track when
+ * [gradientColors] has at least two stops (MinMusic brand), otherwise the solid [color]. [offsetX] compensates a
+ * translated path so the gradient stays fixed to the track.
+ */
+internal fun DrawScope.progressBrush(
+    gradientColors: List<Color>?,
+    color: Color,
+    offsetX: Float = 0f,
+): Brush =
+    if (gradientColors != null && gradientColors.size >= 2) {
+        Brush.horizontalGradient(gradientColors, startX = offsetX, endX = size.width + offsetX)
+    } else {
+        SolidColor(color)
+    }

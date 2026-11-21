@@ -28,6 +28,7 @@ import androidx.compose.runtime.structuralEqualityPolicy
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -43,10 +44,12 @@ import com.metrolist.shared.generated.resources.mm_player_eq_chip_profile
 import com.metrolist.shared.generated.resources.mm_player_lyrics_peek_empty
 import com.metrolist.shared.generated.resources.mm_player_lyrics_peek_hint
 import com.metrolist.shared.generated.resources.mm_player_playing_from
+import com.metrolist.shared.generated.resources.mm_player_queue_open
+import com.metrolist.shared.generated.resources.mm_player_queue_song_count
+import com.metrolist.shared.generated.resources.mm_player_queue_up_next
 import com.metrolist.shared.generated.resources.mm_player_this_device
 import com.metrolist.shared.generated.resources.mute
 import com.metrolist.shared.generated.resources.now_playing
-import com.metrolist.shared.generated.resources.queue
 import com.metrolist.shared.generated.resources.share
 import com.metrolist.shared.generated.resources.switch_to_audio
 import com.metrolist.shared.generated.resources.switch_to_video
@@ -61,15 +64,22 @@ import com.metrolist.shared.ui.components.lyrics.rememberCaptionLyricsPositionSt
 import com.metrolist.shared.ui.components.minmusic.MmPlayerChip
 import com.metrolist.shared.ui.components.minmusic.MmPlayerFullArtworkRadius
 import com.metrolist.shared.ui.components.minmusic.MmPlayerLyricsPeek
+import com.metrolist.shared.ui.components.minmusic.MmPlayerQueueHandle
+import com.metrolist.shared.ui.components.minmusic.MmPlayerQueueHandleHeight
 import com.metrolist.shared.ui.components.minmusic.MmPlayerTopBar
 import com.metrolist.shared.ui.haptics.HapticEvent
 import com.metrolist.shared.ui.haptics.rememberMetrolistHaptics
 import com.metrolist.shared.ui.icons.MetrolistIcons
 import com.metrolist.shared.viewmodels.PlayerViewModel
+import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 
-/** Height of the chip row (output device, EQ, sleep timer, queue) at the bottom of the player. */
+/** Height of the chip row (output device, EQ, sleep timer) at the bottom of the player. */
 internal val MmPlayerChipRowHeight = 56.dp
+
+/** Space above and below the queue handle at the very bottom of the player. */
+private val MmPlayerQueueHandleTopGap = 4.dp
+private val MmPlayerQueueHandleBottomGap = 8.dp
 
 /** Height of the lyrics peek card under the chip row. */
 internal val MmPlayerLyricsPeekHeight = 96.dp
@@ -100,7 +110,8 @@ internal fun Modifier.mmPlayerBleed(amount: Dp): Modifier =
 
 /** Height of the bottom area that the queue sheet uses as its collapsed header. */
 internal fun mmPlayerBottomAreaHeight(showLyricsPeek: Boolean): Dp =
-    if (showLyricsPeek) MmPlayerChipRowHeight + MmPlayerLyricsPeekHeight else MmPlayerChipRowHeight
+    (if (showLyricsPeek) MmPlayerChipRowHeight + MmPlayerLyricsPeekHeight else MmPlayerChipRowHeight) +
+        MmPlayerQueueHandleTopGap + MmPlayerQueueHandleHeight + MmPlayerQueueHandleBottomGap
 
 @Composable
 internal fun MmPlayerTopBarSection(
@@ -173,8 +184,8 @@ internal fun MmPlayerTitleActions(
 }
 
 /**
- * The queue sheet's collapsed header in the MinMusic layout: output device and EQ chips, sleep timer and queue,
- * then the lyrics peek card (only while the lyrics are hidden).
+ * The queue sheet's collapsed header in the MinMusic layout: output device and EQ chips and the sleep timer,
+ * then the lyrics peek card (only while the lyrics are hidden) and the full-width queue handle at the bottom.
  */
 @Composable
 internal fun MmPlayerBottomArea(
@@ -195,6 +206,8 @@ internal fun MmPlayerBottomArea(
     isListenTogetherGuest: Boolean,
     navigationBarBottomPadding: Dp,
     modifier: Modifier = Modifier,
+    nextSongTitle: String? = null,
+    queueSize: Int = 0,
 ) {
     val haptics = rememberMetrolistHaptics()
     val ink = MaterialTheme.colorScheme.onSurface
@@ -289,22 +302,8 @@ internal fun MmPlayerBottomArea(
                     )
                 }
             }
-            IconButton(
-                onClick = {
-                    haptics.perform(HapticEvent.PRESS)
-                    onOpenQueue()
-                },
-            ) {
-                Icon(
-                    imageVector = MetrolistIcons.AutoMirrored.Outlined.QueueMusic,
-                    contentDescription = stringResource(Res.string.queue),
-                    tint = ink,
-                )
-            }
         }
-        if (isLyricsVisible) {
-            Spacer(Modifier.height(navigationBarBottomPadding))
-        } else {
+        if (!isLyricsVisible) {
             MmPlayerLyricsPeekSection(
                 viewModel = viewModel,
                 lyrics = lyrics,
@@ -318,10 +317,26 @@ internal fun MmPlayerBottomArea(
                     haptics.toggle(true)
                     onLyricsVisibleChange(true)
                 },
-                bottomInset = navigationBarBottomPadding,
-                modifier = Modifier.padding(horizontal = 12.dp).height(MmPlayerLyricsPeekHeight + navigationBarBottomPadding),
+                shape = RoundedCornerShape(20.dp),
+                modifier = Modifier.padding(horizontal = 12.dp).height(MmPlayerLyricsPeekHeight),
             )
         }
+        MmPlayerQueueHandle(
+            overline = stringResource(Res.string.mm_player_queue_up_next),
+            label =
+                nextSongTitle?.takeIf { it.isNotBlank() }
+                    ?: pluralStringResource(Res.plurals.mm_player_queue_song_count, queueSize, queueSize),
+            onOpen = {
+                haptics.perform(HapticEvent.PRESS)
+                onOpenQueue()
+            },
+            onClickLabel = stringResource(Res.string.mm_player_queue_open),
+            modifier =
+                Modifier
+                    .padding(horizontal = 12.dp)
+                    .padding(top = MmPlayerQueueHandleTopGap, bottom = MmPlayerQueueHandleBottomGap),
+        )
+        Spacer(Modifier.height(navigationBarBottomPadding))
     }
 }
 
@@ -357,7 +372,7 @@ private fun MmPlayerLyricsPeekSection(
     isBuffering: Boolean,
     isLoading: Boolean,
     onOpen: () -> Unit,
-    bottomInset: Dp,
+    shape: Shape,
     modifier: Modifier = Modifier,
 ) {
     val title = stringResource(Res.string.lyrics)
@@ -371,7 +386,7 @@ private fun MmPlayerLyricsPeekSection(
             currentLine = lines.firstOrNull()?.text ?: placeholder,
             nextLine = lines.getOrNull(1)?.text,
             onOpen = onOpen,
-            bottomInset = bottomInset,
+            shape = shape,
             modifier = modifier,
         )
         return
@@ -400,7 +415,7 @@ private fun MmPlayerLyricsPeekSection(
         currentLine = lines.getOrNull(index)?.text ?: lines.first().text,
         nextLine = lines.getOrNull(if (index < 0) 1 else index + 1)?.text,
         onOpen = onOpen,
-        bottomInset = bottomInset,
+        shape = shape,
         modifier = modifier,
     )
 }

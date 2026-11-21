@@ -368,7 +368,8 @@ class Settings(
     var showExpressiveMiniPlayerPlaylistButton by preference(ShowExpressiveMiniPlayerPlaylistButtonKey, false)
     var showExpressiveMiniPlayerSubscribeButton by preference(ShowExpressiveMiniPlayerSubscribeButtonKey, false)
     var showExpressiveMiniPlayerLikeButton by preference(ShowExpressiveMiniPlayerLikeButtonKey, false)
-    var showExpressiveMiniPlayerProgress by preference(ShowExpressiveMiniPlayerProgressKey, false)
+    // MinMusic: the mini player's 2 dp progress line is part of the design, so it is on unless the user turns it off.
+    var showExpressiveMiniPlayerProgress by preference(ShowExpressiveMiniPlayerProgressKey, true)
     var expressiveMiniPlayerArtworkPlayback by preference(ExpressiveMiniPlayerArtworkPlaybackKey, false)
     var expressiveMiniPlayerCookieArtwork by preference(ExpressiveMiniPlayerCookieArtworkKey, true)
     var expressiveMiniPlayerShapeMotion by preference(ExpressiveMiniPlayerShapeMotionKey, true)
@@ -414,8 +415,9 @@ class Settings(
     var equalizerLimiterEnabled by preference(EqualizerLimiterEnabledKey, true)
     var equalizerDeviceProfilesJson by preference(EqualizerDeviceProfilesJsonKey, "")
     var audioBoostDb by preference(AudioBoostDbKey, 0f)
-    var playerType by preference(PlayerType.MODERN)
-    var miniPlayerType by preference(MiniPlayerType.EXPRESSIVE)
+    // MinMusic: the redesigned player and mini player are the defaults; a saved choice (Modern, Expressive, ...) still wins.
+    var playerType by preference(PlayerType.MINMUSIC)
+    var miniPlayerType by preference(MiniPlayerType.MINMUSIC)
     var useRoundedRectPlayButton by preference(false)
     var cropAlbumArt by preference(true)
     var swapPlayerControls by preference(false)

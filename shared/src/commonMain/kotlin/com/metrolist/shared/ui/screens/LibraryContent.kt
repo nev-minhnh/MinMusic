@@ -592,7 +592,8 @@ fun LibraryContent(
                             }
                         }
                     }
-                    if (showOverviewSections && downloadedSongCount > 0) {
+                    // Hidden with the "Downloaded" auto playlist (Settings > Content > Library), like the playlist tile itself.
+                    if (showOverviewSections && downloadedSongCount > 0 && Settings.shared.showDownloadedPlaylist) {
                         item(key = "downloaded_header", contentType = "header", span = { GridItemSpan(maxLineSpan) }) {
                             MmSectionHeader(
                                 title = stringResource(Res.string.mm_library_downloaded),

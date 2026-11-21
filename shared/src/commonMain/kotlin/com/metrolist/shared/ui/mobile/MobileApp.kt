@@ -776,7 +776,7 @@ fun MobileApp(
     val miniPlayerHeight =
         when (Settings.shared.miniPlayerType) {
             MiniPlayerType.MODERN -> modernMiniPlayerHeight(LocalDensity.current)
-            MiniPlayerType.EXPRESSIVE -> ExpressiveMiniPlayerHeight
+            MiniPlayerType.EXPRESSIVE, MiniPlayerType.MINMUSIC -> ExpressiveMiniPlayerHeight
             else -> MiniPlayerHeight
         }
     var playerSheetSettled by remember { mutableStateOf(false) }
@@ -976,7 +976,9 @@ fun MobileApp(
                     },
                 ) { padding ->
                     val playerContentPadding =
-                        if (Settings.shared.miniPlayerType == MiniPlayerType.EXPRESSIVE && playbackState.currentSong != null) {
+                        if ((Settings.shared.miniPlayerType == MiniPlayerType.EXPRESSIVE || Settings.shared.miniPlayerType == MiniPlayerType.MINMUSIC) &&
+                            playbackState.currentSong != null
+                        ) {
                             minOf(miniPlayerHeight + floatingContentInset, padding.calculateBottomPadding())
                         } else {
                             minOf(floatingContentInset, padding.calculateBottomPadding())

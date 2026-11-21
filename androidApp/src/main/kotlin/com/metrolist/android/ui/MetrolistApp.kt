@@ -879,7 +879,10 @@ fun MetrolistApp(
                 label = "navigationVisibility",
             )
         val hasBottomNavigation = navigationSuiteType.isNavigationBar
-        val isExpressiveMiniPlayer = Settings.shared.miniPlayerType == MiniPlayerType.EXPRESSIVE && !useDesktopMiniPlayer
+        // The MinMusic bar has the expressive bar's 64 dp height and spacing.
+        val isExpressiveMiniPlayer =
+            (Settings.shared.miniPlayerType == MiniPlayerType.EXPRESSIVE || Settings.shared.miniPlayerType == MiniPlayerType.MINMUSIC) &&
+                !useDesktopMiniPlayer
         val isModernMiniPlayer = Settings.shared.miniPlayerType == MiniPlayerType.MODERN && !useDesktopMiniPlayer
         val miniPlayerBottomSpacing =
             when {
