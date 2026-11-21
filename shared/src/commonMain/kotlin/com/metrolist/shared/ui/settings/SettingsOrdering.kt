@@ -25,7 +25,7 @@ internal fun List<SettingsGroupRegistration>.prioritized(page: SettingsPageId): 
             }
 
             SettingsPageId.CONTENT -> {
-                listOf("youtubeAccount", "localization", "filtering", "homeSections", "autoPlaylists", "artistSources")
+                listOf("youtubeAccount", "localization", "filtering", "homeSections", "autoPlaylists", "artistSources", "sources")
             }
 
             SettingsPageId.PRIVACY -> {

@@ -5562,4 +5562,14 @@
     <string name="album_name">Album name</string>
     <!-- Translators: Message shown after an album was created from downloaded songs. -->
     <string name="album_created">Album created</string>
+    <!-- Translators: Settings section listing music catalogues other than YouTube Music. -->
+    <string name="settings_sources">Sources</string>
+    <!-- Translators: Name of the SoundCloud music service. -->
+    <string name="source_soundcloud">SoundCloud</string>
+    <!-- Translators: Name of the Zing MP3 music service. -->
+    <string name="source_zing_mp3">Zing MP3</string>
+    <!-- Translators: Name of the NhacCuaTui music service, marked as an experimental source. -->
+    <string name="source_nhaccuatui_experimental">NhacCuaTui (experimental)</string>
+    <!-- Translators: Summary under a music source that cannot be turned on yet. -->
+    <string name="source_coming_soon">Coming soon</string>
 </resources>
