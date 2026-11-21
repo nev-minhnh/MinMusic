@@ -1,0 +1,174 @@
+name: MinMusic Windows release
+
+# Builds MinMusic for Windows (x64) and publishes it as GitHub Release windows-vX.Y.Z with:
+#   MinMusic-X.Y.Z-windows-x64-setup.exe     per-user installer (jpackage + WiX, no admin)
+#   MinMusic-X.Y.Z-windows-x64-portable.zip  portable app image (unzip and run MinMusic.exe)
+#   *.sha256                                 SHA-256 of each file
+# The release is never marked "latest", so the Android updater (which reads vX.Y.Z releases) is unaffected.
+# The desktop updater only looks at windows-v* releases and the asset names above
+# (desktopApp/.../update/DesktopUpdateManager.kt: windowsInstallerAssetName / windowsPortableAssetName).
+on:
+  push:
+    tags:
+      - 'windows-v*.*.*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to create or update (for example windows-v1.0.1)'
+        required: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: minmusic-windows-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: windows-latest
+    timeout-minutes: 120
+    env:
+      RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+    steps:
+      - name: Check release tag
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! [[ "$RELEASE_TAG" =~ ^windows-v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Release tag '$RELEASE_TAG' must look like windows-vX.Y.Z"
+            exit 1
+          fi
+
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Check for ad and tracking SDKs
+        shell: bash
+        run: bash scripts/check_no_ads.sh
+
+      - name: Check tag matches appVersion
+        shell: bash
+        run: |
+          set -euo pipefail
+          version=$(sed -n 's/^appVersion *= *\(.*\)$/\1/p' gradle.properties | tr -d '[:space:]')
+          if [ "windows-v$version" != "$RELEASE_TAG" ]; then
+            echo "::error::Tag $RELEASE_TAG does not match appVersion=$version in gradle.properties"
+            exit 1
+          fi
+          IFS=. read -r major minor patch <<< "$version"
+          if [ "$major" -gt 255 ] || [ "$minor" -gt 255 ] || [ "$patch" -gt 65535 ]; then
+            echo "::error::Windows installers need MAJOR(0..255).MINOR(0..255).PATCH(0..65535), got $version"
+            exit 1
+          fi
+          echo "APP_VERSION=$version" >> "$GITHUB_ENV"
+
+      # The desktop build uses a Java 25 toolchain (desktopApp/build.gradle.kts) and bundles that runtime.
+      - name: Set up JDK 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Set up .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: metro-wv2-helper/global.json
+
+      # The WebView2 sign-in helper is packaged as a resource; assembleWindowsRelease refuses to run without it.
+      - name: Build Windows sign-in helper
+        shell: pwsh
+        working-directory: metro-wv2-helper
+        run: |
+          dotnet run --project tests/LoginCompletion.Tests.csproj --configuration Release
+          if ($LASTEXITCODE -ne 0) { throw "Sign-in helper tests failed with exit code $LASTEXITCODE" }
+          $output = "../desktopApp/src/desktopMain/resources/windows"
+          dotnet publish "metro-wv2-helper.csproj" --configuration Release --runtime win-x64 --self-contained true --output $output -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=None -p:DebugSymbols=false -p:PublishReadyToRun=true
+          if ($LASTEXITCODE -ne 0) { throw "Sign-in helper build failed with exit code $LASTEXITCODE" }
+          $helper = Join-Path $output "metro-wv2-helper.exe"
+          if (-not (Test-Path $helper -PathType Leaf)) { throw "Sign-in helper was not produced at $helper" }
+
+      - name: Build installer and portable ZIP
+        shell: bash
+        env:
+          LASTFM_API_KEY: ${{ secrets.LASTFM_API_KEY }}
+          LASTFM_SECRET: ${{ secrets.LASTFM_SECRET }}
+          LYPRIO_BASE_URL: ${{ secrets.LYPRIO_BASE_URL }}
+          LYPRIO_HMAC_KEY: ${{ secrets.LYPRIO_HMAC_KEY }}
+        run: |
+          set -euo pipefail
+          rm -rf dist
+          ./gradlew --stacktrace \
+            :desktopApp:packageReleaseExe \
+            :desktopApp:assembleWindowsRelease \
+            -Pmetrolist.debug=false \
+            -Pmetrolist.desktop.arch=x86_64 \
+            --no-daemon \
+            --no-configuration-cache
+
+      - name: Collect release files
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          installers=(desktopApp/build/compose/binaries/main-release/exe/*.exe)
+          if [ "${#installers[@]}" -ne 1 ]; then
+            echo "::error::Expected one installer in desktopApp/build/compose/binaries/main-release/exe, found ${#installers[@]}"
+            exit 1
+          fi
+          test -f dist/MinMusic-Desktop-Windows.zip || { echo "::error::Portable ZIP was not produced"; exit 1; }
+          mkdir -p release
+          setup="MinMusic-${APP_VERSION}-windows-x64-setup.exe"
+          portable="MinMusic-${APP_VERSION}-windows-x64-portable.zip"
+          cp "${installers[0]}" "release/$setup"
+          cp dist/MinMusic-Desktop-Windows.zip "release/$portable"
+          (cd release && sha256sum "$setup" > "$setup.sha256" && sha256sum "$portable" > "$portable.sha256")
+          ls -l release
+          cat release/*.sha256
+
+      - name: Verify portable ZIP
+        shell: pwsh
+        run: |
+          $archive = "release/MinMusic-$env:APP_VERSION-windows-x64-portable.zip"
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $zip = [System.IO.Compression.ZipFile]::OpenRead((Resolve-Path $archive))
+          try {
+            $names = @($zip.Entries | ForEach-Object FullName)
+            if ($names -notcontains "MinMusic.exe") { throw "Portable ZIP is missing MinMusic.exe" }
+            if ($names -notcontains "install-manifest.json") { throw "Portable ZIP is missing install-manifest.json" }
+            if (-not ($names | Where-Object { $_ -match '(^|/)runtime/bin/server/jvm\.dll$' })) { throw "Portable ZIP is missing the Java runtime" }
+            if (-not ($names | Where-Object { $_ -match '(^|/)resources/(windows/)?metro-wv2-helper\.exe$' })) { throw "Portable ZIP is missing the sign-in helper" }
+          } finally {
+            $zip.Dispose()
+          }
+
+      - name: Publish GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          notes=$(printf '%s\n' \
+            "MinMusic for Windows ${APP_VERSION} (64-bit, Windows 10/11)." \
+            "" \
+            "- **Installer:** \`MinMusic-${APP_VERSION}-windows-x64-setup.exe\` installs for the current user (no admin) and adds a Start Menu shortcut. Installing a newer version upgrades in place; your library and settings are kept." \
+            "- **Portable:** \`MinMusic-${APP_VERSION}-windows-x64-portable.zip\`; unzip anywhere and run \`MinMusic.exe\`." \
+            "- The files are not code-signed, so Windows SmartScreen may say \"Unknown publisher\": choose **More info** and then **Run anyway**." \
+            "- Check a download with \`certutil -hashfile <file> SHA256\` against the matching \`.sha256\` file.")
+          if gh release view "$RELEASE_TAG" -R "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" release/* --clobber -R "$GITHUB_REPOSITORY"
+            gh release edit "$RELEASE_TAG" --latest=false -R "$GITHUB_REPOSITORY"
+          else
+            gh release create "$RELEASE_TAG" release/* \
+              -R "$GITHUB_REPOSITORY" \
+              --target "$GITHUB_SHA" \
+              --title "MinMusic for Windows ${APP_VERSION}" \
+              --notes "$notes" \
+              --latest=false
+          fi
