@@ -71,6 +71,7 @@ fun PlaylistHeader(
     mediumArtworkSize: Dp = 176.dp,
     titleModifier: Modifier = Modifier,
     actions: @Composable (() -> Unit)? = null,
+    overline: String? = null,
 ) {
     CollectionHeader(
         isWide = isWide,
@@ -88,13 +89,23 @@ fun PlaylistHeader(
         },
         actions = actions,
     ) {
+        if (!overline.isNullOrBlank()) {
+            // e.g. "MY ALBUM" above a user album's title (label 12, 600, accent).
+            Text(
+                text = overline,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.primary,
+                maxLines = 1,
+            )
+        }
         PlaylistTitleAndDescription(
             playlist,
-            MaterialTheme.typography.headlineMediumEmphasized,
+            if (isWide) MaterialTheme.typography.headlineMediumEmphasized else MaterialTheme.typography.titleLarge,
             onEdit,
             songCountLabel,
             onAuthorClick,
             titleModifier,
+            compact = !isWide,
         )
     }
 }
@@ -146,6 +157,7 @@ private fun PlaylistTitleAndDescription(
     metadataLabel: String,
     onAuthorClick: ((String) -> Unit)?,
     titleModifier: Modifier = Modifier,
+    compact: Boolean = false,
 ) {
     val metadataVisible = remember(playlist?.id) { MutableTransitionState(false) }
     metadataVisible.targetState = metadataLabel.isNotBlank()
@@ -186,7 +198,7 @@ private fun PlaylistTitleAndDescription(
                 }
                 Text(
                     text = author,
-                    style = MaterialTheme.typography.titleLarge,
+                    style = if (compact) MaterialTheme.typography.bodyMedium else MaterialTheme.typography.titleLarge,
                     color = MaterialTheme.colorScheme.primary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -202,8 +214,8 @@ private fun PlaylistTitleAndDescription(
         ) {
             Text(
                 text = metadataLabel,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = if (compact) MaterialTheme.typography.labelSmall else MaterialTheme.typography.bodyMedium,
+                color = if (compact) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
         AnimatedVisibility(
@@ -222,6 +234,8 @@ private fun PlaylistTitleAndDescription(
                         description.orEmpty(),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = if (compact) 3 else Int.MAX_VALUE,
+                        overflow = TextOverflow.Ellipsis,
                     )
                 }
             }

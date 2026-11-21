@@ -50,6 +50,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.metrolist.shared.generated.resources.Res
 import com.metrolist.shared.generated.resources.add_a_song
+import com.metrolist.shared.generated.resources.mm_user_album_overline
 import com.metrolist.shared.generated.resources.n_hidden_song
 import com.metrolist.shared.generated.resources.partial_song_count
 import com.metrolist.shared.generated.resources.search_no_results
@@ -74,6 +75,7 @@ import com.metrolist.shared.ui.components.ReorderMenu
 import com.metrolist.shared.ui.components.ScrollingAddButton
 import com.metrolist.shared.ui.components.SongListItem
 import com.metrolist.shared.ui.components.mediumCollectionArtworkSize
+import com.metrolist.shared.ui.components.minmusic.MmTrackRow
 import com.metrolist.shared.ui.components.rememberItemPlayback
 import com.metrolist.shared.ui.components.rememberScrollingFabState
 import com.metrolist.shared.ui.components.totalDurationText
@@ -169,8 +171,11 @@ fun PlaylistContent(
     onMoreOptions: (() -> Unit)? = null,
     onEdit: (() -> Unit)? = null,
     onAddSong: (() -> Unit)? = null,
+    isUserAlbum: Boolean = false,
+    showSourceBadges: Boolean = isUserAlbum,
 ) {
     val currentSongIdState = rememberUpdatedState(currentSongId)
+    val headerOverline = if (isUserAlbum) stringResource(Res.string.mm_user_album_overline) else null
     val isPlayingState = rememberUpdatedState(isPlaying)
     val canEdit = playlist?.canEdit == true
     val onAddSong = onAddSong.takeIf { canEdit }
@@ -410,6 +415,7 @@ fun PlaylistContent(
                                         songCountLabel = songCountLabel,
                                         onAuthorClick = onArtistClick,
                                         fallbackIcon = fallbackIcon,
+                                        overline = headerOverline,
                                         actions =
                                             if (showPlayback || onAddToLibrary != null) {
                                                 {
@@ -499,6 +505,8 @@ fun PlaylistContent(
                                                     onReorderDragStarted = onReorderDragStarted,
                                                     onMove = moveAndCommit,
                                                     isSelected = isTrackSelected(song),
+                                                    compactNumbered = isUserAlbum,
+                                                    showSource = showSourceBadges,
                                                 )
                                             }
 
@@ -601,6 +609,7 @@ fun PlaylistContent(
                                             fallbackIcon = fallbackIcon,
                                             isMedium = isMedium,
                                             mediumArtworkSize = mediumArtworkSize,
+                                            overline = headerOverline,
                                             actions =
                                                 if (showPlayback || onAddToLibrary != null) {
                                                     {
@@ -673,6 +682,9 @@ fun PlaylistContent(
                                         sourceIndex = displayedIndices?.get(index) ?: index,
                                         itemKey = songKeys[index],
                                         modifier = itemModifier.padding(horizontal = CollectionHeaderHorizontalPadding),
+                                        flatModifier = itemModifier,
+                                        compactNumbered = isUserAlbum,
+                                        showSource = showSourceBadges,
                                         currentSongId = currentSongIdState,
                                         isPlaying = isPlayingState,
                                         isDownloaded = song.id in downloadedSongIds,
@@ -879,8 +891,31 @@ private fun LazyItemScope.PlaylistSongItemRow(
     onReorderDragStarted: () -> Unit,
     onMove: (Int, Int) -> Unit,
     isSelected: Boolean,
+    flatModifier: Modifier = Modifier,
+    compactNumbered: Boolean = false,
+    showSource: Boolean = false,
 ) {
     val playback by rememberItemPlayback(song.id, currentSongId, isPlaying)
+    if (reorderableState == null) {
+        // MinMusic flat song row (64 dp with art, or 56 dp numbered for user albums) with source/quality badges.
+        trackContainer(song, false) {
+            MmTrackRow(
+                song = song,
+                index = if (compactNumbered) index else null,
+                showArtwork = !compactNumbered,
+                isCurrent = playback.isCurrent,
+                isPlaying = playback.isPlaying,
+                isSelected = isSelected,
+                showSource = showSource,
+                onClick = { onTrackClick(song, sourceIndex) },
+                onShowMenu = { onTrackMenuClick(song, sourceIndex) },
+                onLongClick = onTrackLongClick?.let { { it(song) } } ?: { onTrackMenuClick(song, sourceIndex) },
+                trailingContent = trackTrailingContent?.let { { it(song, sourceIndex) } },
+                modifier = flatModifier,
+            )
+        }
+        return
+    }
     PlaylistSongItem(
         song = song,
         key = itemKey,

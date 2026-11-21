@@ -65,25 +65,26 @@ fun AlbumHeader(
         artwork = { artworkModifier, cornerRadius -> AlbumHeaderArtwork(album, artworkModifier, cornerRadius) },
         actions = actions,
     ) {
+        // MinMusic header text: title 20/28, artist in accent 14, meta 12 in ink3 (display size only on wide).
         Text(
             text = album.title,
             modifier = titleModifier,
-            style = MaterialTheme.typography.headlineMediumEmphasized,
+            style = if (isWide) MaterialTheme.typography.headlineMediumEmphasized else MaterialTheme.typography.titleLarge,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
         )
         Text(
             text = artistLinksText(album.artists, onArtistClick) ?: AnnotatedString(""),
-            style = MaterialTheme.typography.titleLarge,
+            style = if (isWide) MaterialTheme.typography.titleLarge else MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.primary,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
         Text(
             text = albumMetadataText(album, songs),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            maxLines = 1,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.outline,
+            maxLines = 2,
             overflow = TextOverflow.Ellipsis,
         )
         AnimatedVisibility(

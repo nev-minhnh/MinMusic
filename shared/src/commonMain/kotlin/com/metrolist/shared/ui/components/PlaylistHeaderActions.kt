@@ -22,8 +22,6 @@ import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
-import androidx.compose.material3.ToggleButton
-import androidx.compose.material3.ToggleButtonDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -34,6 +32,8 @@ import androidx.compose.ui.unit.dp
 import com.metrolist.shared.generated.resources.Res
 import com.metrolist.shared.generated.resources.add_to_favorites
 import com.metrolist.shared.generated.resources.remove_from_favorites
+import com.metrolist.shared.ui.components.minmusic.MmPrimaryPill
+import com.metrolist.shared.ui.components.minmusic.MmTonalIconButton
 import com.metrolist.shared.ui.icons.MetrolistIcons
 import com.metrolist.shared.ui.tv.tvFocusHighlight
 import org.jetbrains.compose.resources.stringResource
@@ -49,31 +49,37 @@ fun PlaylistHeaderActions(
     onFavorite: (() -> Unit)?,
     buttonHeight: Dp,
 ) {
+    // MinMusic action row: gradient "Play" pill, then tonal 48 dp icon buttons. [buttonHeight] is kept for callers;
+    // the design fixes every control at 48 dp.
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (showPlayback) {
-            HeaderPlaybackButtons(onPlayAll, onShuffle, playLabel, shuffleLabel, buttonHeight, Modifier.weight(1f))
-        } else {
-            Spacer(Modifier.weight(1f))
+            MmPrimaryPill(
+                text = playLabel,
+                icon = MetrolistIcons.Default.PlayArrow,
+                onClick = onPlayAll,
+                modifier = Modifier.tvFocusHighlight(CircleShape),
+            )
+            MmTonalIconButton(
+                icon = MetrolistIcons.Rounded.Shuffle,
+                contentDescription = shuffleLabel,
+                onClick = onShuffle,
+                modifier = Modifier.tvFocusHighlight(CircleShape),
+            )
         }
         if (onFavorite != null) {
-            ToggleButton(
+            MmTonalIconButton(
+                icon = if (isFavorite) MetrolistIcons.Filled.Favorite else MetrolistIcons.Default.FavoriteBorder,
+                contentDescription = stringResource(if (isFavorite) Res.string.remove_from_favorites else Res.string.add_to_favorites),
+                onClick = onFavorite,
                 checked = isFavorite,
-                onCheckedChange = { onFavorite() },
-                modifier = Modifier.height(buttonHeight).width(48.dp).tvFocusHighlight(CircleShape),
-                shapes = ToggleButtonDefaults.shapesFor(buttonHeight).withStaticCorners(),
-                contentPadding = PaddingValues(0.dp),
-            ) {
-                Icon(
-                    if (isFavorite) MetrolistIcons.Filled.Favorite else MetrolistIcons.Default.FavoriteBorder,
-                    stringResource(if (isFavorite) Res.string.remove_from_favorites else Res.string.add_to_favorites),
-                    Modifier.size(20.dp),
-                )
-            }
+                modifier = Modifier.tvFocusHighlight(CircleShape),
+            )
         }
+        Spacer(Modifier.weight(1f))
     }
 }
 

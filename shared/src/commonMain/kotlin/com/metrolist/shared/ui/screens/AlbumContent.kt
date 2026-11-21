@@ -58,14 +58,13 @@ import com.metrolist.shared.state.SongMetadataState
 import com.metrolist.shared.ui.components.AlbumHeader
 import com.metrolist.shared.ui.components.CollectionHeaderHorizontalPadding
 import com.metrolist.shared.ui.components.CollectionHeaderNavigation
-import com.metrolist.shared.ui.components.GroupedListItem
 import com.metrolist.shared.ui.components.InlineSearchRow
 import com.metrolist.shared.ui.components.LazyListScrollbar
 import com.metrolist.shared.ui.components.OtherVersionItem
 import com.metrolist.shared.ui.components.PlaylistHeaderActions
 import com.metrolist.shared.ui.components.PlaylistOrderControls
-import com.metrolist.shared.ui.components.SongListItem
 import com.metrolist.shared.ui.components.mediumCollectionArtworkSize
+import com.metrolist.shared.ui.components.minmusic.MmTrackRow
 import com.metrolist.shared.ui.components.rememberItemPlayback
 import com.metrolist.shared.ui.menu.onSecondaryClick
 import com.metrolist.shared.ui.navigation.NavigationBackHandler
@@ -348,34 +347,25 @@ fun AlbumContent(
                                             }, contentType = { _, _ -> "song" }) { index, song ->
                                                 val playback by rememberItemPlayback(song.id, currentSongIdState, isPlayingState)
                                                 trackContainer(song) {
-                                                    GroupedListItem(
+                                                    // MinMusic compact track row: number, title, quality, duration (56 dp).
+                                                    MmTrackRow(
+                                                        song = song,
                                                         index = index,
-                                                        count = displayedSongs.size,
-                                                        isSelected = isTrackSelected(song),
                                                         isCurrent = playback.isCurrent,
-                                                    ) {
-                                                        SongListItem(
-                                                            song = song,
-                                                            index = index,
-                                                            isCurrent = playback.isCurrent,
-                                                            isPlaying = playback.isPlaying,
-                                                            isDownloaded = song.id in downloadedSongIds,
-                                                            onClick = {
-                                                                onTrackClick(
-                                                                    song,
-                                                                    sortedSongs,
-                                                                    sortedSongs.indexOfPlaylistOccurrence(song),
-                                                                )
-                                                            },
-                                                            onShowMenu = { onTrackMenuClick(song) },
-                                                            onArtistClick = onArtistClick,
-                                                            onLongClick = onTrackLongClick?.let { { it(song) } },
-                                                            trailingContent = trackTrailingContent?.let { { it(song, index) } },
-                                                            showThumbnail = false,
-                                                            showAlbum = false,
-                                                            clickableMetadata = isDesktop,
-                                                        )
-                                                    }
+                                                        isPlaying = playback.isPlaying,
+                                                        isSelected = isTrackSelected(song),
+                                                        showSource = false,
+                                                        onClick = {
+                                                            onTrackClick(
+                                                                song,
+                                                                sortedSongs,
+                                                                sortedSongs.indexOfPlaylistOccurrence(song),
+                                                            )
+                                                        },
+                                                        onShowMenu = { onTrackMenuClick(song) },
+                                                        onLongClick = onTrackLongClick?.let { { it(song) } } ?: { onTrackMenuClick(song) },
+                                                        trailingContent = trackTrailingContent?.let { { it(song, index) } },
+                                                    )
                                                 }
                                             }
                                         }
@@ -519,28 +509,20 @@ fun AlbumContent(
                                 }, contentType = { _, _ -> "song" }) { index, song ->
                                     val playback by rememberItemPlayback(song.id, currentSongIdState, isPlayingState)
                                     trackContainer(song) {
-                                        GroupedListItem(
+                                        // MinMusic compact track row: number, title, quality, duration (56 dp).
+                                        MmTrackRow(
+                                            song = song,
                                             index = index,
-                                            count = displayedSongs.size,
-                                            modifier = itemModifier.padding(horizontal = CollectionHeaderHorizontalPadding),
                                             isCurrent = playback.isCurrent,
-                                        ) {
-                                            SongListItem(
-                                                song = song,
-                                                index = index,
-                                                isCurrent = playback.isCurrent,
-                                                isPlaying = playback.isPlaying,
-                                                isDownloaded = song.id in downloadedSongIds,
-                                                onClick = { onTrackClick(song, sortedSongs, sortedSongs.indexOfPlaylistOccurrence(song)) },
-                                                onShowMenu = { onTrackMenuClick(song) },
-                                                onArtistClick = onArtistClick,
-                                                onLongClick = onTrackLongClick?.let { { it(song) } },
-                                                trailingContent = trackTrailingContent?.let { { it(song, index) } },
-                                                showThumbnail = false,
-                                                showAlbum = false,
-                                                clickableMetadata = isDesktop,
-                                            )
-                                        }
+                                            isPlaying = playback.isPlaying,
+                                            isSelected = isTrackSelected(song),
+                                            showSource = false,
+                                            onClick = { onTrackClick(song, sortedSongs, sortedSongs.indexOfPlaylistOccurrence(song)) },
+                                            onShowMenu = { onTrackMenuClick(song) },
+                                            onLongClick = onTrackLongClick?.let { { it(song) } } ?: { onTrackMenuClick(song) },
+                                            trailingContent = trackTrailingContent?.let { { it(song, index) } },
+                                            modifier = itemModifier,
+                                        )
                                     }
                                 }
                             }
