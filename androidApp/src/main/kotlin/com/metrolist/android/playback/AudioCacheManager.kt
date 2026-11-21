@@ -946,6 +946,7 @@ class AudioCacheManager(
                                     maxBytes = maxBytes,
                                     awaitReady = { control?.awaitIfPaused() },
                                     onProgress = onProgress,
+                                    quality = if (kind == KIND_DOWNLOAD) DOWNLOAD_AUDIO_QUALITY else playbackAudioQuality(),
                                 )
                             }
                             checkNotNull(resource.sabrBootstrap).mimeType.substringBefore(';')
