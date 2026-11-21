@@ -282,6 +282,7 @@ internal class AndroidQueueTransitions(
                 if (resource == null || !isCurrentPreloadTarget(sessionId, trigger, currentVideoId, nextSong, wantNextVideo)) {
                     return@launch
                 }
+                if (resource.expiresTooSoonForPreload()) return@launch
                 if (playbackSong.isPodcast && episodeResumePosition(playbackSong, resource.durationSeconds?.times(1000L) ?: 0L) > 0L) {
                     return@launch
                 }

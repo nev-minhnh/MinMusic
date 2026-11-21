@@ -22,6 +22,7 @@ import androidx.lifecycle.ProcessLifecycleOwner
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
+import androidx.media3.common.MimeTypes
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
@@ -3932,14 +3933,17 @@ internal fun buildStreamingMediaSource(
     keepBufferDuringNetworkRecovery: Boolean = false,
     tag: Any? = null,
 ): MediaSource {
+    // Sources spell the HLS type in several cases ("application/x-mpegURL", "application/vnd.apple.mpegurl");
+    // Media3 only maps its own constant to HlsMediaSource.
+    val playbackMimeType = if (mimeType?.contains("mpegurl", ignoreCase = true) == true) MimeTypes.APPLICATION_M3U8 else mimeType
     val item =
         MediaItem
             .Builder()
             .setUri(uri)
-            .setMimeType(mimeType)
+            .setMimeType(playbackMimeType)
             .setTag(tag)
             .build()
-    val type = Util.inferContentTypeForUriAndMimeType(checkNotNull(item.localConfiguration).uri, mimeType)
+    val type = Util.inferContentTypeForUriAndMimeType(checkNotNull(item.localConfiguration).uri, playbackMimeType)
     val factory =
         if (type == C.CONTENT_TYPE_OTHER) {
             // The default 1 MiB check interval can parse a minute of audio before applying backpressure.
