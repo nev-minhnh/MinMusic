@@ -5533,4 +5533,6 @@
     <string name="ai_setup_privacy_settings">Open privacy settings</string>
     <string name="ai_setup_sign_in_again">Sign in again</string>
     <string name="ai_setup_key_limits">Review key limits</string>
+    <!-- Translators: Codec and bitrate of a downloaded song in the downloads list, for example Opus 160 kbps. -->
+    <string name="download_format_value">%1$s %2$d kbps</string>
 </resources>

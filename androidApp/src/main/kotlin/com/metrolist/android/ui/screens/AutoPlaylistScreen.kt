@@ -98,6 +98,7 @@ import com.metrolist.android.viewmodels.withSongSorting
 import com.metrolist.shared.db.MusicDatabase
 import com.metrolist.shared.db.collectionPlayCounts
 import com.metrolist.shared.db.entities.CachedAudioEntity
+import com.metrolist.shared.db.entities.FormatEntity
 import com.metrolist.shared.db.entities.KIND_CACHE
 import com.metrolist.shared.db.entities.KIND_DOWNLOAD
 import com.metrolist.shared.db.entities.toSongItem
@@ -108,6 +109,7 @@ import com.metrolist.shared.generated.resources.back
 import com.metrolist.shared.generated.resources.cached_playlist
 import com.metrolist.shared.generated.resources.cancel
 import com.metrolist.shared.generated.resources.delete
+import com.metrolist.shared.generated.resources.download_format_value
 import com.metrolist.shared.generated.resources.edit_playlist_cover
 import com.metrolist.shared.generated.resources.episodes_for_later
 import com.metrolist.shared.generated.resources.error_unknown
@@ -249,6 +251,7 @@ fun AutoPlaylistScreen(
     var showCollectionMenu by remember { mutableStateOf(false) }
     var showExportDialog by remember { mutableStateOf(false) }
     var collectionEntries by remember { mutableStateOf<List<CachedAudioEntity>>(emptyList()) }
+    var downloadFormats by remember { mutableStateOf<Map<String, FormatEntity>>(emptyMap()) }
     var collectionQuery by remember { mutableStateOf("") }
     var collectionDirection by remember(currentType) {
         mutableStateOf(
@@ -475,6 +478,7 @@ fun AutoPlaylistScreen(
                             database.dao().getSongsByIds(downloadedSongs.map { it.songId }).associateBy { it.id }
                         }
                     collectionEntries = downloadedSongs
+                    downloadFormats = storedSongs.mapNotNull { (id, song) -> song.format?.let { id to it } }.toMap()
                     songs =
                         withContext(Dispatchers.Default) {
                             BlockedContent.filterSongs(
@@ -784,6 +788,19 @@ fun AutoPlaylistScreen(
                     },
                     trackTrailingContent = { song, _ ->
                         Row(verticalAlignment = Alignment.CenterVertically) {
+                            if (currentType == "downloaded") {
+                                downloadFormats[song.id]?.let { format ->
+                                    val codec = format.codecDisplayName()
+                                    if (codec != null && format.bitrate > 0) {
+                                        Text(
+                                            stringResource(Res.string.download_format_value, codec, format.bitrate / 1000),
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            maxLines = 1,
+                                        )
+                                    }
+                                }
+                            }
                             if (selection.active) {
                                 Checkbox(checked = selection.isSelected(song.id), onCheckedChange = { selection.toggle(song.id) })
                             } else {
@@ -1062,6 +1079,17 @@ fun AutoPlaylistScreen(
                 ) { Text(stringResource(Res.string.cancel)) }
             },
         )
+    }
+}
+
+// Codec identifiers are technical names, not translatable text.
+private fun FormatEntity.codecDisplayName(): String? {
+    val codec = codecs.substringBefore('.').trim().lowercase()
+    return when {
+        codec == "opus" -> "Opus"
+        codec == "mp4a" -> "AAC"
+        codec.isNotBlank() -> codec.uppercase()
+        else -> null
     }
 }
 
