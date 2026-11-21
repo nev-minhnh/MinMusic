@@ -92,13 +92,15 @@ fun rememberSaveToFolder(): (suspend () -> SaveToFolderBatch) -> Unit {
             save(load, uri.toString())
         }
 
-    return { load ->
-        val treeUri = Settings.shared.customDownloadPath
-        if (treeUri.isNotBlank() && context.hasPersistedWriteAccess(treeUri)) {
-            save(load, treeUri)
-        } else {
-            pending = load
-            picker.launch(null)
+    return remember<(suspend () -> SaveToFolderBatch) -> Unit>(context, picker) {
+        { load ->
+            val treeUri = Settings.shared.customDownloadPath
+            if (treeUri.isNotBlank() && context.hasPersistedWriteAccess(treeUri)) {
+                save(load, treeUri)
+            } else {
+                pending = load
+                picker.launch(null)
+            }
         }
     }
 }

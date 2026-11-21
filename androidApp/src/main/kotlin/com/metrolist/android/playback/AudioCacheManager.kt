@@ -1203,7 +1203,15 @@ class AudioCacheManager(
                     copiedFile,
                     entry.mimeType,
                     publicStorage = true,
-                    metadata = exportMetadata(entry.songId, entry.title, entry.artist, entry.album, entry.thumbnailUrl, userAlbum = userAlbum),
+                    metadata =
+                        exportMetadata(
+                            entry.songId,
+                            entry.title,
+                            entry.artist,
+                            entry.album,
+                            entry.thumbnailUrl,
+                            userAlbum = userAlbum,
+                        ),
                 )
             val baseName = downloadFileBaseName(entry.artist, entry.title, safeId)
             publishCustomAudio(sourceFile, "$baseName${extensionForMimeType(mimeType)}", mimeType, treeUri)
