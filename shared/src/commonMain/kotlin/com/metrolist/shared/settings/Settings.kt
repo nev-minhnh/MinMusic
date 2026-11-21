@@ -36,6 +36,7 @@ import com.metrolist.shared.constants.AppleMusicArtistVideosKey
 import com.metrolist.shared.constants.ArtistNameAliasesJsonKey
 import com.metrolist.shared.constants.AudioBoostDbKey
 import com.metrolist.shared.constants.AudioTrackPlaybackParamsKey
+import com.metrolist.shared.constants.AutoBestSourceKey
 import com.metrolist.shared.constants.AutoPureBlackKey
 import com.metrolist.shared.constants.BlockAiSlopArtistsKey
 import com.metrolist.shared.constants.BlockedArtistsUndoHintShownKey
@@ -320,6 +321,7 @@ class Settings(
     var soundCloudSourceEnabled by preference(SoundCloudSourceEnabledKey, false)
     var zingSourceEnabled by preference(ZingSourceEnabledKey, false)
     var nctSourceEnabled by preference(NctSourceEnabledKey, false)
+    var autoBestSource by preference(AutoBestSourceKey, true)
     var aiSlopBlocklistCache by blobPreference(AiSlopBlocklistCacheKey)
     var aiSlopBlocklistUpdatedAt by preference(AiSlopBlocklistUpdatedAtKey, 0L)
     var knownUploadIdsJson by preference(KnownUploadIdsJsonKey, "")

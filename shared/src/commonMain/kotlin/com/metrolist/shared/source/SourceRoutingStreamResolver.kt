@@ -18,6 +18,7 @@ class SourceRoutingStreamResolver(
     private val delegate: StreamResolver,
     private val registry: SourceRegistry,
     private val localAudioSource: LocalAudioSource? = null,
+    private val bestSource: BestSourceSelector? = null,
 ) : StreamResolver by delegate {
     override suspend fun resolve(
         videoId: String,
@@ -28,7 +29,7 @@ class SourceRoutingStreamResolver(
         if (isForeignSourceId(videoId)) {
             resolveForeign(videoId, audioQuality, sourceSong, preferLocal = true)
         } else {
-            delegate.resolve(videoId, hints, audioQuality, sourceSong)
+            withBestSource(videoId, hints, audioQuality, sourceSong) { delegate.resolve(videoId, hints, audioQuality, sourceSong) }
         }
 
     override suspend fun refresh(
@@ -40,7 +41,7 @@ class SourceRoutingStreamResolver(
         if (isForeignSourceId(videoId)) {
             resolveForeign(videoId, audioQuality, sourceSong, preferLocal = true)
         } else {
-            delegate.refresh(videoId, hints, audioQuality, sourceSong)
+            withBestSource(videoId, hints, audioQuality, sourceSong) { delegate.refresh(videoId, hints, audioQuality, sourceSong) }
         }
 
     override suspend fun resolveRemote(
@@ -54,7 +55,9 @@ class SourceRoutingStreamResolver(
         if (isForeignSourceId(videoId)) {
             resolveForeign(videoId, audioQuality, sourceSong, preferLocal = false)
         } else {
-            delegate.resolveRemote(videoId, hints, audioQuality, sourceSong, refresh, excludedProfiles)
+            withBestSource(videoId, hints, audioQuality, sourceSong) {
+                delegate.resolveRemote(videoId, hints, audioQuality, sourceSong, refresh, excludedProfiles)
+            }
         }
 
     override suspend fun clearPlaybackFailures(videoId: String) {
@@ -69,7 +72,21 @@ class SourceRoutingStreamResolver(
         hints: ContentHints,
         category: PlaybackFailureCategory,
     ) {
-        if (!isForeignSourceId(videoId)) delegate.reportPlaybackFailure(videoId, clientName, responseCode, profileId, hints, category)
+        if (isForeignSourceId(videoId) || bestSource?.onPlaybackFailure(videoId, clientName) == true) return
+        delegate.reportPlaybackFailure(videoId, clientName, responseCode, profileId, hints, category)
+    }
+
+    private suspend fun withBestSource(
+        videoId: String,
+        hints: ContentHints,
+        audioQuality: AudioQuality,
+        sourceSong: SongItem?,
+        youTube: suspend () -> PlaybackResource,
+    ): PlaybackResource {
+        val selector = bestSource
+        if (selector == null || sourceSong == null || !selector.appliesTo(videoId, sourceSong, hints)) return youTube()
+        if (localAudioSource?.resolve(videoId, sourceSong) != null) return youTube()
+        return selector.resolve(videoId, sourceSong, audioQuality.toSourceQuality(), youTube)
     }
 
     private suspend fun resolveForeign(
