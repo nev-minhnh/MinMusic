@@ -5562,4 +5562,15 @@
     <string name="album_name">Album name</string>
     <!-- Translators: Message shown after an album was created from downloaded songs. -->
     <string name="album_created">Album created</string>
+    <!-- MinMusic redesign: theme foundation. -->
+    <!-- Translators: Title of the appearance switch that replaces the MinMusic colours with colours from the wallpaper (Material You). -->
+    <string name="wallpaper_colors">Wallpaper colors</string>
+    <!-- Translators: Supporting text beneath the wallpaper colors switch. -->
+    <string name="wallpaper_colors_description">Use accent colors from your wallpaper instead of the MinMusic colors</string>
+    <!-- Translators: Name of the default MinMusic theme colour preset. -->
+    <string name="theme_color_minmusic">MinMusic</string>
+    <!-- Translators: Supporting text for the reset font action; the default font is Be Vietnam Pro. -->
+    <string name="app_font_reset_default_description">Use the default font (Be Vietnam Pro) and remove the imported font</string>
+    <!-- Translators: Confirmation shown before resetting to the default font. -->
+    <string name="app_font_reset_default_confirm">Remove the imported font and use the default font?</string>
 </resources>
