@@ -34,6 +34,7 @@ import com.metrolist.shared.generated.resources.source_badge_zing
 import com.metrolist.shared.source.SourceId
 import com.metrolist.shared.source.sourceOf
 import com.metrolist.shared.ui.theme.LocalBrand
+import com.metrolist.shared.youtube.playback.PlaybackResource
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 import org.jetbrains.compose.resources.StringResource
@@ -80,6 +81,12 @@ fun audioQualityLabel(
 }
 
 fun FormatEntity.qualityLabel(): AudioQualityLabel? = audioQualityLabel(codecs, mimeType, bitrate, itag)
+
+/** The quality of a resolved stream, known as soon as it resolves (the stored format only exists once cached). */
+fun PlaybackResource.qualityLabel(): AudioQualityLabel? {
+    val codecs = codecs?.takeIf(String::isNotBlank) ?: return null
+    return audioQualityLabel(codecs, mimeType.orEmpty(), bitrate ?: 0, itag ?: -1)
+}
 
 private val BadgeShape = RoundedCornerShape(4.dp)
 private val BadgeHeight = 18.dp
@@ -207,15 +214,23 @@ fun rememberSongQuality(songId: String?): AudioQualityLabel? {
     return remember(format) { format?.qualityLabel() }
 }
 
-/** Source and quality badges for a song in a mixed-source context, with the 6 dp gap from the design system. */
+/**
+ * Source and quality badges for a song in a mixed-source context, with the 6 dp gap from the design system.
+ * Pass the player's resolved [playbackResource] so the quality shows as soon as the stream resolves; it wins
+ * over the stored format because it is what is actually playing.
+ */
 @Composable
 fun SourceQualityBadges(
     songId: String?,
     modifier: Modifier = Modifier,
     showSource: Boolean = true,
+    playbackResource: PlaybackResource? = null,
 ) {
     if (songId == null) return
-    val quality = rememberSongQuality(songId)
+    val storedQuality = rememberSongQuality(songId)
+    val resolvedQuality =
+        remember(playbackResource, songId) { playbackResource?.takeIf { it.videoId == songId }?.qualityLabel() }
+    val quality = resolvedQuality ?: storedQuality
     val source = sourceOf(songId)
     val showSourceBadge = showSource && source != SourceId.LOCAL
     if (!showSourceBadge && quality == null) return

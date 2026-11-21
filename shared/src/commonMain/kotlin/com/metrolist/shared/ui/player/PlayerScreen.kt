@@ -2007,7 +2007,7 @@ fun PlayerScreen(
                                                                     },
                                                                 ),
                                                     )
-                                                    SourceQualityBadges(songId = displayedSong?.id)
+                                                    SourceQualityBadges(songId = displayedSong?.id, playbackResource = playbackResource)
                                                 }
                                             }
                                         }
