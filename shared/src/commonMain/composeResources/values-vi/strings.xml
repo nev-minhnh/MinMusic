@@ -2653,4 +2653,14 @@
     </plurals>
     <string name="mm_player_queue_open">Mở danh sách phát</string>
     <string name="mm_player_type_minmusic">MinMusic</string>
+    <!-- MinMusic full chart screen and chart names. -->
+    <string name="mm_chart_zing_week_vn">BXH tuần Việt Nam</string>
+    <string name="mm_chart_zing_week_us">BXH tuần US-UK</string>
+    <string name="mm_chart_zing_week_kr">BXH tuần K-Pop</string>
+    <string name="mm_chart_sc_trending">Thịnh hành toàn cầu</string>
+    <string name="mm_charts_error">Không tải được bảng xếp hạng</string>
+    <string name="mm_charts_empty">Bảng xếp hạng này hiện chưa có bài hát</string>
+    <string name="mm_charts_no_sources">Bật Zing MP3, NhacCuaTui hoặc SoundCloud trong Cài đặt để xem bảng xếp hạng</string>
+    <string name="mm_charts_load_more_failed">Không tải thêm được bài hát</string>
+    <string name="mm_charts_song_count">%1$d bài hát</string>
 </resources>

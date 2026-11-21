@@ -221,6 +221,7 @@ import com.metrolist.android.ui.screens.RecognitionHistoryScreen
 import com.metrolist.android.ui.screens.RecognitionScreen
 import com.metrolist.android.ui.screens.SearchScreen
 import com.metrolist.android.ui.screens.SettingsScreen
+import com.metrolist.android.ui.screens.SourceChartsScreen
 import com.metrolist.android.ui.screens.settings.AndroidAboutScreen
 import com.metrolist.android.ui.screens.settings.AndroidAutoScreen
 import com.metrolist.android.ui.screens.settings.BackupRestoreScreen
@@ -2620,6 +2621,9 @@ fun getEntryProvider(
                 onNavigateToHomeSection = { shelf ->
                     navigator.navigate(Screen.HomeSection(shelf.pageKey, shelf.title, shelf.toHomeSection()))
                 },
+                onNavigateToCharts = { sourceKey, chartKey ->
+                    navigator.navigate(Screen.SourceCharts(sourceKey, chartKey))
+                },
                 scrollToTopEvents = homeScrollToTopEvents,
             )
         }
@@ -2643,6 +2647,17 @@ fun getEntryProvider(
                 onNavigateToBrowse = { browseId, params, title ->
                     navigator.navigate(Screen.Browse(browseId, params, title))
                 },
+            )
+        }
+
+        entry<Screen.SourceCharts>(metadata = navTabMetadata) { route ->
+            SourceChartsScreen(
+                initialSourceKey = route.sourceKey,
+                initialChartKey = route.chartKey,
+                onBackClick = { navigator.goBack() },
+                onNavigateToAlbum = { albumId -> navigator.navigate(Screen.Album(albumId)) },
+                onNavigateToArtist = { artistId -> navigator.navigate(Screen.Artist(artistId)) },
+                onNavigateToPodcast = { podcastId -> navigator.navigate(Screen.Podcast(podcastId)) },
             )
         }
 

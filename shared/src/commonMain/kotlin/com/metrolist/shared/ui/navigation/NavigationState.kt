@@ -66,6 +66,7 @@ internal val navigationSavedStateConfiguration =
                     subclass(Screen.Playlist::class, Screen.Playlist.serializer())
                     subclass(Screen.Podcast::class, Screen.Podcast.serializer())
                     subclass(Screen.HomeSection::class, Screen.HomeSection.serializer())
+                    subclass(Screen.SourceCharts::class, Screen.SourceCharts.serializer())
                     subclass(Screen.Browse::class, Screen.Browse.serializer())
                     subclass(Screen.Integrations::class, Screen.Integrations.serializer())
                     subclass(Screen.Discord::class, Screen.Discord.serializer())

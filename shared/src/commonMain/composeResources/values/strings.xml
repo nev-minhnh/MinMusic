@@ -5782,4 +5782,15 @@
     <string name="mm_player_queue_open">Open queue</string>
     <!-- Player type / mini player type choice for the MinMusic design (default). -->
     <string name="mm_player_type_minmusic">MinMusic</string>
+    <!-- MinMusic full chart screen and chart names. -->
+    <string name="mm_chart_zing_week_vn">Vietnam weekly</string>
+    <string name="mm_chart_zing_week_us">US-UK weekly</string>
+    <string name="mm_chart_zing_week_kr">K-Pop weekly</string>
+    <string name="mm_chart_sc_trending">Trending worldwide</string>
+    <string name="mm_charts_tab_soundcloud" translatable="false">SoundCloud</string>
+    <string name="mm_charts_error">Couldn\u0027t load the charts</string>
+    <string name="mm_charts_empty">This chart has no songs right now</string>
+    <string name="mm_charts_no_sources">Turn on Zing MP3, NhacCuaTui or SoundCloud in Settings to see charts</string>
+    <string name="mm_charts_load_more_failed">Couldn\u0027t load more songs</string>
+    <string name="mm_charts_song_count">%1$d songs</string>
 </resources>

@@ -53,7 +53,8 @@ private val ArtworkShape = RoundedCornerShape(8.dp)
  * - With artwork (default when [index] is null): 64 dp, 48 dp art. Used in search, charts, downloads, playlists.
  * - Compact (when [index] is set and [showArtwork] is false): 56 dp, track number or now-playing bars, duration
  *   column. Used in album and user-album detail.
- * [rank] adds the large chart rank before the artwork. Badges ([SourceQualityBadges]) go before the artist text.
+ * [rank] adds the large chart rank before the artwork, in a [rankWidth] column (wider for 2-3 digit ranks).
+ * Badges ([SourceQualityBadges]) go before the artist text.
  * Press feedback is a ripple plus a scale on the artwork only, so text never relayouts.
  */
 @Composable
@@ -64,6 +65,7 @@ fun MmTrackRow(
     modifier: Modifier = Modifier,
     index: Int? = null,
     rank: Int? = null,
+    rankWidth: Dp = 24.dp,
     showArtwork: Boolean = index == null,
     isCurrent: Boolean = false,
     isPlaying: Boolean = false,
@@ -103,7 +105,7 @@ fun MmTrackRow(
                 color = colors.onSurface,
                 textAlign = TextAlign.Center,
                 maxLines = 1,
-                modifier = Modifier.width(24.dp),
+                modifier = Modifier.width(rankWidth),
             )
         }
         if (!showArtwork) {
