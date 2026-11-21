@@ -125,6 +125,7 @@ fun SettingsScreen(
     onNavigateToDownloads: () -> Unit,
     onNavigateToArtist: (String) -> Unit = {},
     initialPage: SettingsPageId? = null,
+    onNavigateToEqualizer: () -> Unit = {},
 ) {
     val pageViewModels = rememberViewModelStoreProvider()
     var currentPage by remember { mutableStateOf<SettingsPageId?>(null) }
@@ -406,7 +407,8 @@ fun SettingsScreen(
                         },
                     availablePages = availablePages,
                     initialPage = initialPage,
-                    externalPages = setOf(SettingsPageId.SUPPORTED_LINKS),
+                    // The equalizer is its own full-screen route, not a page inside settings.
+                    externalPages = setOf(SettingsPageId.SUPPORTED_LINKS, SettingsPageId.EQUALIZER),
                     onPageChanged = { page ->
                         if (page != currentPage) {
                             currentPage?.let(pageViewModels::clearKey)
@@ -474,7 +476,11 @@ fun SettingsScreen(
                     sourceStatuses = sourceSettings.statuses,
                     sourceAccountActions = sourceSettings.accountActions,
                     onOpenPage = { page ->
-                        if (page == SettingsPageId.SUPPORTED_LINKS) openSupportedLinks()
+                        when (page) {
+                            SettingsPageId.SUPPORTED_LINKS -> openSupportedLinks()
+                            SettingsPageId.EQUALIZER -> onNavigateToEqualizer()
+                            else -> {}
+                        }
                     },
                     pageContent = { page, onBack, onNavigate ->
                         CompositionLocalProvider(

@@ -143,6 +143,12 @@ sealed class Screen : NavKey {
     @Serializable
     data object AndroidAuto : Screen()
 
+    /** Full-screen MetroEQ editor; [autoEqQuery] opens the AutoEQ search pre-filled (device suggestion). */
+    @Serializable
+    data class Equalizer(
+        val autoEqQuery: String? = null,
+    ) : Screen()
+
     @Serializable
     data object Storage : Screen()
 
