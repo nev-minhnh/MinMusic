@@ -5697,4 +5697,43 @@
     <string name="metroeq_tab_bands">Bands (%1$d/%2$d)</string>
     <!-- Translators: Full-screen equalizer tab for tone, spatial and output effects. -->
     <string name="metroeq_tab_effects">Effects</string>
+    <!-- MinMusic redesign: Settings, Sources page and source sign-in. -->
+    <!-- Translators: Subtitle of the Sources entry on the main settings screen. -->
+    <string name="settings_sources_overview">Zing MP3, NhacCuaTui, SoundCloud and accounts</string>
+    <!-- Name of the YouTube Music service. -->
+    <string name="source_youtube_music" translatable="false">YouTube Music</string>
+    <!-- Translators: Small tag next to the source that is always on and used by default. -->
+    <string name="source_badge_default">Default</string>
+    <!-- Small tag next to a source signed in with a paid account. -->
+    <string name="source_badge_vip" translatable="false">VIP</string>
+    <!-- Translators: Small tag next to a source signed in with a free account. -->
+    <string name="source_badge_free">Free</string>
+    <!-- Translators: Small tag next to a source paused after repeated errors. -->
+    <string name="source_badge_paused">Paused</string>
+    <!-- Translators: Account state of YouTube Music when the user is signed in with Google. -->
+    <string name="source_status_youtube_signed_in">Signed in with Google</string>
+    <!-- Translators: Account state of YouTube Music when the user is not signed in. -->
+    <string name="source_status_youtube_guest">Not signed in</string>
+    <!-- Translators: Best quality a source can deliver. %1$s is a codec and bitrate, for example AAC 160. -->
+    <string name="source_quality_up_to">up to %1$s</string>
+    <!-- Codec and bitrate labels shown under each source. -->
+    <string name="source_quality_youtube" translatable="false">Opus 160</string>
+    <string name="source_quality_zing_vip" translatable="false">320 kbps, Lossless</string>
+    <string name="source_quality_320" translatable="false">320 kbps</string>
+    <string name="source_quality_128" translatable="false">128 kbps</string>
+    <string name="source_quality_soundcloud" translatable="false">AAC 160</string>
+    <!-- Translators: Button under a source that opens its sign-in, to unlock VIP quality. -->
+    <string name="source_sign_in_vip">Sign in for VIP</string>
+    <!-- Translators: Section header above the settings that choose between copies of a song on several sources. -->
+    <string name="source_multi_source_header">When a song is on several sources</string>
+    <!-- Translators: Error in the NhacCuaTui sign-in sheet when NhacCuaTui refuses or answers unexpectedly. -->
+    <string name="source_nct_login_error">Could not sign in to NhacCuaTui. Try again later.</string>
+    <!-- Translators: Content description of the button that shows the typed password. -->
+    <string name="source_show_password">Show password</string>
+    <!-- Translators: Content description of the button that hides the typed password. -->
+    <string name="source_hide_password">Hide password</string>
+    <!-- Translators: Note after the address in the Zing MP3 sign-in address bar, meaning the page is Zing's own site. -->
+    <string name="source_zing_official_site">official site</string>
+    <!-- Translators: Note at the bottom of the Zing MP3 sign-in window. -->
+    <string name="source_zing_login_auto_close">When you finish signing in, this window closes and checks your VIP status.</string>
 </resources>

@@ -12,11 +12,13 @@ import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -40,12 +42,14 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.metrolist.android.ui.isTrustedLoginUrl
 import com.metrolist.android.ui.openExternalLoginUrl
 import com.metrolist.shared.generated.resources.Res
 import com.metrolist.shared.generated.resources.back
+import com.metrolist.shared.generated.resources.close
 import com.metrolist.shared.generated.resources.retry
 import com.metrolist.shared.playlistimport.awaitProviderCredentials
 import com.metrolist.shared.ui.components.ContainedLoadingIndicator
@@ -76,10 +80,15 @@ internal fun <Credentials> ProviderLoginShell(
     onWebViewError: (WebResourceError, WebResourceRequest) -> Unit = { _, _ -> },
     onWebViewDisposed: () -> Unit = {},
     banner: (@Composable () -> Unit)? = null,
+    useCloseIcon: Boolean = false,
+    framedWebView: Boolean = false,
+    footer: (@Composable () -> Unit)? = null,
+    onPageUrlChanged: (String) -> Unit = {},
 ) {
     BlockScreenshots()
     val loginError = stringResource(loginErrorRes)
     val currentOnCredentials by rememberUpdatedState(onCredentials)
+    val currentOnPageUrlChanged by rememberUpdatedState(onPageUrlChanged)
     var webView by remember { mutableStateOf<WebView?>(null) }
     var isPageLoading by remember { mutableStateOf(true) }
     var pageError by remember { mutableStateOf<String?>(null) }
@@ -122,7 +131,11 @@ internal fun <Credentials> ProviderLoginShell(
                         title = { Text(stringResource(titleRes)) },
                         navigationIcon = {
                             IconButton(onClick = onNavigateBack, shapes = IconButtonDefaults.shapes()) {
-                                Icon(MetrolistIcons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(Res.string.back))
+                                if (useCloseIcon) {
+                                    Icon(MetrolistIcons.Outlined.Close, contentDescription = stringResource(Res.string.close))
+                                } else {
+                                    Icon(MetrolistIcons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(Res.string.back))
+                                }
                             }
                         },
                         colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -130,10 +143,20 @@ internal fun <Credentials> ProviderLoginShell(
                     banner?.invoke()
                 }
             },
+            bottomBar = { footer?.invoke() },
         ) { paddingValues ->
             Box(Modifier.fillMaxSize().padding(paddingValues)) {
                 AndroidView(
-                    modifier = Modifier.fillMaxSize(),
+                    modifier =
+                        if (framedWebView) {
+                            Modifier
+                                .fillMaxSize()
+                                .padding(start = 16.dp, end = 16.dp, top = 12.dp)
+                                .clip(RoundedCornerShape(16.dp))
+                                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(16.dp))
+                        } else {
+                            Modifier.fillMaxSize()
+                        },
                     factory = { webViewContext ->
                         WebView(webViewContext).apply webView@{
                             webView = this
@@ -150,6 +173,7 @@ internal fun <Credentials> ProviderLoginShell(
                                     ) {
                                         isPageLoading = true
                                         pageError = null
+                                        url?.let(currentOnPageUrlChanged)
                                         submitCredentialsIfAvailable()
                                     }
 
@@ -158,6 +182,7 @@ internal fun <Credentials> ProviderLoginShell(
                                         url: String?,
                                     ) {
                                         isPageLoading = false
+                                        url?.let(currentOnPageUrlChanged)
                                         submitCredentialsIfAvailable()
                                     }
 
