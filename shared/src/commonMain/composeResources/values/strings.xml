@@ -5771,4 +5771,13 @@
     <string name="mm_search_genre_bolero">Bolero</string>
     <!-- Home top bar overflow button that holds History and Listen Together on phones. -->
     <string name="mm_home_more_actions">More</string>
+    <!-- Full player bottom handle that opens the playing queue: overline above the next song's title. -->
+    <string name="mm_player_queue_up_next">Up next</string>
+    <!-- Full player queue handle when there is no next song; %1$d is the number of songs in the queue. -->
+    <plurals name="mm_player_queue_song_count">
+        <item quantity="one">%1$d song in the queue</item>
+        <item quantity="other">%1$d songs in the queue</item>
+    </plurals>
+    <!-- Accessibility action label of the full player queue handle. -->
+    <string name="mm_player_queue_open">Open queue</string>
 </resources>

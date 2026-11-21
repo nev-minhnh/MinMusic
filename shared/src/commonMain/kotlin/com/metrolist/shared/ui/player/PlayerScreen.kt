@@ -2473,6 +2473,8 @@ fun PlayerScreen(
                                             onOpenQueue = { queueSheetState.expandSoft() },
                                             isListenTogetherGuest = isListenTogetherGuest,
                                             navigationBarBottomPadding = navigationBarBottomPadding,
+                                            nextSongTitle = nextSong?.title,
+                                            queueSize = queueItems.size,
                                         )
                                     } else {
                                         PlayerBottomControls(

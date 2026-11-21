@@ -50,6 +50,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.luminance
@@ -400,6 +401,7 @@ fun MmPlayerLyricsPeek(
     onOpen: () -> Unit,
     modifier: Modifier = Modifier,
     bottomInset: Dp = 0.dp,
+    shape: Shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp),
 ) {
     val latestOnOpen by rememberUpdatedState(onOpen)
     val ink = MaterialTheme.colorScheme.onSurface
@@ -407,7 +409,7 @@ fun MmPlayerLyricsPeek(
         modifier =
             modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp))
+                .clip(shape)
                 .background(MaterialTheme.colorScheme.surfaceContainerLow)
                 .pointerInput(Unit) {
                     val threshold = 32.dp.toPx()
@@ -454,6 +456,66 @@ fun MmPlayerLyricsPeek(
             color = ink.copy(alpha = INK3_ALPHA),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
+        )
+    }
+}
+
+/** Height of [MmPlayerQueueHandle]: a 52 dp pill (above the 48 dp touch minimum). */
+val MmPlayerQueueHandleHeight = 52.dp
+
+/**
+ * The full player's one entry to the playing queue: a full-width pill on the surface container (no gradient,
+ * which is reserved for play and progress) with a queue icon, [overline] ("Up next") above [label] (the next
+ * song's title or the queue size) and a chevron. Tapping opens the queue; a swipe up is not consumed here, so
+ * it drags the queue sheet that hosts this handle.
+ */
+@Composable
+fun MmPlayerQueueHandle(
+    overline: String,
+    label: String,
+    onOpen: () -> Unit,
+    modifier: Modifier = Modifier,
+    onClickLabel: String? = null,
+) {
+    val ink = MaterialTheme.colorScheme.onSurface
+    Row(
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .height(MmPlayerQueueHandleHeight)
+                .clip(RoundedCornerShape(MmPlayerQueueHandleHeight / 2))
+                .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                .clickable(role = Role.Button, onClickLabel = onClickLabel, onClick = onOpen)
+                .padding(start = 16.dp, end = 12.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            imageVector = MetrolistIcons.AutoMirrored.Outlined.QueueMusic,
+            contentDescription = null,
+            tint = ink,
+            modifier = Modifier.size(24.dp),
+        )
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = overline.uppercase(),
+                style = MaterialTheme.typography.labelSmall,
+                color = ink.copy(alpha = INK3_ALPHA),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodyMedium,
+                color = ink,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        Icon(
+            imageVector = MetrolistIcons.Outlined.KeyboardArrowUp,
+            contentDescription = null,
+            tint = ink.copy(alpha = INK2_ALPHA),
         )
     }
 }
