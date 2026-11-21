@@ -192,9 +192,7 @@ internal class AndroidVideoModeController(
     }
 
     fun selectVideoForQueue(song: SongItem) {
-        if (!song.isVideoSong || song.isPodcast || !Settings.shared.musicVideoPlaybackEnabled || song.isLocal ||
-            song.id.startsWith("local_")
-        ) {
+        if (!song.isVideoSong || song.isPodcast || !Settings.shared.musicVideoPlaybackEnabled || !song.isYouTube) {
             return
         }
         clearVideoMode()
@@ -265,12 +263,12 @@ internal class AndroidVideoModeController(
         val syncQueueRevision = sync.queueRevision
         val syncTrackRevision = sync.trackRevision
         val wasVideoModeActive = _isVideoModeActive.value
-        if (sourceSong.id.startsWith("local_")) {
+        if (!sourceSong.isYouTube) {
             Timber.tag(MUSIC_VIDEO_TAG).d(
                 "mode request ignored videoId=%s wantVideo=%s local=%s",
                 sourceSong.id,
                 wantVideo,
-                sourceSong.id.startsWith("local_"),
+                sourceSong.isLocal,
             )
             return
         }

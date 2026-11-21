@@ -682,7 +682,7 @@ class DefaultStreamResolver(
             hints.wantVideo &&
                 sourceSong != null &&
                 !sourceSong.isVideoSong &&
-                !sourceSong.isLocal &&
+                sourceSong.isYouTube &&
                 !sourceSong.isPodcast &&
                 musicVideoResolver != null
         if (shouldLookupMv) {

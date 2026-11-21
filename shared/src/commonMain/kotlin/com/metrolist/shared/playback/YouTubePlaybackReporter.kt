@@ -7,6 +7,7 @@ import com.metrolist.innertubex.models.YouTubeClient
 import com.metrolist.shared.api.YouTubeRepository
 import com.metrolist.shared.api.YouTubeRepository.PlaybackTrackingSession
 import com.metrolist.shared.settings.Settings
+import com.metrolist.shared.source.isYouTubeId
 import com.metrolist.shared.utils.Logger
 import com.metrolist.shared.youtube.playback.PlaybackNetworkStateStore
 import com.metrolist.shared.youtube.playback.PlaybackResource
@@ -127,6 +128,7 @@ class YouTubePlaybackReporter internal constructor(
             var active = session
             if (active == null) {
                 val resource = resource ?: return
+                if (!isYouTubeId(resource.videoId)) return
                 val tracking = resource.playbackTracking
                 if (tracking == null && !resource.allowPlaybackTrackingFallback) return
                 if (!isRendering || playbackInstanceId <= 0L) return

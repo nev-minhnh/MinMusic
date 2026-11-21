@@ -237,7 +237,7 @@ internal class AndroidQueueTransitions(
             shouldRequestQueueVideo(
                 isVideoSong = nextSong.isVideoSong,
                 isVideoModeActive = Settings.shared.videoViewerVisible,
-                isLocal = nextSong.isLocal || nextSong.id.startsWith("local_"),
+                isLocal = !nextSong.isYouTube,
                 isPodcast = nextSong.isPodcast,
                 videoPlaybackEnabled = Settings.shared.musicVideoPlaybackEnabled,
             )
@@ -671,7 +671,7 @@ internal class AndroidQueueTransitions(
             shouldRequestQueueVideo(
                 isVideoSong = nextSong.isVideoSong,
                 isVideoModeActive = Settings.shared.videoViewerVisible,
-                isLocal = nextSong.isLocal || nextSong.id.startsWith("local_"),
+                isLocal = !nextSong.isYouTube,
                 isPodcast = nextSong.isPodcast,
                 videoPlaybackEnabled = Settings.shared.musicVideoPlaybackEnabled,
             ) == wantVideo

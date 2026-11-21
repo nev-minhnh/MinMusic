@@ -222,7 +222,7 @@ internal class DesktopVideoLifecycle(
         backgroundResourceJob = null
         if (!canPlayVideo) return
         if (!UiState.showVideoViewer && !UiState.showVideoFullscreen && !isVideoActive) return
-        if (song.id.startsWith("local_") || (status().canonicalMedia() && !song.isVideoSong)) return
+        if (!song.isYouTube || (status().canonicalMedia() && !song.isVideoSong)) return
         var instanceId = player.currentPlaybackInstanceId
 
         backgroundResourceJob =

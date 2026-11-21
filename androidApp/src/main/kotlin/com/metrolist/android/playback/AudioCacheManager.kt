@@ -367,7 +367,7 @@ class AudioCacheManager(
                 clientName = "local",
                 profileId = CACHED_AUDIO_PROFILE_ID,
                 requireBoundedRange = false,
-                allowPlaybackTrackingFallback = !song.isLocal && !song.isUploaded && !song.isPodcast && !song.id.startsWith("local_"),
+                allowPlaybackTrackingFallback = song.isYouTube && !song.isUploaded && !song.isPodcast,
             ).withCachedFormat(database.dao().format(songId).first())
         }
 

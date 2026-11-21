@@ -326,7 +326,7 @@ internal fun isQueuePlaybackModeCurrent(
         shouldRequestQueueVideo(
             isVideoSong = song.isVideoSong,
             isVideoModeActive = currentVideoViewerVisible,
-            isLocal = song.isLocal || song.id.startsWith("local_"),
+            isLocal = !song.isYouTube,
             isPodcast = song.isPodcast,
             videoPlaybackEnabled = videoPlaybackEnabled,
         )
