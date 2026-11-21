@@ -58,7 +58,7 @@ internal class EqualizerAudioProcessor(
         inputBuffer.asShortBuffer().get(samples, 0, count)
         inputBuffer.position(inputBuffer.limit())
         if (eq != null) {
-            eq.processPcm16(samples, count, boostDb)
+            eq.processPcm16(samples, count, boostDb, current.limiterEnabled)
         }
         gainReductionDb = eq?.gainReductionDb?.toFloat() ?: 0f
         AudioSpectrumMeter.accept(

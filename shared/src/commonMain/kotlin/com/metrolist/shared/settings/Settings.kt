@@ -70,7 +70,9 @@ import com.metrolist.shared.constants.EnableHapticFeedbackKey
 import com.metrolist.shared.constants.EnableLandscapeScalingKey
 import com.metrolist.shared.constants.EqualizerActiveProfileIdKey
 import com.metrolist.shared.constants.EqualizerCurrentProfileJsonKey
+import com.metrolist.shared.constants.EqualizerDeviceProfilesJsonKey
 import com.metrolist.shared.constants.EqualizerEnabledKey
+import com.metrolist.shared.constants.EqualizerLimiterEnabledKey
 import com.metrolist.shared.constants.EqualizerProfilesJsonKey
 import com.metrolist.shared.constants.ExplicitOnlyKey
 import com.metrolist.shared.constants.ExpressiveMiniPlayerArtworkPlaybackKey
@@ -393,6 +395,8 @@ class Settings(
     var equalizerCurrentProfileJson by preference(EqualizerCurrentProfileJsonKey, "")
     var equalizerActiveProfileId by preference(EqualizerActiveProfileIdKey, "")
     var equalizerEnabled by preference(EqualizerEnabledKey, false)
+    var equalizerLimiterEnabled by preference(EqualizerLimiterEnabledKey, true)
+    var equalizerDeviceProfilesJson by preference(EqualizerDeviceProfilesJsonKey, "")
     var audioBoostDb by preference(AudioBoostDbKey, 0f)
     var playerType by preference(PlayerType.MODERN)
     var miniPlayerType by preference(MiniPlayerType.EXPRESSIVE)

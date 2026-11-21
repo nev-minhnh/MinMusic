@@ -58,6 +58,7 @@ import com.metrolist.android.playback.resolveIncomingPlaybackSong
 import com.metrolist.android.playback.toAndroidContentHints
 import com.metrolist.android.ui.IncomingDestination
 import com.metrolist.android.ui.MetrolistApp
+import com.metrolist.android.ui.component.rememberMetroEqExportActions
 import com.metrolist.android.ui.screens.settings.DiscordLoginFlow
 import com.metrolist.android.ui.theme.MetrolistTheme
 import com.metrolist.android.ui.toIncomingDestination
@@ -73,6 +74,7 @@ import com.metrolist.shared.state.GlobalYouTubeRepository
 import com.metrolist.shared.state.applyContentRegion
 import com.metrolist.shared.ui.LocalIsInPipMode
 import com.metrolist.shared.ui.LocalIsTv
+import com.metrolist.shared.ui.equalizer.LocalMetroEqExportActions
 import com.metrolist.shared.ui.theme.appearanceDensity
 import com.metrolist.shared.youtube.playback.AndroidTokenProvider
 import com.metrolist.shared.youtube.playback.PlaybackNetworkStateStore
@@ -305,6 +307,7 @@ class MainActivity : ComponentActivity() {
                 LocalMinimumInteractiveComponentSize provides LocalMinimumInteractiveComponentSize.current * touchTargetScale,
                 LocalIsInPipMode provides isInPipModeState.value,
                 LocalDensity provides density,
+                LocalMetroEqExportActions provides rememberMetroEqExportActions(),
             ) {
                 val app = application as App
                 var onboardingComplete by remember { mutableStateOf(app.onboardingManager.isComplete) }

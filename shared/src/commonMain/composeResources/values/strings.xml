@@ -5533,6 +5533,43 @@
     <string name="ai_setup_privacy_settings">Open privacy settings</string>
     <string name="ai_setup_sign_in_again">Sign in again</string>
     <string name="ai_setup_key_limits">Review key limits</string>
+    <string name="metroeq_profile_preamp">Profile preamp</string>
+    <string name="metroeq_auto_preamp">Auto</string>
+    <string name="metroeq_limiter">Peak limiter</string>
+    <string name="metroeq_limiter_summary">Looks ahead 1.5 ms and keeps peaks below -0.3 dBFS</string>
+    <string name="redo">Redo</string>
+    <string name="metroeq_filter_peak">Peak</string>
+    <string name="metroeq_filter_low_shelf">Low shelf</string>
+    <string name="metroeq_filter_high_shelf">High shelf</string>
+    <string name="metroeq_filter_low_pass">Low pass</string>
+    <string name="metroeq_filter_high_pass">High pass</string>
+    <string name="metroeq_filter_band_pass">Band pass</string>
+    <string name="metroeq_filter_notch">Notch</string>
+    <string name="metroeq_frequency">Frequency</string>
+    <string name="metroeq_gain">Gain</string>
+    <string name="metroeq_value_range">Enter a value from %1$s to %2$s</string>
+    <string name="metroeq_export_file">Export to file</string>
+    <string name="metroeq_export_failed">Could not export the profile</string>
+    <string name="metroeq_output_device">Output: %1$s</string>
+    <string name="metroeq_use_for_device">Use this profile for %1$s</string>
+    <string name="metroeq_output_speaker">Phone speaker</string>
+    <string name="metroeq_output_wired">Wired headphones</string>
+    <string name="metroeq_output_bluetooth">Bluetooth device</string>
+    <string name="metroeq_output_usb">USB audio</string>
+    <string name="metroeq_output_other">External output</string>
+    <string name="metroeq_device_no_profile">%1$s has no EQ profile yet</string>
+    <string name="metroeq_tone_spatial">Tone and spatial</string>
+    <string name="metroeq_bass">Bass</string>
+    <string name="metroeq_treble">Treble</string>
+    <string name="metroeq_stereo_width">Stereo width</string>
+    <string name="metroeq_percent_value" translatable="false">%1$s%2$s</string>
+    <string name="metroeq_crossfeed">Crossfeed</string>
+    <string name="metroeq_crossfeed_summary">Blends some of each channel into the other so headphones sound closer to speakers</string>
+    <string name="metroeq_crossfeed_default">Default (700 Hz, 4.5 dB)</string>
+    <string name="metroeq_crossfeed_chu_moy">Chu Moy (700 Hz, 6 dB)</string>
+    <string name="metroeq_crossfeed_jan_meier">Jan Meier (650 Hz, 9.5 dB)</string>
+    <string name="metroeq_output_gain">Output gain</string>
+    <string name="metroeq_output_gain_summary">Final volume boost after the equalizer and profile preamp</string>
     <!-- Translators: Codec and bitrate of a downloaded song in the downloads list, for example Opus 160 kbps. -->
     <string name="download_format_value">%1$s %2$d kbps</string>
     <!-- Translators: Song menu action that copies a downloaded song into the chosen folder. -->

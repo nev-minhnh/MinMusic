@@ -11,8 +11,11 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.awaitTouchSlopOrCancellation
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.drag
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -27,6 +30,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
@@ -55,11 +59,14 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -69,10 +76,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.drawText
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
@@ -82,6 +91,9 @@ import com.metrolist.shared.equalizer.AudioSpectrumMeter
 import com.metrolist.shared.equalizer.AutoEqCatalog
 import com.metrolist.shared.equalizer.AutoEqEntry
 import com.metrolist.shared.equalizer.AutoEqModel
+import com.metrolist.shared.equalizer.CrossfeedPreset
+import com.metrolist.shared.equalizer.EqualizerOutputDevice
+import com.metrolist.shared.equalizer.EqualizerOutputKind
 import com.metrolist.shared.equalizer.EqualizerPreset
 import com.metrolist.shared.equalizer.EqualizerProfile
 import com.metrolist.shared.equalizer.EqualizerProfiles
@@ -90,19 +102,24 @@ import com.metrolist.shared.equalizer.MAX_AUDIO_BOOST_DB
 import com.metrolist.shared.equalizer.MAX_EQUALIZER_BANDS
 import com.metrolist.shared.equalizer.MAX_EQUALIZER_BAND_GAIN_DB
 import com.metrolist.shared.equalizer.MAX_EQUALIZER_FREQUENCY
+import com.metrolist.shared.equalizer.MAX_PROFILE_PREAMP_DB
+import com.metrolist.shared.equalizer.MAX_STEREO_WIDTH
+import com.metrolist.shared.equalizer.MAX_TONE_DB
 import com.metrolist.shared.equalizer.MIN_AUDIO_PREAMP_DB
 import com.metrolist.shared.equalizer.MIN_EQUALIZER_BAND_GAIN_DB
 import com.metrolist.shared.equalizer.MIN_EQUALIZER_FREQUENCY
+import com.metrolist.shared.equalizer.MIN_PROFILE_PREAMP_DB
 import com.metrolist.shared.equalizer.ParametricEqualizer
 import com.metrolist.shared.equalizer.bandsByFrequency
 import com.metrolist.shared.equalizer.searchAutoEqModels
+import com.metrolist.shared.equalizer.toDecimalString
+import com.metrolist.shared.equalizer.toParametricEqText
 import com.metrolist.shared.equalizer.supportsGain
 import com.metrolist.shared.equalizer.withAdjustedBand
 import com.metrolist.shared.equalizer.withAdjustedGain
 import com.metrolist.shared.generated.resources.Res
 import com.metrolist.shared.generated.resources.add
 import com.metrolist.shared.generated.resources.adjust_audio_equalizer
-import com.metrolist.shared.generated.resources.audio_boost
 import com.metrolist.shared.generated.resources.back
 import com.metrolist.shared.generated.resources.cancel
 import com.metrolist.shared.generated.resources.close
@@ -117,12 +134,43 @@ import com.metrolist.shared.generated.resources.equalizer_invalid_profile
 import com.metrolist.shared.generated.resources.equalizer_profile_count
 import com.metrolist.shared.generated.resources.equalizer_stream_unavailable
 import com.metrolist.shared.generated.resources.equalizer_usage_warning
+import com.metrolist.shared.generated.resources.export_saved
 import com.metrolist.shared.generated.resources.import_from_file
 import com.metrolist.shared.generated.resources.loudness_value
 import com.metrolist.shared.generated.resources.metroeq_custom_profile
 import com.metrolist.shared.generated.resources.metroeq_delete_profile_confirm
+import com.metrolist.shared.generated.resources.metroeq_export_failed
+import com.metrolist.shared.generated.resources.metroeq_export_file
+import com.metrolist.shared.generated.resources.metroeq_filter_band_pass
+import com.metrolist.shared.generated.resources.metroeq_filter_high_pass
+import com.metrolist.shared.generated.resources.metroeq_filter_high_shelf
+import com.metrolist.shared.generated.resources.metroeq_filter_low_pass
+import com.metrolist.shared.generated.resources.metroeq_filter_low_shelf
+import com.metrolist.shared.generated.resources.metroeq_filter_notch
+import com.metrolist.shared.generated.resources.metroeq_filter_peak
+import com.metrolist.shared.generated.resources.metroeq_frequency
 import com.metrolist.shared.generated.resources.metroeq_frequency_value
+import com.metrolist.shared.generated.resources.metroeq_gain
+import com.metrolist.shared.generated.resources.metroeq_output_bluetooth
+import com.metrolist.shared.generated.resources.metroeq_output_device
+import com.metrolist.shared.generated.resources.metroeq_output_gain
+import com.metrolist.shared.generated.resources.metroeq_output_gain_summary
+import com.metrolist.shared.generated.resources.metroeq_output_other
+import com.metrolist.shared.generated.resources.metroeq_output_speaker
+import com.metrolist.shared.generated.resources.metroeq_output_usb
+import com.metrolist.shared.generated.resources.metroeq_output_wired
+import com.metrolist.shared.generated.resources.metroeq_auto_preamp
+import com.metrolist.shared.generated.resources.metroeq_bass
+import com.metrolist.shared.generated.resources.metroeq_crossfeed
+import com.metrolist.shared.generated.resources.metroeq_crossfeed_chu_moy
+import com.metrolist.shared.generated.resources.metroeq_crossfeed_default
+import com.metrolist.shared.generated.resources.metroeq_crossfeed_jan_meier
+import com.metrolist.shared.generated.resources.metroeq_crossfeed_summary
+import com.metrolist.shared.generated.resources.metroeq_limiter
+import com.metrolist.shared.generated.resources.metroeq_limiter_summary
 import com.metrolist.shared.generated.resources.metroeq_peak_reduction
+import com.metrolist.shared.generated.resources.metroeq_percent_value
+import com.metrolist.shared.generated.resources.metroeq_profile_preamp
 import com.metrolist.shared.generated.resources.metroeq_preset_bass
 import com.metrolist.shared.generated.resources.metroeq_preset_flat
 import com.metrolist.shared.generated.resources.metroeq_preset_rock
@@ -134,8 +182,15 @@ import com.metrolist.shared.generated.resources.metroeq_profile_name
 import com.metrolist.shared.generated.resources.metroeq_profiles
 import com.metrolist.shared.generated.resources.metroeq_q_value
 import com.metrolist.shared.generated.resources.metroeq_save_as
+import com.metrolist.shared.generated.resources.metroeq_stereo_width
+import com.metrolist.shared.generated.resources.metroeq_tone_spatial
+import com.metrolist.shared.generated.resources.metroeq_treble
 import com.metrolist.shared.generated.resources.metroeq_unsaved_changes
+import com.metrolist.shared.generated.resources.metroeq_use_for_device
+import com.metrolist.shared.generated.resources.metroeq_value_range
+import com.metrolist.shared.generated.resources.redo
 import com.metrolist.shared.generated.resources.more_options
+import com.metrolist.shared.generated.resources.percent_symbol
 import com.metrolist.shared.generated.resources.remove
 import com.metrolist.shared.generated.resources.rename
 import com.metrolist.shared.generated.resources.reset
@@ -144,7 +199,9 @@ import com.metrolist.shared.generated.resources.sample_rate_value
 import com.metrolist.shared.generated.resources.save
 import com.metrolist.shared.generated.resources.saved
 import com.metrolist.shared.generated.resources.search
+import com.metrolist.shared.generated.resources.share
 import com.metrolist.shared.generated.resources.settings_filter_q_summary
+import com.metrolist.shared.generated.resources.undo
 import com.metrolist.shared.generated.resources.wizard_multiple_variants
 import com.metrolist.shared.generated.resources.wizard_no_models
 import com.metrolist.shared.ui.components.AlertDialog
@@ -164,6 +221,7 @@ import com.metrolist.shared.ui.utils.verticalScrollWithDrag
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.jetbrains.compose.resources.StringResource
@@ -176,6 +234,18 @@ import kotlin.math.ln
 import kotlin.math.round
 import kotlin.math.roundToInt
 
+/** Platform actions for exported Equalizer APO text; absent where the platform offers none. */
+class MetroEqExportActions(
+    val save: (fileName: String, content: String, onResult: (saved: Boolean) -> Unit) -> Unit,
+    val share: (fileName: String, content: String) -> Unit,
+)
+
+val LocalMetroEqExportActions = staticCompositionLocalOf<MetroEqExportActions?> { null }
+
+private val unsafeFileNameCharacters = Regex("""[\\/:*?"<>|]""")
+
+private fun exportFileName(profileName: String) = profileName.replace(unsafeFileNameCharacters, "_").trim() + " ParametricEQ.txt"
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MetroEqScreen(
@@ -183,6 +253,7 @@ fun MetroEqScreen(
     allowAutoEqSearch: Boolean = true,
     isAudioProcessingAvailable: Boolean = true,
     initialAutoEqSearch: Boolean = false,
+    initialAutoEqQuery: String = "",
 ) {
     var searchingAutoEq by remember { mutableStateOf(initialAutoEqSearch) }
     var importError by remember { mutableStateOf<StringResource?>(null) }
@@ -192,6 +263,10 @@ fun MetroEqScreen(
                 runCatching { EqualizerProfiles.importText(fileName, content) }
                     .fold({ null }, { Res.string.equalizer_invalid_profile })
         }
+    LaunchedEffect(Unit) {
+        // An import error no longer applies once another profile is active.
+        snapshotFlow { EqualizerProfiles.activeProfileId }.drop(1).collect { importError = null }
+    }
     Column(Modifier.fillMaxSize()) {
         if (!isAudioProcessingAvailable) {
             Text(
@@ -202,14 +277,21 @@ fun MetroEqScreen(
         }
         AnimatedContent(targetState = searchingAutoEq, modifier = Modifier.weight(1f)) { autoEq ->
             if (autoEq) {
-                AutoEqPage(onBack = { searchingAutoEq = false }, onDismiss = { searchingAutoEq = false })
+                AutoEqPage(
+                    initialQuery = initialAutoEqQuery,
+                    onBack = { searchingAutoEq = false },
+                    onDismiss = { searchingAutoEq = false },
+                )
             } else {
                 ProfilesPage(
                     error = importError,
                     onImportFile = pickFile,
                     onSearchAutoEq =
                         if (allowAutoEqSearch) {
-                            { searchingAutoEq = true }
+                            {
+                                importError = null
+                                searchingAutoEq = true
+                            }
                         } else {
                             null
                         },
@@ -263,10 +345,31 @@ private fun ProfilesPage(
     var saveAs by remember { mutableStateOf(false) }
     var profileName by remember(activeId, currentTitle) { mutableStateOf(currentTitle ?: customProfileName) }
     var pendingProfileChange by remember { mutableStateOf<(() -> Unit)?>(null) }
-    val hasUnsavedChanges = EqualizerProfiles.hasUnsavedChanges
+    // Export results belong to the profile they were made from and fade after a few seconds.
+    var exportMessage by remember(activeId) { mutableStateOf<StringResource?>(null) }
+    LaunchedEffect(exportMessage) {
+        if (exportMessage != null) {
+            delay(MESSAGE_VISIBLE_MILLIS)
+            exportMessage = null
+        }
+    }
+    val exportActions = LocalMetroEqExportActions.current
+    val history = remember { EqualizerEditHistory() }
+    LaunchedEffect(activeProfile) {
+        val current = activeProfile?.withoutOutputGain()
+        val committed = history.committed
+        if (current == null || committed == null || committed.id != current.id) {
+            history.reset(current)
+        } else if (current != committed) {
+            // Coalesce a drag or slider gesture into one undo step.
+            delay(EDIT_SETTLE_MILLIS)
+            history.commit(current)
+        }
+    }
 
     fun changeProfile(action: () -> Unit) {
-        if (hasUnsavedChanges) pendingProfileChange = action else action()
+        // Read when the action runs; a value captured at composition can be stale after a load or export.
+        if (EqualizerProfiles.hasUnsavedChanges) pendingProfileChange = action else action()
     }
 
     fun requestSave(asCopy: Boolean) {
@@ -280,7 +383,11 @@ private fun ProfilesPage(
     }
 
     Column(
-        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(vertical = 16.dp),
+        Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            // Keeps the last controls clear of the mini player on the settings page.
+            .padding(top = 16.dp, bottom = 16.dp + LocalSettingsPageBottomPadding.current),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         Surface(
@@ -359,6 +466,39 @@ private fun ProfilesPage(
                 )
             }
         }
+        EqualizerProfiles.outputDevice?.let { device ->
+            val deviceName = outputDeviceName(device)
+            Surface(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                shape = RoundedCornerShape(20.dp),
+                color = MaterialTheme.colorScheme.surfaceContainer,
+            ) {
+                Row(
+                    Modifier.fillMaxWidth().padding(start = 16.dp, end = 12.dp, top = 12.dp, bottom = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(Modifier.weight(1f).padding(end = 12.dp)) {
+                        Text(
+                            stringResource(Res.string.metroeq_output_device, deviceName),
+                            style = MaterialTheme.typography.titleSmall,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        Text(
+                            stringResource(Res.string.metroeq_use_for_device, deviceName),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    // Only saved profiles can be restored when the device reconnects.
+                    ExpressiveSwitch(
+                        checked = activeId != null && EqualizerProfiles.deviceProfileId(device.key) == activeId,
+                        enabled = savedProfile,
+                        onCheckedChange = { use -> EqualizerProfiles.setDeviceProfile(device.key, activeId?.takeIf { use }) },
+                    )
+                }
+            }
+        }
         error?.let {
             Text(
                 stringResource(it),
@@ -367,8 +507,17 @@ private fun ProfilesPage(
                 modifier = Modifier.padding(horizontal = 16.dp),
             )
         }
+        exportMessage?.let {
+            Text(
+                stringResource(it),
+                color = if (it == Res.string.export_saved) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.padding(horizontal = 16.dp),
+            )
+        }
         EqualizerGraph(activeProfile, meter.sampleRate, meter.levels)
-        PreampControl(meter.gainReductionDb)
+        PreampControl(activeProfile, meter.gainReductionDb)
+        activeProfile?.let { ToneControls(it) }
         Surface(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
             shape = RoundedCornerShape(20.dp),
@@ -384,6 +533,20 @@ private fun ProfilesPage(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.weight(1f).padding(end = 8.dp),
                 )
+                TextButton(
+                    onClick = { history.undo(activeProfile) },
+                    enabled = history.canUndo(activeProfile),
+                    shapes = ButtonDefaults.shapes(),
+                ) {
+                    Text(stringResource(Res.string.undo))
+                }
+                TextButton(
+                    onClick = { history.redo(activeProfile) },
+                    enabled = history.redo.isNotEmpty(),
+                    shapes = ButtonDefaults.shapes(),
+                ) {
+                    Text(stringResource(Res.string.redo))
+                }
                 TextButton(
                     onClick = { requestSave(false) },
                     enabled = EqualizerProfiles.hasUnsavedChanges,
@@ -439,6 +602,25 @@ private fun ProfilesPage(
                                 onClick = {
                                     actionsExpanded = false
                                     changeProfile { import() }
+                                },
+                            )
+                        }
+                        if (activeProfile != null && exportActions != null) {
+                            val fileName = exportFileName(currentTitle ?: activeProfile.name)
+                            DropdownMenuItem(
+                                text = { Text(stringResource(Res.string.metroeq_export_file)) },
+                                onClick = {
+                                    actionsExpanded = false
+                                    exportActions.save(fileName, activeProfile.toParametricEqText()) { saved ->
+                                        exportMessage = if (saved) Res.string.export_saved else Res.string.metroeq_export_failed
+                                    }
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = { Text(stringResource(Res.string.share)) },
+                                onClick = {
+                                    actionsExpanded = false
+                                    exportActions.share(fileName, activeProfile.toParametricEqText())
                                 },
                             )
                         }
@@ -523,6 +705,139 @@ private fun ProfilesPage(
     }
 }
 
+private const val EDIT_SETTLE_MILLIS = 600L
+private const val MESSAGE_VISIBLE_MILLIS = 4_000L
+
+// Touch targets for starting a drag on a graph node or fader thumb, and for tapping a fader track.
+private val NODE_TOUCH_RADIUS = 24.dp
+private val TRACK_TOUCH_HALF_WIDTH = 12.dp
+private const val MAX_UNDO_STEPS = 50
+
+private fun EqualizerProfile.withoutOutputGain() = copy(outputGainDb = null)
+
+/** Band edits of the active profile during this screen session; output gain is not part of a step. */
+private class EqualizerEditHistory {
+    var committed by mutableStateOf<EqualizerProfile?>(null)
+        private set
+    val undo = mutableStateListOf<EqualizerProfile>()
+    val redo = mutableStateListOf<EqualizerProfile>()
+
+    fun reset(profile: EqualizerProfile?) {
+        committed = profile
+        undo.clear()
+        redo.clear()
+    }
+
+    fun commit(profile: EqualizerProfile) {
+        committed?.let(undo::add)
+        if (undo.size > MAX_UNDO_STEPS) undo.removeAt(0)
+        redo.clear()
+        committed = profile
+    }
+
+    fun canUndo(active: EqualizerProfile?): Boolean = undo.isNotEmpty() || (active != null && active.withoutOutputGain() != committed)
+
+    fun undo(active: EqualizerProfile?) {
+        val current = active?.withoutOutputGain() ?: return
+        val settled = committed?.takeIf { it.id == current.id } ?: return
+        if (current != settled) {
+            redo.add(current)
+            EqualizerProfiles.editCurrent(settled)
+        } else if (undo.isNotEmpty()) {
+            val target = undo.removeAt(undo.lastIndex)
+            redo.add(current)
+            committed = target
+            EqualizerProfiles.editCurrent(target)
+        }
+    }
+
+    fun redo(active: EqualizerProfile?) {
+        val current = active?.withoutOutputGain() ?: return
+        if (redo.isEmpty()) return
+        if (redo.last().id != current.id) return
+        val target = redo.removeAt(redo.lastIndex)
+        undo.add(current)
+        committed = target
+        EqualizerProfiles.editCurrent(target)
+    }
+}
+
+private enum class BandValue { FREQUENCY, GAIN }
+
+@Composable
+private fun outputDeviceName(device: EqualizerOutputDevice): String {
+    if (device.productName.isNotBlank()) return device.productName
+    return stringResource(
+        when (device.kind) {
+            EqualizerOutputKind.SPEAKER -> Res.string.metroeq_output_speaker
+            EqualizerOutputKind.WIRED -> Res.string.metroeq_output_wired
+            EqualizerOutputKind.BLUETOOTH -> Res.string.metroeq_output_bluetooth
+            EqualizerOutputKind.USB -> Res.string.metroeq_output_usb
+            EqualizerOutputKind.OTHER -> Res.string.metroeq_output_other
+        },
+    )
+}
+
+@Composable
+private fun filterTypeName(type: FilterType): String =
+    stringResource(
+        when (type) {
+            FilterType.PK -> Res.string.metroeq_filter_peak
+            FilterType.LSC -> Res.string.metroeq_filter_low_shelf
+            FilterType.HSC -> Res.string.metroeq_filter_high_shelf
+            FilterType.LPQ -> Res.string.metroeq_filter_low_pass
+            FilterType.HPQ -> Res.string.metroeq_filter_high_pass
+            FilterType.BP -> Res.string.metroeq_filter_band_pass
+            FilterType.NO -> Res.string.metroeq_filter_notch
+        },
+    )
+
+private fun parseDecimal(text: String): Double? =
+    text
+        .trim()
+        .replace(',', '.')
+        .toDoubleOrNull()
+        ?.takeIf { it.isFinite() }
+
+@Composable
+private fun NumericEntryDialog(
+    title: String,
+    initial: String,
+    range: ClosedFloatingPointRange<Double>,
+    onDismiss: () -> Unit,
+    onConfirm: (Double) -> Unit,
+) {
+    var text by remember { mutableStateOf(initial) }
+    val value = parseDecimal(text)?.takeIf { it in range }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = {
+            OutlinedTextField(
+                value = text,
+                onValueChange = { text = it },
+                singleLine = true,
+                isError = value == null,
+                supportingText = {
+                    Text(stringResource(Res.string.metroeq_value_range, range.start.toDecimalString(1), range.endInclusive.toDecimalString(1)))
+                },
+                // Decimal keyboards often lack a minus key.
+                keyboardOptions = KeyboardOptions(keyboardType = if (range.start < 0) KeyboardType.Text else KeyboardType.Decimal),
+                shape = MaterialTheme.shapes.large,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        },
+        confirmButton = {
+            TextButton(enabled = value != null, onClick = { value?.let(onConfirm) }, shapes = ButtonDefaults.shapes()) {
+                Text(stringResource(Res.string.save))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss, shapes = ButtonDefaults.shapes()) { Text(stringResource(Res.string.cancel)) }
+        },
+    )
+}
+
 private data class MeterReadout(
     val sampleRate: Int,
     val levels: FloatArray,
@@ -550,6 +865,7 @@ private fun EqualizerGraph(
 ) {
     var selectedBand by remember(profile?.id) { mutableIntStateOf(0) }
     var editingQ by remember(profile?.id, selectedBand) { mutableStateOf(false) }
+    var editingValue by remember(profile?.id, selectedBand) { mutableStateOf<BandValue?>(null) }
     val latestProfile by rememberUpdatedState(profile)
     val maxFrequency = minOf(MAX_EQUALIZER_FREQUENCY, rate * 0.475)
     val logarithmicSpan = ln(maxFrequency / MIN_EQUALIZER_FREQUENCY)
@@ -569,11 +885,16 @@ private fun EqualizerGraph(
     val range =
         dragRange ?: maxOf(
             MAX_EQUALIZER_BAND_GAIN_DB + abs(preamp),
-            ceil((response.maxOfOrNull { abs(it.second) } ?: 0.0) / MAX_AUDIO_BOOST_DB) * MAX_AUDIO_BOOST_DB,
+            // Notch and pass-filter stopbands fall far below the band range; they are clipped instead of shrinking the plot.
+            ceil(
+                (response.maxOfOrNull { abs(it.second.coerceAtLeast(-MAX_EQUALIZER_BAND_GAIN_DB - abs(preamp))) } ?: 0.0) /
+                    MAX_AUDIO_BOOST_DB,
+            ) * MAX_AUDIO_BOOST_DB,
         ).coerceAtMost(96.0)
     val currentRange by rememberUpdatedState(range)
     val currentSpan by rememberUpdatedState(logarithmicSpan)
     val currentMaxFrequency by rememberUpdatedState(maxFrequency)
+    val currentPreamp by rememberUpdatedState(preamp)
     val density = LocalDensity.current
     val textMeasurer = rememberTextMeasurer()
     val labelStyle = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -645,6 +966,29 @@ private fun EqualizerGraph(
         }
     }
 
+    fun nodeAt(
+        position: Offset,
+        width: Int,
+        height: Int,
+        radius: Float,
+    ): Int? {
+        val current = latestProfile ?: return null
+        val graphWidth = (width - currentLeft - right).coerceAtLeast(1f)
+        val graphHeight = (height - top - bottom).coerceAtLeast(1f)
+        val plotRange = currentRange
+        return current.bands.indices
+            .filter(::editableBand)
+            .map { index ->
+                val band = current.bands[index]
+                val x = currentLeft + (ln(band.frequency / MIN_EQUALIZER_FREQUENCY) / currentSpan * graphWidth).toFloat()
+                val db = (if (band.supportsGain) band.gain else 0.0) + currentPreamp
+                val y = (top + (plotRange - db) / (plotRange * 2) * graphHeight).toFloat().coerceIn(top, top + graphHeight)
+                index to (Offset(x, y) - position).getDistance()
+            }.filter { it.second <= radius }
+            .minByOrNull { it.second }
+            ?.first
+    }
+
     val gestures =
         if (profile == null) {
             Modifier
@@ -653,43 +997,40 @@ private fun EqualizerGraph(
                 .pointerInput(profile.id, top, bottom) {
                     detectTapGestures { position -> nearestBand(position.x, size.width)?.let { selectedBand = it } }
                 }.pointerInput(profile.id, top, bottom) {
-                    var dragBand: Int? = null
-                    var dragGain: Double? = null
-                    var dragFrequency: Double? = null
-                    detectDragGestures(
-                        onDragEnd = { dragRange = null },
-                        onDragCancel = { dragRange = null },
-                        onDragStart = { position ->
-                            dragRange = currentRange
-                            dragBand = nearestBand(position.x, size.width)
-                            dragGain = null
-                            dragFrequency = null
-                            dragBand?.let { index ->
-                                selectedBand = index
-                                dragGain = latestProfile?.bands?.getOrNull(index)?.gain
-                                dragFrequency = latestProfile?.bands?.getOrNull(index)?.frequency
-                            }
-                        },
-                        onDrag = { change, drag ->
-                            val index = dragBand ?: return@detectDragGestures
-                            val band = latestProfile?.bands?.getOrNull(index)
-                            val previousGain = dragGain
-                            val previousFrequency = dragFrequency
-                            if (band != null && previousGain != null && previousFrequency != null && editableBand(index)) {
+                    // Only drags that start on a node move it; any other drag is left to page scrolling.
+                    awaitEachGesture {
+                        val down = awaitFirstDown(requireUnconsumed = false)
+                        val index = nodeAt(down.position, size.width, size.height, NODE_TOUCH_RADIUS.toPx()) ?: return@awaitEachGesture
+                        val slop = awaitTouchSlopOrCancellation(down.id) { change, _ -> change.consume() } ?: return@awaitEachGesture
+                        var dragGain = latestProfile?.bands?.getOrNull(index)?.gain ?: return@awaitEachGesture
+                        var dragFrequency = latestProfile?.bands?.getOrNull(index)?.frequency ?: return@awaitEachGesture
+                        selectedBand = index
+                        dragRange = currentRange
+
+                        fun move(delta: Offset) {
+                            val band = latestProfile?.bands?.getOrNull(index) ?: return
+                            if (!editableBand(index)) return
+                            val sensitivity = if (band.filterType == FilterType.PK) 1.0 else 0.5
+                            val nextGain =
+                                (dragGain - delta.y * 2 * currentRange / ((size.height - top - bottom) * sensitivity))
+                                    .coerceIn(MIN_EQUALIZER_BAND_GAIN_DB, MAX_EQUALIZER_BAND_GAIN_DB)
+                            val graphWidth = (size.width - currentLeft - right).coerceAtLeast(1f)
+                            val nextFrequency =
+                                (dragFrequency * exp(delta.x / graphWidth * currentSpan))
+                                    .coerceIn(MIN_EQUALIZER_FREQUENCY, currentMaxFrequency)
+                            dragGain = nextGain
+                            updateBand(index, nextGain, nextFrequency)?.let { dragFrequency = it }
+                        }
+                        try {
+                            move(slop.position - down.position)
+                            drag(slop.id) { change ->
                                 change.consume()
-                                val sensitivity = if (band.filterType == FilterType.PK) 1.0 else 0.5
-                                val nextGain =
-                                    (previousGain - drag.y * 2 * currentRange / ((size.height - top - bottom) * sensitivity))
-                                        .coerceIn(MIN_EQUALIZER_BAND_GAIN_DB, MAX_EQUALIZER_BAND_GAIN_DB)
-                                val graphWidth = (size.width - currentLeft - right).coerceAtLeast(1f)
-                                val nextFrequency =
-                                    (previousFrequency * exp(drag.x / graphWidth * currentSpan))
-                                        .coerceIn(MIN_EQUALIZER_FREQUENCY, currentMaxFrequency)
-                                dragGain = nextGain
-                                dragFrequency = updateBand(index, nextGain, nextFrequency)
+                                move(change.positionChange())
                             }
-                        },
-                    )
+                        } finally {
+                            dragRange = null
+                        }
+                    }
                 }
         }
 
@@ -752,7 +1093,7 @@ private fun EqualizerGraph(
                     profile?.bands?.forEachIndexed { index, band ->
                         if (editableBand(index)) {
                             val px = x(band.frequency)
-                            val gainY = y(band.gain + preamp)
+                            val gainY = y((if (band.supportsGain) band.gain else 0.0) + preamp)
                             val selected = index == selectedBand
                             val color = if (selected) lineColor else lineColor.copy(alpha = 0.62f)
                             if (selected) {
@@ -910,8 +1251,40 @@ private fun EqualizerGraph(
                     }
                 }
                 if (editableBand(selectedBand)) {
-                    TextButton(onClick = { editingQ = true }, shapes = ButtonDefaults.shapes()) {
-                        Text(stringResource(Res.string.metroeq_q_value, (round(band.q * 100) / 100).toString()))
+                    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), verticalAlignment = Alignment.CenterVertically) {
+                        Box {
+                            var choosingType by remember { mutableStateOf(false) }
+                            TextButton(onClick = { choosingType = true }, shapes = ButtonDefaults.shapes()) {
+                                Text(filterTypeName(band.filterType))
+                            }
+                            DropdownMenu(expanded = choosingType, onDismissRequest = { choosingType = false }) {
+                                FilterType.entries.forEach { type ->
+                                    DropdownMenuItem(
+                                        text = { Text(filterTypeName(type)) },
+                                        onClick = {
+                                            choosingType = false
+                                            EqualizerProfiles.setBandType(selectedBand, type)
+                                        },
+                                    )
+                                }
+                            }
+                        }
+                        TextButton(onClick = { editingValue = BandValue.FREQUENCY }, shapes = ButtonDefaults.shapes()) {
+                            Text(
+                                stringResource(
+                                    Res.string.metroeq_frequency_value,
+                                    band.frequency.toDecimalString(if (band.frequency < 100.0) 1 else 0),
+                                ),
+                            )
+                        }
+                        if (band.supportsGain) {
+                            TextButton(onClick = { editingValue = BandValue.GAIN }, shapes = ButtonDefaults.shapes()) {
+                                Text(stringResource(Res.string.loudness_value, band.gain.toDecimalString(1)))
+                            }
+                        }
+                        TextButton(onClick = { editingQ = true }, shapes = ButtonDefaults.shapes()) {
+                            Text(stringResource(Res.string.metroeq_q_value, (round(band.q * 100) / 100).toString()))
+                        }
                     }
                     Text(
                         stringResource(Res.string.settings_filter_q_summary),
@@ -922,9 +1295,42 @@ private fun EqualizerGraph(
             }
         }
     }
+    editingValue?.let { value ->
+        profile?.bands?.getOrNull(selectedBand)?.let { band ->
+            when (value) {
+                BandValue.FREQUENCY -> {
+                    NumericEntryDialog(
+                        title = stringResource(Res.string.metroeq_frequency),
+                        initial = band.frequency.toDecimalString(1),
+                        range = MIN_EQUALIZER_FREQUENCY..maxFrequency,
+                        onDismiss = { editingValue = null },
+                        onConfirm = { frequency ->
+                            EqualizerProfiles.updateBand(selectedBand) { it.copy(frequency = round(frequency * 10) / 10) }
+                            editingValue = null
+                        },
+                    )
+                }
+
+                BandValue.GAIN -> {
+                    NumericEntryDialog(
+                        title = stringResource(Res.string.metroeq_gain),
+                        initial = band.gain.toDecimalString(1),
+                        range = MIN_EQUALIZER_BAND_GAIN_DB..MAX_EQUALIZER_BAND_GAIN_DB,
+                        onDismiss = { editingValue = null },
+                        onConfirm = { gain ->
+                            EqualizerProfiles.updateBand(selectedBand) { it.copy(gain = round(gain * 10) / 10) }
+                            editingValue = null
+                        },
+                    )
+                }
+            }
+        }
+    }
     if (editingQ) {
         profile?.bands?.getOrNull(selectedBand)?.let { band ->
             var qValue by remember(selectedBand, band.q) { mutableFloatStateOf(band.q.toFloat()) }
+            var qText by remember(selectedBand, band.q) { mutableStateOf((round(band.q * 100) / 100).toString()) }
+            val typedQ = parseDecimal(qText)?.takeIf { it in 0.1..20.0 }
             val qFraction = ln(qValue.coerceIn(0.1f, 20f) / 0.1f) / ln(20f / 0.1f)
             val qSliderState = rememberSliderState(value = qFraction)
             qSliderState.value = qFraction
@@ -932,17 +1338,33 @@ private fun EqualizerGraph(
                 onDismissRequest = { editingQ = false },
                 title = { Text(stringResource(Res.string.metroeq_q_value, (round(qValue * 100) / 100).toString())) },
                 text = {
-                    Slider(
-                        state = qSliderState,
-                        onValueChange = { fraction ->
-                            qSliderState.value = fraction
-                            qValue = (0.1f * exp(fraction * ln(20f / 0.1f))).coerceIn(0.1f, 20f)
-                        },
-                        modifier = Modifier.retainPlaybackKeyFocus(),
-                    )
+                    Column {
+                        OutlinedTextField(
+                            value = qText,
+                            onValueChange = { text ->
+                                qText = text
+                                parseDecimal(text)?.takeIf { it in 0.1..20.0 }?.let { qValue = it.toFloat() }
+                            },
+                            singleLine = true,
+                            isError = typedQ == null,
+                            supportingText = { Text(stringResource(Res.string.metroeq_value_range, "0.1", "20.0")) },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                            shape = MaterialTheme.shapes.large,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        Slider(
+                            state = qSliderState,
+                            onValueChange = { fraction ->
+                                qSliderState.value = fraction
+                                qValue = (0.1f * exp(fraction * ln(20f / 0.1f))).coerceIn(0.1f, 20f)
+                                qText = (round(qValue * 100) / 100).toString()
+                            },
+                            modifier = Modifier.retainPlaybackKeyFocus(),
+                        )
+                    }
                 },
                 confirmButton = {
-                    TextButton(onClick = {
+                    TextButton(enabled = typedQ != null, onClick = {
                         updateQ(selectedBand, qValue.toDouble())
                         editingQ = false
                     }, shapes = ButtonDefaults.shapes()) { Text(stringResource(Res.string.save)) }
@@ -975,28 +1397,42 @@ private fun VerticalBandFader(
     val gainSpan = MAX_EQUALIZER_BAND_GAIN_DB - MIN_EQUALIZER_BAND_GAIN_DB
     val latestOnSelected by rememberUpdatedState(onSelected)
     val latestOnGainChange by rememberUpdatedState(onGainChange)
+    val latestGain by rememberUpdatedState(gain)
     Canvas(
         Modifier
             .size(width = 48.dp, height = 132.dp)
             .pointerInput(enabled) {
                 detectTapGestures { position ->
                     latestOnSelected()
-                    if (enabled) {
+                    // Taps beside the track only select the band.
+                    if (enabled && abs(position.x - size.width / 2f) <= TRACK_TOUCH_HALF_WIDTH.toPx()) {
                         val inset = 8.dp.toPx()
                         val fraction = ((position.y - inset) / (size.height - inset * 2)).coerceIn(0f, 1f)
                         latestOnGainChange(MAX_EQUALIZER_BAND_GAIN_DB - fraction * gainSpan)
                     }
                 }
             }.pointerInput(enabled) {
-                detectDragGestures(
-                    onDragStart = { latestOnSelected() },
-                    onDrag = { change, _ ->
+                // Only drags that start on the thumb change the gain; other drags scroll the page.
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    if (!enabled) return@awaitEachGesture
+                    val inset = 8.dp.toPx()
+                    val travel = (size.height - inset * 2).coerceAtLeast(1f)
+                    val startGain = latestGain.coerceIn(MIN_EQUALIZER_BAND_GAIN_DB, MAX_EQUALIZER_BAND_GAIN_DB)
+                    val thumbY = inset + ((MAX_EQUALIZER_BAND_GAIN_DB - startGain) / gainSpan * travel).toFloat()
+                    if ((down.position - Offset(size.width / 2f, thumbY)).getDistance() > NODE_TOUCH_RADIUS.toPx()) {
+                        return@awaitEachGesture
+                    }
+                    val slop = awaitTouchSlopOrCancellation(down.id) { change, _ -> change.consume() } ?: return@awaitEachGesture
+                    latestOnSelected()
+
+                    fun follow(y: Float) = latestOnGainChange(startGain - (y - down.position.y) / travel * gainSpan)
+                    follow(slop.position.y)
+                    drag(slop.id) { change ->
                         change.consume()
-                        val inset = 8.dp.toPx()
-                        val fraction = ((change.position.y - inset) / (size.height - inset * 2)).coerceIn(0f, 1f)
-                        latestOnGainChange(MAX_EQUALIZER_BAND_GAIN_DB - fraction * gainSpan)
-                    },
-                )
+                        follow(change.position.y)
+                    }
+                }
             },
     ) {
         val inset = 8.dp.toPx()
@@ -1019,7 +1455,113 @@ private fun VerticalBandFader(
 }
 
 @Composable
-private fun PreampControl(reduction: Float) {
+private fun ToneControls(profile: EqualizerProfile) {
+    Surface(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+        shape = RoundedCornerShape(20.dp),
+        color = MaterialTheme.colorScheme.surfaceContainer,
+    ) {
+        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(stringResource(Res.string.metroeq_tone_spatial), style = MaterialTheme.typography.titleMedium)
+            LabeledSlider(
+                label = stringResource(Res.string.metroeq_bass),
+                valueText = stringResource(Res.string.loudness_value, profile.bassDb.toDecimalString(1)),
+                value = profile.bassDb.toFloat(),
+                range = -MAX_TONE_DB.toFloat()..MAX_TONE_DB.toFloat(),
+            ) { value -> EqualizerProfiles.editTone { it.copy(bassDb = value.toDouble()) } }
+            LabeledSlider(
+                label = stringResource(Res.string.metroeq_treble),
+                valueText = stringResource(Res.string.loudness_value, profile.trebleDb.toDecimalString(1)),
+                value = profile.trebleDb.toFloat(),
+                range = -MAX_TONE_DB.toFloat()..MAX_TONE_DB.toFloat(),
+            ) { value -> EqualizerProfiles.editTone { it.copy(trebleDb = value.toDouble()) } }
+            LabeledSlider(
+                label = stringResource(Res.string.metroeq_stereo_width),
+                valueText =
+                    stringResource(
+                        Res.string.metroeq_percent_value,
+                        (profile.stereoWidth * 100).roundToInt().toString(),
+                        stringResource(Res.string.percent_symbol),
+                    ),
+                value = profile.stereoWidth.toFloat(),
+                range = 0f..MAX_STEREO_WIDTH.toFloat(),
+            ) { value -> EqualizerProfiles.editTone { it.copy(stereoWidth = value.toDouble()) } }
+            Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f).padding(end = 12.dp)) {
+                    Text(stringResource(Res.string.metroeq_crossfeed), style = MaterialTheme.typography.titleSmall)
+                    Text(
+                        stringResource(Res.string.metroeq_crossfeed_summary),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                ExpressiveSwitch(
+                    checked = profile.crossfeedEnabled,
+                    onCheckedChange = { enabled -> EqualizerProfiles.editTone { it.copy(crossfeedEnabled = enabled) } },
+                )
+            }
+            if (profile.crossfeedEnabled) {
+                Box {
+                    var choosingPreset by remember { mutableStateOf(false) }
+                    TextButton(onClick = { choosingPreset = true }, shapes = ButtonDefaults.shapes()) {
+                        Text(crossfeedPresetName(profile.crossfeedPreset))
+                    }
+                    DropdownMenu(expanded = choosingPreset, onDismissRequest = { choosingPreset = false }) {
+                        CrossfeedPreset.entries.forEach { preset ->
+                            DropdownMenuItem(
+                                text = { Text(crossfeedPresetName(preset)) },
+                                onClick = {
+                                    choosingPreset = false
+                                    EqualizerProfiles.editTone { it.copy(crossfeedPreset = preset) }
+                                },
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun crossfeedPresetName(preset: CrossfeedPreset): String =
+    stringResource(
+        when (preset) {
+            CrossfeedPreset.DEFAULT -> Res.string.metroeq_crossfeed_default
+            CrossfeedPreset.CHU_MOY -> Res.string.metroeq_crossfeed_chu_moy
+            CrossfeedPreset.JAN_MEIER -> Res.string.metroeq_crossfeed_jan_meier
+        },
+    )
+
+@Composable
+private fun LabeledSlider(
+    label: String,
+    valueText: String,
+    value: Float,
+    range: ClosedFloatingPointRange<Float>,
+    onValueChange: (Float) -> Unit,
+) {
+    val sliderState = rememberSliderState(value = value, trackRange = range)
+    sliderState.value = value
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Text(label, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f).padding(end = 12.dp))
+        Text(valueText, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
+    }
+    Slider(
+        state = sliderState,
+        onValueChange = {
+            sliderState.value = it
+            onValueChange(it)
+        },
+        modifier = Modifier.retainPlaybackKeyFocus(),
+    )
+}
+
+@Composable
+private fun PreampControl(
+    profile: EqualizerProfile?,
+    reduction: Float,
+) {
     val preamp =
         EqualizerProfiles.selectedConfiguration.preampDb
             .coerceIn(MIN_AUDIO_PREAMP_DB, MAX_AUDIO_BOOST_DB)
@@ -1034,12 +1576,65 @@ private fun PreampControl(reduction: Float) {
         color = MaterialTheme.colorScheme.surfaceContainer,
     ) {
         Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    stringResource(Res.string.audio_boost),
-                    style = MaterialTheme.typography.titleSmall,
-                    modifier = Modifier.weight(1f).padding(end = 12.dp),
+            if (profile != null) {
+                val profilePreamp = profile.preamp.coerceIn(MIN_PROFILE_PREAMP_DB, MAX_PROFILE_PREAMP_DB).toFloat()
+                val profilePreampSliderState =
+                    rememberSliderState(
+                        value = profilePreamp,
+                        trackRange = MIN_PROFILE_PREAMP_DB.toFloat()..MAX_PROFILE_PREAMP_DB.toFloat(),
+                    )
+                profilePreampSliderState.value = profilePreamp
+                Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        stringResource(Res.string.metroeq_profile_preamp),
+                        style = MaterialTheme.typography.titleSmall,
+                        modifier = Modifier.weight(1f).padding(end = 12.dp),
+                    )
+                    TextButton(onClick = EqualizerProfiles::applyAutoPreamp, shapes = ButtonDefaults.shapes()) {
+                        Text(stringResource(Res.string.metroeq_auto_preamp))
+                    }
+                    var editingPreamp by remember { mutableStateOf(false) }
+                    TextButton(onClick = { editingPreamp = true }, shapes = ButtonDefaults.shapes()) {
+                        Text(
+                            stringResource(Res.string.loudness_value, profile.preamp.toDecimalString(1)),
+                            style = MaterialTheme.typography.titleMedium,
+                        )
+                    }
+                    if (editingPreamp) {
+                        NumericEntryDialog(
+                            title = stringResource(Res.string.metroeq_profile_preamp),
+                            initial = profile.preamp.toDecimalString(1),
+                            range = MIN_PROFILE_PREAMP_DB..MAX_PROFILE_PREAMP_DB,
+                            onDismiss = { editingPreamp = false },
+                            onConfirm = {
+                                EqualizerProfiles.setProfilePreamp(it)
+                                editingPreamp = false
+                            },
+                        )
+                    }
+                }
+                Slider(
+                    state = profilePreampSliderState,
+                    onValueChange = {
+                        profilePreampSliderState.value = it
+                        EqualizerProfiles.setProfilePreamp(it.toDouble())
+                    },
+                    modifier = Modifier.retainPlaybackKeyFocus(),
                 )
+            }
+            // Output gain is applied after the profile, so it sits below the profile preamp.
+            Row(
+                Modifier.fillMaxWidth().padding(top = if (profile != null) 8.dp else 0.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(Modifier.weight(1f).padding(end = 12.dp)) {
+                    Text(stringResource(Res.string.metroeq_output_gain), style = MaterialTheme.typography.titleSmall)
+                    Text(
+                        stringResource(Res.string.metroeq_output_gain_summary),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
                 Text(
                     stringResource(Res.string.loudness_value, preamp.toString()),
                     style = MaterialTheme.typography.titleMedium,
@@ -1054,8 +1649,22 @@ private fun PreampControl(reduction: Float) {
                 },
                 modifier = Modifier.retainPlaybackKeyFocus(),
             )
+            Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f).padding(end = 12.dp)) {
+                    Text(stringResource(Res.string.metroeq_limiter), style = MaterialTheme.typography.titleSmall)
+                    Text(
+                        stringResource(Res.string.metroeq_limiter_summary),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                ExpressiveSwitch(
+                    checked = EqualizerProfiles.limiterEnabled,
+                    onCheckedChange = { EqualizerProfiles.limiterEnabled = it },
+                )
+            }
             Box(Modifier.fillMaxWidth().height(24.dp)) {
-                if (reduction >= 0.5f) {
+                if (reduction >= 0.5f && EqualizerProfiles.limiterEnabled) {
                     Text(
                         stringResource(Res.string.metroeq_peak_reduction, (-reduction).roundToInt().toString()),
                         style = MaterialTheme.typography.bodySmall,
@@ -1071,13 +1680,14 @@ private fun PreampControl(reduction: Float) {
 
 @Composable
 private fun AutoEqPage(
+    initialQuery: String,
     onBack: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     var models by remember { mutableStateOf<List<AutoEqModel>?>(null) }
     var failed by remember { mutableStateOf(false) }
     var attempt by remember { mutableIntStateOf(0) }
-    var query by remember { mutableStateOf("") }
+    var query by remember { mutableStateOf(initialQuery) }
     var model by remember { mutableStateOf<AutoEqModel?>(null) }
     var loadingEntry by remember { mutableStateOf<AutoEqEntry?>(null) }
     val scope = rememberCoroutineScope()

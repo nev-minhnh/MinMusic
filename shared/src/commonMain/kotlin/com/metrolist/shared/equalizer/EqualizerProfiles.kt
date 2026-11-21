@@ -5,10 +5,15 @@
 
 package com.metrolist.shared.equalizer
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import com.metrolist.shared.settings.Settings
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlin.concurrent.Volatile
+import kotlin.math.abs
+import kotlin.math.ln
 import kotlin.math.pow
 import kotlin.math.round
 import kotlin.math.sqrt
@@ -16,7 +21,7 @@ import kotlin.time.Clock
 import kotlin.uuid.Uuid
 
 @Serializable
-enum class FilterType { PK, LSC, HSC, LPQ, HPQ }
+enum class FilterType { PK, LSC, HSC, LPQ, HPQ, BP, NO }
 
 @Serializable
 data class ParametricEqBand(
@@ -37,6 +42,9 @@ internal fun ParametricEqBand.withAdjustedGain(gain: Double): ParametricEqBand =
         copy(gain = (round(gain * 2) / 2).coerceIn(MIN_EQUALIZER_BAND_GAIN_DB, MAX_EQUALIZER_BAND_GAIN_DB))
     }
 
+internal val FilterType.supportsGain: Boolean
+    get() = this == FilterType.PK || this == FilterType.LSC || this == FilterType.HSC
+
 // Zero-gain peaking and shelf filters have identical numerator and denominator coefficients.
 internal fun ParametricEqBand.isIdentity(): Boolean =
     !enabled || (gain == 0.0 && (filterType == FilterType.PK || filterType == FilterType.LSC || filterType == FilterType.HSC))
@@ -51,7 +59,34 @@ data class EqualizerProfile(
     val rig: String = "unknown",
     val addedTimestamp: Long = 0L,
     val outputGainDb: Double? = null,
+    val bassDb: Double = 0.0,
+    val trebleDb: Double = 0.0,
+    val crossfeedEnabled: Boolean = false,
+    val crossfeedPreset: CrossfeedPreset = CrossfeedPreset.DEFAULT,
+    val stereoWidth: Double = 1.0,
 )
+
+/** bs2b crossfeed levels: low-pass cut frequency of the fed signal and its feed level. */
+@Serializable
+enum class CrossfeedPreset(
+    val cutoffHz: Double,
+    val feedDb: Double,
+) {
+    DEFAULT(700.0, 4.5),
+    CHU_MOY(700.0, 6.0),
+    JAN_MEIER(650.0, 9.5),
+}
+
+// Fixed tone controls run before the parametric bands.
+internal val EqualizerProfile.toneBands: List<ParametricEqBand>
+    get() =
+        listOf(
+            ParametricEqBand(BASS_FREQUENCY, bassDb.coerceIn(-MAX_TONE_DB, MAX_TONE_DB), TONE_Q, FilterType.LSC),
+            ParametricEqBand(TREBLE_FREQUENCY, trebleDb.coerceIn(-MAX_TONE_DB, MAX_TONE_DB), TONE_Q, FilterType.HSC),
+        )
+
+internal val EqualizerProfile.hasStereoProcessing: Boolean
+    get() = crossfeedEnabled || stereoWidth != 1.0
 
 // Keep storage indices stable for per-band reset and the DSP filter history.
 internal val EqualizerProfile.bandsByFrequency: List<IndexedValue<ParametricEqBand>>
@@ -100,10 +135,28 @@ class InvalidEqualizerProfileException : IllegalArgumentException()
 data class EqualizerConfiguration(
     val profile: EqualizerProfile?,
     val preampDb: Double,
+    val limiterEnabled: Boolean = true,
 ) {
     val isIdentity: Boolean
-        get() = preampDb == 0.0 && (profile == null || (profile.preamp == 0.0 && profile.bands.all { it.isIdentity() }))
+        get() =
+            preampDb == 0.0 &&
+                (
+                    profile == null ||
+                        (
+                            profile.preamp == 0.0 && profile.bands.all { it.isIdentity() } &&
+                                profile.toneBands.all { it.isIdentity() } && !profile.hasStereoProcessing
+                        )
+                )
 }
+
+enum class EqualizerOutputKind { SPEAKER, WIRED, BLUETOOTH, USB, OTHER }
+
+/** The active audio output; [key] identifies it across connections, e.g. "BLUETOOTH_A2DP:WH-1000XM4". */
+data class EqualizerOutputDevice(
+    val key: String,
+    val kind: EqualizerOutputKind,
+    val productName: String,
+)
 
 enum class EqualizerPreset(
     val gains: List<Double>,
@@ -147,10 +200,62 @@ object EqualizerProfiles {
         }
 
     val configuration: EqualizerConfiguration
-        get() = selectedConfiguration.takeIf { Settings.shared.equalizerEnabled } ?: EqualizerConfiguration(null, 0.0)
+        get() =
+            selectedConfiguration.takeIf { Settings.shared.equalizerEnabled }?.copy(limiterEnabled = limiterEnabled)
+                ?: EqualizerConfiguration(null, 0.0)
+
+    var limiterEnabled: Boolean
+        get() = Settings.shared.equalizerLimiterEnabled
+        set(value) {
+            Settings.shared.equalizerLimiterEnabled = value
+        }
 
     val isEnabled: Boolean
         get() = Settings.shared.equalizerEnabled && (activeProfile != null || selectedConfiguration.preampDb != 0.0)
+
+    var outputDevice by mutableStateOf<EqualizerOutputDevice?>(null)
+        private set
+
+    /** A newly connected named headset without an assigned profile, offered an AutoEq search once per run. */
+    var autoEqSuggestion by mutableStateOf<EqualizerOutputDevice?>(null)
+        private set
+    private val suggestedDeviceKeys = mutableSetOf<String>()
+
+    private val deviceProfiles: Map<String, String>
+        get() =
+            Settings.shared.equalizerDeviceProfilesJson
+                .takeIf { it.isNotEmpty() }
+                ?.let { raw -> runCatching { json.decodeFromString<Map<String, String>>(raw) }.getOrNull() }
+                .orEmpty()
+
+    fun deviceProfileId(deviceKey: String): String? = deviceProfiles[deviceKey]
+
+    fun setDeviceProfile(
+        deviceKey: String,
+        profileId: String?,
+    ) {
+        val updated = if (profileId == null) deviceProfiles - deviceKey else deviceProfiles + (deviceKey to profileId)
+        Settings.shared.equalizerDeviceProfilesJson = json.encodeToString(updated)
+    }
+
+    fun onOutputDeviceChanged(device: EqualizerOutputDevice?) {
+        if (device == outputDevice) return
+        outputDevice = device
+        if (device == null) return
+        val assigned = deviceProfileId(device.key)?.let { id -> profiles.firstOrNull { it.id == id } }
+        when {
+            // Switching would discard edits that have not been saved yet.
+            assigned != null -> if (assigned.id != activeProfileId && !hasUnsavedChanges) activate(assigned, Settings.shared.equalizerEnabled)
+
+            device.productName.isNotBlank() &&
+                (device.kind == EqualizerOutputKind.BLUETOOTH || device.kind == EqualizerOutputKind.USB) &&
+                suggestedDeviceKeys.add(device.key) -> autoEqSuggestion = device
+        }
+    }
+
+    fun dismissAutoEqSuggestion() {
+        autoEqSuggestion = null
+    }
 
     fun setEnabled(enabled: Boolean) {
         if (enabled) ensureDefaultProfile()
@@ -174,9 +279,12 @@ object EqualizerProfiles {
         get() {
             val current = selectedConfiguration
             val profile = current.profile ?: return current.preampDb != 0.0
-            val baseline = baselineProfile(profile)
-            return baseline != profile.copy(outputGainDb = current.preampDb)
+            val baseline = baselineProfile(profile) ?: return true
+            return baseline.soundSettings() != profile.soundSettings()
         }
+
+    // Only bands, preamp, tone and spatial settings are edits; names, provenance and the separately stored output gain are not.
+    private fun EqualizerProfile.soundSettings() = copy(name = "", source = "", rig = "", addedTimestamp = 0L, outputGainDb = null)
 
     fun setActive(profileId: String?) {
         val profile = profiles.firstOrNull { it.id == profileId }
@@ -275,7 +383,53 @@ object EqualizerProfiles {
         val bounded = (round(db * 2) / 2).coerceIn(MIN_AUDIO_PREAMP_DB, MAX_AUDIO_BOOST_DB)
         val current = activeProfile
         Settings.shared.audioBoostDb = bounded.toFloat()
-        if (current != null) Settings.shared.equalizerCurrentProfileJson = json.encodeToString(current.copy(outputGainDb = bounded))
+        if (current != null) {
+            Settings.shared.equalizerCurrentProfileJson = json.encodeToString(current.copy(outputGainDb = bounded))
+            // Output gain is not an unsaved edit, so store it with the saved profile right away.
+            val saved = profiles
+            if (saved.any { it.id == current.id && it.outputGainDb != bounded }) {
+                save(saved.map { if (it.id == current.id) it.copy(outputGainDb = bounded) else it })
+            }
+        }
+    }
+
+    fun updateBand(
+        index: Int,
+        transform: (ParametricEqBand) -> ParametricEqBand,
+    ) {
+        val current = activeProfile ?: return
+        val band = current.bands.getOrNull(index) ?: return
+        val updated = transform(band)
+        if (updated != band) editCurrent(current.copy(bands = current.bands.toMutableList().apply { this[index] = updated }))
+    }
+
+    fun setBandType(
+        index: Int,
+        type: FilterType,
+    ) = updateBand(index) { band -> band.copy(filterType = type, gain = if (type.supportsGain) band.gain else 0.0) }
+
+    fun editTone(transform: (EqualizerProfile) -> EqualizerProfile) {
+        val current = activeProfile ?: return
+        val updated =
+            transform(current).let {
+                it.copy(
+                    bassDb = (round(it.bassDb * 2) / 2).coerceIn(-MAX_TONE_DB, MAX_TONE_DB),
+                    trebleDb = (round(it.trebleDb * 2) / 2).coerceIn(-MAX_TONE_DB, MAX_TONE_DB),
+                    stereoWidth = (round(it.stereoWidth * 100) / 100).coerceIn(0.0, MAX_STEREO_WIDTH),
+                )
+            }
+        if (updated != current) editCurrent(updated)
+    }
+
+    fun setProfilePreamp(db: Double) {
+        val current = activeProfile ?: return
+        if (db.isNaN()) return
+        val bounded = (round(db * 10) / 10).coerceIn(MIN_PROFILE_PREAMP_DB, MAX_PROFILE_PREAMP_DB)
+        if (bounded != current.preamp) editCurrent(current.copy(preamp = bounded))
+    }
+
+    fun applyAutoPreamp() {
+        activeProfile?.let { setProfilePreamp(it.autoPreampDb()) }
     }
 
     fun saveCurrent(
@@ -308,7 +462,18 @@ object EqualizerProfiles {
     fun resetAllBands() {
         val current = activeProfile ?: return
         val original = baselineProfile(current) ?: return
-        editCurrent(current.copy(bands = original.bands))
+        // Tone and spatial controls return to neutral, as in the flat preset.
+        editCurrent(
+            current.copy(
+                bands = original.bands,
+                preamp = original.preamp,
+                bassDb = 0.0,
+                trebleDb = 0.0,
+                crossfeedEnabled = false,
+                crossfeedPreset = CrossfeedPreset.DEFAULT,
+                stereoWidth = 1.0,
+            ),
+        )
     }
 
     fun bandHasChanges(index: Int): Boolean {
@@ -355,8 +520,13 @@ object EqualizerProfiles {
         fileName: String,
         content: String,
     ): EqualizerProfile {
-        val (preamp, bands) = parseParametricEq(content) ?: throw InvalidEqualizerProfileException()
-        val name = fileName.substringBeforeLast('.').removeSuffix(" ParametricEQ").ifBlank { fileName }
+        val (preamp, bands) = parseEqualizerText(content) ?: throw InvalidEqualizerProfileException()
+        val name =
+            fileName
+                .substringBeforeLast('.')
+                .removeSuffix(" ParametricEQ")
+                .removeSuffix(" GraphicEQ")
+                .ifBlank { fileName }
         val profile = EqualizerProfile("custom_${Uuid.random()}", name, bands, preamp = preamp, outputGainDb = 0.0)
         add(profile)
         return checkNotNull(activeProfile)
@@ -404,6 +574,8 @@ private val filterTypes =
         "LPQ" to FilterType.LPQ,
         "HP" to FilterType.HPQ,
         "HPQ" to FilterType.HPQ,
+        "BP" to FilterType.BP,
+        "NO" to FilterType.NO,
     )
 
 /** Parses AutoEq/Equalizer APO text; returns null for unusable or out-of-range profiles. */
@@ -425,27 +597,122 @@ fun parseParametricEq(content: String): Pair<Double, List<ParametricEqBand>>? {
             }
 
             tokens.first().startsWith("Filter", ignoreCase = true) -> {
-                if (tokens.none { it.equals("ON", ignoreCase = true) }) continue
+                // Exported profiles keep disabled bands as OFF filters.
+                val enabled = tokens.any { it.equals("ON", ignoreCase = true) }
+                if (!enabled && tokens.none { it.equals("OFF", ignoreCase = true) }) continue
                 val type = tokens.firstNotNullOfOrNull { filterTypes[it.uppercase()] } ?: continue
                 val frequency = after("Fc") ?: continue
-                // Pass filters carry no gain; shelves without Q use the cookbook's S=1 slope (Q 0.707).
-                val gain = after("Gain") ?: if (type == FilterType.LPQ || type == FilterType.HPQ) 0.0 else continue
-                bands += ParametricEqBand(frequency, gain, after("Q") ?: 0.707, type)
+                // Pass, band-pass and notch filters carry no gain; shelves without Q use the cookbook's S=1 slope (Q 0.707).
+                val gain = after("Gain") ?: if (type.supportsGain) continue else 0.0
+                bands += ParametricEqBand(frequency, gain, after("Q") ?: 0.707, type, enabled)
             }
         }
     }
     val valid =
         bands.isNotEmpty() &&
             bands.size <= MAX_EQUALIZER_BANDS &&
-            preamp in -50.0..50.0 &&
+            preamp.isFinite() &&
             bands.all {
                 it.frequency in 1.0..100_000.0 && it.gain in MIN_EQUALIZER_BAND_GAIN_DB..MAX_EQUALIZER_BAND_GAIN_DB && it.q > 0.0 &&
                     it.q <= 20.0
             }
-    return if (valid) preamp to bands else null
+    return if (valid) preamp.coerceIn(MIN_PROFILE_PREAMP_DB, MAX_PROFILE_PREAMP_DB) to bands else null
 }
 
-const val MAX_EQUALIZER_BANDS = 20
+/** Parses Equalizer APO ParametricEQ text, falling back to an AutoEq GraphicEQ curve. */
+fun parseEqualizerText(content: String): Pair<Double, List<ParametricEqBand>>? = parseParametricEq(content) ?: parseGraphicEq(content)
+
+/**
+ * Converts an AutoEq "GraphicEQ: f g; f g; ..." curve to log-spaced peaking bands, one per third of an octave
+ * from 20 Hz to 20 kHz. Each band starts at the curve's gain at its centre (linear interpolation over log
+ * frequency), then the gains are corrected repeatedly (damped) by the difference between the curve and the
+ * summed response at every centre, which removes most of the overlap between neighbouring bands.
+ */
+fun parseGraphicEq(content: String): Pair<Double, List<ParametricEqBand>>? {
+    val line = content.lineSequence().map { it.trim() }.firstOrNull { it.startsWith("GraphicEQ:", ignoreCase = true) } ?: return null
+    val points =
+        line
+            .substringAfter(':')
+            .split(';')
+            .mapNotNull { pair ->
+                val values = pair.trim().split(Regex("\\s+"))
+                val frequency = values.getOrNull(0)?.toDoubleOrNull() ?: return@mapNotNull null
+                val gain = values.getOrNull(1)?.toDoubleOrNull() ?: return@mapNotNull null
+                (frequency to gain).takeIf { frequency > 0.0 && frequency.isFinite() && gain.isFinite() }
+            }.sortedBy { it.first }
+    if (points.size < 2) return null
+
+    fun curve(frequency: Double): Double {
+        if (frequency <= points.first().first) return points.first().second
+        if (frequency >= points.last().first) return points.last().second
+        val upper = points.indexOfFirst { it.first >= frequency }
+        val (f0, g0) = points[upper - 1]
+        val (f1, g1) = points[upper]
+        return if (f1 == f0) g1 else g0 + (g1 - g0) * ln(frequency / f0) / ln(f1 / f0)
+    }
+
+    // Third-octave centres with wider bands than a graphic EQ uses: Q 2 overlaps neighbours enough that the
+    // summed response has no dips between centres, and the damped correction below converges without ringing.
+    val template = createEqualizerBands(GRAPHIC_EQ_BANDS).map { it.copy(q = GRAPHIC_EQ_Q) }
+    val targets = template.map { curve(it.frequency) }
+    val gains = targets.toDoubleArray()
+    val analyzer = ParametricEqualizer(GRAPHIC_EQ_SAMPLE_RATE, 1)
+    repeat(GRAPHIC_EQ_ITERATIONS) {
+        analyzer.update(EqualizerProfile("graphic", "graphic", template.mapIndexed { index, band -> band.copy(gain = gains[index]) }))
+        val responses = template.map { analyzer.responseDb(it.frequency) }
+        for (index in gains.indices) {
+            gains[index] =
+                (gains[index] + GRAPHIC_EQ_DAMPING * (targets[index] - responses[index]))
+                    .coerceIn(MIN_EQUALIZER_BAND_GAIN_DB, MAX_EQUALIZER_BAND_GAIN_DB)
+        }
+    }
+    return 0.0 to template.mapIndexed { index, band -> band.copy(gain = round(gains[index] * 10) / 10) }
+}
+
+/** Equalizer APO ParametricEQ text, filters ordered by frequency; disabled bands are written as OFF filters. */
+fun EqualizerProfile.toParametricEqText(): String =
+    buildString {
+        append("Preamp: ").append(preamp.toDecimalString(1)).append(" dB\n")
+        // Tone controls are written as the shelves they apply; crossfeed and width have no APO filter equivalent.
+        (toneBands.filterNot { it.isIdentity() } + bands).sortedBy { it.frequency }.forEachIndexed { index, band ->
+            append("Filter ").append(index + 1).append(": ").append(if (band.enabled) "ON " else "OFF ")
+            append(
+                when (band.filterType) {
+                    FilterType.PK -> "PK"
+                    FilterType.LSC -> "LSC"
+                    FilterType.HSC -> "HSC"
+                    FilterType.LPQ -> "LPQ"
+                    FilterType.HPQ -> "HPQ"
+                    FilterType.BP -> "BP"
+                    FilterType.NO -> "NO"
+                },
+            )
+            append(" Fc ").append(band.frequency.toDecimalString(1)).append(" Hz")
+            if (band.supportsGain) append(" Gain ").append(band.gain.toDecimalString(2)).append(" dB")
+            append(" Q ").append(band.q.toDecimalString(3)).append('\n')
+        }
+    }
+
+private const val GRAPHIC_EQ_BANDS = 30
+private const val GRAPHIC_EQ_ITERATIONS = 40
+private const val GRAPHIC_EQ_Q = 2.0
+private const val GRAPHIC_EQ_DAMPING = 0.5
+private const val GRAPHIC_EQ_SAMPLE_RATE = 48_000
+
+/** Locale-independent fixed-point text, as Equalizer APO files and numeric entry expect. */
+internal fun Double.toDecimalString(decimals: Int): String {
+    val scaled = round(this * 10.0.pow(decimals)).toLong()
+    val digits = abs(scaled).toString().padStart(decimals + 1, '0')
+    val text = if (decimals == 0) digits else digits.dropLast(decimals) + "." + digits.takeLast(decimals)
+    return if (scaled < 0) "-$text" else text
+}
+
+const val MAX_EQUALIZER_BANDS = 32
+const val MAX_TONE_DB = 12.0
+const val MAX_STEREO_WIDTH = 2.0
+private const val BASS_FREQUENCY = 100.0
+private const val TREBLE_FREQUENCY = 10_000.0
+private const val TONE_Q = 0.707
 const val MIN_EQUALIZER_BAND_GAIN_DB = -30.0
 const val MAX_EQUALIZER_BAND_GAIN_DB = 30.0
 const val MIN_EQUALIZER_FREQUENCY = 20.0
