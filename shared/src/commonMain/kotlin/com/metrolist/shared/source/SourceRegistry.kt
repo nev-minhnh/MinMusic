@@ -1,5 +1,6 @@
 package com.metrolist.shared.source
 
+import com.metrolist.innertubex.extraction.StreamResolveException
 import com.metrolist.shared.settings.Settings
 import kotlinx.atomicfu.locks.ReentrantLock
 import kotlinx.atomicfu.locks.withLock
@@ -68,6 +69,13 @@ class SourceRegistry(
         return try {
             block(source).also { reset(id) }
         } catch (error: CancellationException) {
+            throw error
+        } catch (error: StreamResolveException) {
+            // Content the user may not play here (preview, region, VIP) says nothing about the source's health.
+            val contentRefused =
+                error.reason == StreamResolveException.Reason.UNAVAILABLE ||
+                    error.reason == StreamResolveException.Reason.NO_PLAYABLE_STREAM
+            if (!contentRefused) recordFailure(id)
             throw error
         } catch (error: Exception) {
             recordFailure(id)
