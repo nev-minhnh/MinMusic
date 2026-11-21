@@ -97,6 +97,29 @@ interface PlayerPlatform {
         extraActions: List<PlayerMenuAction>,
     )
 
+    /**
+     * Opens the equalizer from the player's EQ chip, through the same entry as the player menu's "Equalizer"
+     * action. Platforms that cannot jump to it directly show the player menu, which contains that action.
+     */
+    @Composable
+    fun EqualizerShortcut(
+        viewModel: PlayerViewModel,
+        onDismiss: () -> Unit,
+        onNavigateToAlbum: (String) -> Unit,
+        onNavigateToArtist: (String) -> Unit,
+        onNavigateToListenTogether: () -> Unit,
+    ) {
+        PlayerMenu(
+            viewModel = viewModel,
+            onDismiss = onDismiss,
+            onNavigateToAlbum = onNavigateToAlbum,
+            onNavigateToArtist = onNavigateToArtist,
+            onNavigateToListenTogether = onNavigateToListenTogether,
+            onShowSongDetails = onDismiss,
+            extraActions = emptyList(),
+        )
+    }
+
     @Composable
     fun SongDetailsSheet(
         viewModel: PlayerViewModel,

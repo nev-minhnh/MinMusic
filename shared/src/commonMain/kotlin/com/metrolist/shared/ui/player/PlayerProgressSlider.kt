@@ -35,10 +35,12 @@ import androidx.compose.ui.unit.dp
 import com.metrolist.shared.generated.resources.Res
 import com.metrolist.shared.generated.resources.cd_playback_position
 import com.metrolist.shared.generated.resources.live
+import com.metrolist.shared.generated.resources.mm_player_time_remaining
 import com.metrolist.shared.generated.resources.playback_position_time
 import com.metrolist.shared.playback.PendingSeekPosition
 import com.metrolist.shared.playback.interpolatePlaybackPosition
 import com.metrolist.shared.ui.components.LiveBadge
+import com.metrolist.shared.ui.components.minmusic.MmPlayerProgressTrack
 import com.metrolist.shared.ui.components.sliders.PlaybackProgressSlider
 import com.metrolist.shared.ui.components.sliders.collectPlaybackDisplayState
 import com.metrolist.shared.ui.components.sliders.progressAtPixel
@@ -63,6 +65,7 @@ internal fun PlayerProgressSlider(
     progressColor: Color? = null,
     timerTextStyle: TextStyle = MaterialTheme.typography.labelMedium,
     isLive: Boolean = false,
+    mmStyle: Boolean = false,
 ) {
     val active = LocalPlayerContentActive.current
     val positionActive = LocalPlayerPositionActive.current
@@ -141,6 +144,16 @@ internal fun PlayerProgressSlider(
         }
     val elapsedText = remember(displayedSecond) { formatDuration(displayedSecond * 1_000L) }
     val durationText = remember(duration) { formatDuration(duration) }
+    // MinMusic shows the remaining time on the right instead of the duration.
+    val remainingText =
+        if (mmStyle && duration > 0L) {
+            val remainingMs = (duration - displayedSecond * 1_000L).coerceAtLeast(0L)
+            stringResource(Res.string.mm_player_time_remaining, formatDuration(remainingMs))
+        } else {
+            durationText
+        }
+    val timerStyle = if (mmStyle) MaterialTheme.typography.labelSmall.copy(fontFeatureSettings = "tnum") else timerTextStyle
+    val timerColor = textBackgroundColor.copy(alpha = if (mmStyle) 0.56f else 0.75f)
     val positionLabel = stringResource(Res.string.cd_playback_position)
     val liveLabel = stringResource(Res.string.live)
     val timeDescription =
@@ -195,6 +208,17 @@ internal fun PlayerProgressSlider(
             isPlaying = isPlaying && !isPlaybackLoading,
             bufferedFraction = if (isLive) 1f else bufferedProgress,
             animate = active,
+            track =
+                if (mmStyle && !isLive) {
+                    { state ->
+                        MmPlayerProgressTrack(
+                            progress = { state.value },
+                            bufferedFraction = { bufferedProgress },
+                        )
+                    }
+                } else {
+                    null
+                },
             colors =
                 if (isLive) {
                     val activeColor = progressColor ?: MaterialTheme.colorScheme.primary
@@ -232,19 +256,19 @@ internal fun PlayerProgressSlider(
                 LiveBadge()
                 Text(
                     text = elapsedText,
-                    style = timerTextStyle,
-                    color = textBackgroundColor.copy(alpha = 0.75f),
+                    style = timerStyle,
+                    color = timerColor,
                 )
             } else {
                 Text(
                     text = elapsedText,
-                    style = timerTextStyle,
-                    color = textBackgroundColor.copy(alpha = 0.75f),
+                    style = timerStyle,
+                    color = timerColor,
                 )
                 Text(
-                    text = durationText,
-                    style = timerTextStyle,
-                    color = textBackgroundColor.copy(alpha = 0.75f),
+                    text = remainingText,
+                    style = timerStyle,
+                    color = timerColor,
                 )
             }
         }
