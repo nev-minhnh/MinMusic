@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Round MinMusic logo for pre-Oreo launchers that ask for a round icon. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android" xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="400"
+    android:viewportHeight="400">
+    <group
+        android:translateX="-21"
+        android:translateY="-1">
+        <path
+            android:fillColor="#FF0B0B0B"
+            android:pathData="M221,1a200,200 0,1 1,0 400a200,200 0,1 1,0 -400z" />
+        <path
+            android:pathData="M130,282V176a45.5,45.5 0,0 1,91 0v106M221,176a45.5,45.5 0,0 1,91 0v28"
+            android:strokeWidth="46"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round">
+            <aapt:attr name="android:strokeColor">
+                <gradient
+                    android:type="linear"
+                    android:startX="107"
+                    android:startY="160"
+                    android:endX="335"
+                    android:endY="215">
+                    <item android:offset="0" android:color="#FFA6E3A1" />
+                    <item android:offset="0.42" android:color="#FF76C6B4" />
+                    <item android:offset="0.8" android:color="#FF6396EB" />
+                    <item android:offset="1" android:color="#FF5B7CFA" />
+                </gradient>
+            </aapt:attr>
+        </path>
+        <group
+            android:pivotX="294"
+            android:pivotY="297"
+            android:rotation="-24">
+            <path
+                android:fillColor="#FFFFFFFF"
+                android:pathData="M281.5,297a12.5,8.2 0,1 0,25 0a12.5,8.2 0,1 0,-25 0z" />
+        </group>
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:pathData="M302,252h3a2,2 0,0 1,2 2v42a2,2 0,0 1,-2 2h-3a2,2 0,0 1,-2 -2v-42a2,2 0,0 1,2 -2z" />
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:pathData="M300,252c8,-1 17,4 18,15l-6.5,1c-1,-6 -5,-8.5 -11.5,-8.5z" />
+        <path
+            android:pathData="M326.5,268v14M339.5,248v53M352,260v30"
+            android:strokeColor="#FFFFFFFF"
+            android:strokeWidth="9.5"
+            android:strokeLineCap="round" />
+    </group>
+</vector>
