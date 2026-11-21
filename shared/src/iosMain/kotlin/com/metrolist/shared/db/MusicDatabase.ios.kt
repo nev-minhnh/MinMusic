@@ -80,5 +80,6 @@ internal fun getIosDatabaseBuilder(path: String): RoomDatabase.Builder<MusicData
             MIGRATION_65_66,
             MIGRATION_66_67,
             MIGRATION_67_68,
+            MIGRATION_68_69,
         )
 }
