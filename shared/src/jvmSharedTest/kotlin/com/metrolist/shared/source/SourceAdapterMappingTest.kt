@@ -1,21 +1,20 @@
 package com.metrolist.shared.source
 
 import com.metrolist.shared.source.nct.NctItems
+import com.metrolist.shared.source.nct.NctStream
 import com.metrolist.shared.source.soundcloud.SoundCloudItems
 import com.metrolist.shared.source.soundcloud.SoundCloudPolicy
 import com.metrolist.shared.source.soundcloud.SoundCloudStream
 import com.metrolist.shared.source.soundcloud.SoundCloudTrack
-import com.metrolist.shared.source.zing.ZingItems
-import com.metrolist.shared.source.QualityRanker
-import com.metrolist.shared.source.nct.NctStream
 import com.metrolist.shared.source.zing.ZingAlbumRef
 import com.metrolist.shared.source.zing.ZingArtistRef
+import com.metrolist.shared.source.zing.ZingItems
 import com.metrolist.shared.source.zing.ZingQuality
 import com.metrolist.shared.source.zing.ZingSong
 import com.metrolist.shared.source.zing.ZingStream
+import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
-import kotlin.test.Test
 
 /** The adapters' output feeds the player (HLS vs progressive), downloads (format row) and the quality pick. */
 class SourceAdapterMappingTest {
