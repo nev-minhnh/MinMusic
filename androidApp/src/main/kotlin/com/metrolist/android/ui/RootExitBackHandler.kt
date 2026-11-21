@@ -7,7 +7,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import com.metrolist.shared.generated.resources.Res
-import com.metrolist.shared.generated.resources.back_again_to_exit
+import com.metrolist.shared.generated.resources.mm_back_press_again_to_exit
 import com.metrolist.shared.ui.navigation.NavigationBackHandler
 import org.jetbrains.compose.resources.stringResource
 
@@ -18,7 +18,7 @@ internal fun RootExitBackHandler(
 ) {
     val confirmation = remember(enabled) { BackExitConfirmation() }
     val context = LocalContext.current
-    val message = stringResource(Res.string.back_again_to_exit)
+    val message = stringResource(Res.string.mm_back_press_again_to_exit)
     val toast = remember(context, message, confirmation) { Toast.makeText(context, message, Toast.LENGTH_SHORT) }
     LifecycleResumeEffect(confirmation, toast) {
         onPauseOrDispose {

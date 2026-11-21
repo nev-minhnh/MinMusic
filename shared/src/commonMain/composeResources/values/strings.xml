@@ -5782,4 +5782,5 @@
     <string name="mm_player_queue_open">Open queue</string>
     <!-- Player type / mini player type choice for the MinMusic design (default). -->
     <string name="mm_player_type_minmusic">MinMusic</string>
+    <string name="mm_back_press_again_to_exit">Press back again to exit</string>
 </resources>
