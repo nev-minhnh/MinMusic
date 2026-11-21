@@ -70,7 +70,9 @@ import com.metrolist.shared.constants.EnableHapticFeedbackKey
 import com.metrolist.shared.constants.EnableLandscapeScalingKey
 import com.metrolist.shared.constants.EqualizerActiveProfileIdKey
 import com.metrolist.shared.constants.EqualizerCurrentProfileJsonKey
+import com.metrolist.shared.constants.EqualizerDeviceProfilesJsonKey
 import com.metrolist.shared.constants.EqualizerEnabledKey
+import com.metrolist.shared.constants.EqualizerLimiterEnabledKey
 import com.metrolist.shared.constants.EqualizerProfilesJsonKey
 import com.metrolist.shared.constants.ExplicitOnlyKey
 import com.metrolist.shared.constants.ExpressiveMiniPlayerArtworkPlaybackKey
