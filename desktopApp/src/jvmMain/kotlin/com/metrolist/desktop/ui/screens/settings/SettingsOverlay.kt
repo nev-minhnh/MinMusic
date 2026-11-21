@@ -57,7 +57,6 @@ import com.metrolist.desktop.ui.components.LocalCaptionBarInsets
 import com.metrolist.desktop.ui.components.rememberMetroEqProfilePicker
 import com.metrolist.desktop.utils.AppLogger
 import com.metrolist.desktop.utils.DesktopFontManager
-import com.metrolist.desktop.utils.SentryManager
 import com.metrolist.shared.generated.resources.Res
 import com.metrolist.shared.generated.resources.app_font_active
 import com.metrolist.shared.generated.resources.app_font_checking
@@ -382,10 +381,6 @@ fun SettingsOverlay(colorScheme: ColorScheme) {
                         onPageChanged = { UiState.selectedSettingsPage = it },
                         onSettingChanged = { effect, value ->
                             when (effect) {
-                                SettingsChangeEffect.SENTRY -> {
-                                    value?.let(SentryManager::setEnabled)
-                                }
-
                                 SettingsChangeEffect.RESTART -> {
                                     UiState.restartRequested = true
                                 }
@@ -398,6 +393,8 @@ fun SettingsOverlay(colorScheme: ColorScheme) {
                                     if (value == false) PlayerState.closeVideoViewer()
                                 }
 
+                                // MinMusic has no crash reporting; the shared registry never shows that switch.
+                                SettingsChangeEffect.SENTRY,
                                 SettingsChangeEffect.AUDIO,
                                 SettingsChangeEffect.CONTENT,
                                 SettingsChangeEffect.AUTO_DOWNLOAD_ON_LIKE,

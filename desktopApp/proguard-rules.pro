@@ -18,7 +18,6 @@
 -keep interface io.github.kdroidfilter.** { *; }
 -keep class uniffi.** { *; }
 -keep interface uniffi.** { *; }
--keep class io.sentry.** { *; }
 -keep class com.google.protobuf.** { *; }
 -keep class org.bytedeco.** { *; }
 # FileKit opens Linux portal file dialogs through dbus-java, which is reflection-backed.

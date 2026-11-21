@@ -61,15 +61,8 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ColorFilter
-import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.luminance
-import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
@@ -85,7 +78,6 @@ import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
 import coil3.compose.setSingletonImageLoaderFactory
 import com.materialkolor.ktx.isLight
-import com.materialkolor.utils.ColorUtils
 import com.metrolist.desktop.backup.DesktopBackupRestoreManager
 import com.metrolist.desktop.crash.DesktopCrashRecovery
 import com.metrolist.desktop.deviceconnect.DesktopDeviceConnect
@@ -139,7 +131,6 @@ import com.metrolist.desktop.utils.DesktopUrlHandler
 import com.metrolist.desktop.utils.MatugenColors
 import com.metrolist.desktop.utils.NativeMemoryTrimmer
 import com.metrolist.desktop.utils.STOP_OMARCHY_URL
-import com.metrolist.desktop.utils.SentryManager
 import com.metrolist.desktop.utils.SkiaCacheCleaner
 import com.metrolist.desktop.utils.SystemMediaManager
 import com.metrolist.desktop.utils.ThemeUtils
@@ -187,6 +178,7 @@ import com.metrolist.shared.generated.resources.technical_information
 import com.metrolist.shared.generated.resources.window_title_now_playing
 import com.metrolist.shared.generated.resources.youtube_session_expired_message
 import com.metrolist.shared.generated.resources.youtube_session_expired_title
+import com.metrolist.shared.playback.PlaybackClientStats
 import com.metrolist.shared.scrobble.ScrobbleSessions
 import com.metrolist.shared.settings.AppLayout
 import com.metrolist.shared.settings.LibraryFilterType
@@ -229,7 +221,6 @@ import com.metrolist.shared.ui.utils.softwareRendering
 import com.metrolist.shared.ui.utils.verticalScrollWithDrag
 import com.metrolist.shared.utils.OsUtil
 import com.metrolist.shared.utils.XdgUtils
-import com.metrolist.shared.utils.isCrashReportingAvailable
 import com.metrolist.shared.youtube.di.sharedModule
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
@@ -315,15 +306,9 @@ private fun WindowScope.AppContent(
         )
         var onboardingComplete by remember { mutableStateOf(Settings.shared.desktopOnboardingComplete) }
         if (!onboardingComplete) {
-            DesktopOnboarding { sendCrashReports, openLogin ->
-                if (isCrashReportingAvailable()) {
-                    if (Settings.shared.desktopPendingOnboardingSentryConsent.isNotBlank()) {
-                        Settings.shared.desktopPendingOnboardingSentryConsent = sendCrashReports.toString()
-                    }
-                    Settings.shared.sentryEnabled = sendCrashReports
-                }
+            // MinMusic sends no telemetry, so onboarding never asks for crash-report consent.
+            DesktopOnboarding { _, openLogin ->
                 Settings.shared.desktopOnboardingComplete = true
-                applicationScope.launch(Dispatchers.IO) { SentryManager.initialize() }
                 if (openLogin) {
                     UiState.showSignIn = true
                     UiState.showSwitchChannel = false
@@ -681,10 +666,10 @@ private fun startupRuntimeAvailable(): Boolean {
         if (error !is Exception && error !is LinkageError) throw error
         val location = System.getProperty("java.io.tmpdir")
         val message =
-            "Metrolist cannot initialize its native runtime or temporary storage.\n\n" +
+            "MinMusic cannot initialize its native runtime or temporary storage.\n\n" +
                 "Location: $location\n" +
                 "Error: ${error.message ?: error::class.simpleName}\n\n" +
-                "Free disk space or adjust the temporary directory, then restart Metrolist."
+                "Free disk space or adjust the temporary directory, then restart MinMusic."
         System.err.println(message)
         error.printStackTrace(System.err)
         if (!GraphicsEnvironment.isHeadless()) {
@@ -692,7 +677,7 @@ private fun startupRuntimeAvailable(): Boolean {
                 JOptionPane.showMessageDialog(
                     null,
                     message,
-                    "Metrolist startup error",
+                    "MinMusic startup error",
                     JOptionPane.ERROR_MESSAGE,
                 )
             }
@@ -705,14 +690,14 @@ private fun startupRuntimeAvailable(): Boolean {
 
 private fun configureLinuxWindowIdentity() {
     if (!OsUtil.isLinux) return
-    System.setProperty("awt.app.id", "Metrolist")
+    System.setProperty("awt.app.id", "MinMusic")
     runCatching {
         // XToolkit's constructor names the X11 class after the creating thread, so create it here and then rename it.
         Toolkit.getDefaultToolkit()
         val xToolkit = Class.forName("sun.awt.X11.XToolkit")
         xToolkit.getDeclaredField("awtAppClassName").apply {
             isAccessible = true
-            set(null, "Metrolist")
+            set(null, "MinMusic")
         }
     }
 }
@@ -739,7 +724,6 @@ private fun shutdownApp(onComplete: () -> Unit) {
                 runCatching { AppState.release() }
                 runCatching { PlayerState.player.release() }
                 runCatching { DesktopImageLoader.release() }
-                runCatching { SentryManager.shutdown() }
                 deviceConnectRelease.join()
             }
             runCatching { stopKoin() }
@@ -903,12 +887,9 @@ private fun runDesktopApp(args: Array<String>) {
         settings.desktopOnboardingComplete = File(XdgUtils.getXdgDataHome(), "metrolist/metrolist.db").isFile
         settings.desktopOnboardingInitialized = true
     }
-    if (isCrashReportingAvailable()) {
-        settings.desktopPendingOnboardingSentryConsent.takeIf(String::isNotBlank)?.let { consent ->
-            settings.sentryEnabled = consent.toBooleanStrict()
-            settings.desktopPendingOnboardingSentryConsent = ""
-        }
-    }
+    // MinMusic sends no telemetry; drop any crash-report consent carried in by a restored Metrolist backup.
+    if (settings.sentryEnabled) settings.sentryEnabled = false
+    if (settings.desktopPendingOnboardingSentryConsent.isNotBlank()) settings.desktopPendingOnboardingSentryConsent = ""
     DesktopLocaleManager.apply(settings.appLanguage)
 
     if (isLinux) {
@@ -924,7 +905,7 @@ private fun runDesktopApp(args: Array<String>) {
     flushDesktopCredentialWarnings()
     startup.trace("settings")
 
-    AppLogger.info("Main", "Metrolist starting up")
+    AppLogger.info("Main", "MinMusic starting up")
     AppLogger.info("Main", "OS: ${OsUtil.name}")
     val javaVersion = Runtime.version()
     AppLogger.info(
@@ -1102,10 +1083,8 @@ private fun runDesktopApp(args: Array<String>) {
 
         backendReady = true
         startup.appFrame.await()
-        applicationScope.launch(Dispatchers.IO) {
-            if (settings.desktopOnboardingComplete) SentryManager.initialize()
-            SentryManager.reportPlaybackClientStats()
-        }
+        // The counts are never sent anywhere; taking them keeps the stored map bounded, as on Android.
+        applicationScope.launch(Dispatchers.IO) { PlaybackClientStats.takeReportOnLaunch() }
         applicationScope.launch {
             observeDiscordInitialization { DiscordRpcManager.init(GlobalYouTube.client) }
         }
@@ -1192,66 +1171,9 @@ private fun runDesktopApp(args: Array<String>) {
             UiState.isNativeFullscreen = windowState.placement == WindowPlacement.Fullscreen
         }
 
+        // The MinMusic logo is a fixed brand mark, so the window icon no longer follows the accent colour.
         @Suppress("DEPRECATION")
-        val logoPainter = painterResource("logo.svg")
-        val iconColor =
-            UiState.seedColor
-
-        val dynamicIcon =
-            remember(iconColor) {
-                object : Painter() {
-                    override val intrinsicSize: Size = Size(256f, 256f)
-
-                    override fun DrawScope.onDraw() {
-                        drawCircle(
-                            brush =
-                                Brush.linearGradient(
-                                    colors =
-                                        listOf(
-                                            iconColor.copy(alpha = 0.8f),
-                                            iconColor,
-                                            iconColor.copy(alpha = 0.6f),
-                                        ),
-                                    start = Offset(0f, 0f),
-                                    end = Offset(size.width, size.height),
-                                ),
-                            radius = size.minDimension / 2,
-                            center = center,
-                        )
-
-                        drawCircle(
-                            color = iconColor,
-                            radius = size.minDimension / 2.5f,
-                            center = center,
-                        )
-
-                        with(logoPainter) {
-                            val logoSize = size * 0.75f
-                            val offset =
-                                Offset((size.width - logoSize.width) / 2f, (size.height - logoSize.height) / 2f)
-                            translate(offset.x, offset.y) {
-                                draw(
-                                    logoSize,
-                                    colorFilter =
-                                        ColorFilter
-                                            .tint(
-                                                color =
-                                                    if (ColorUtils.calculateLuminance(iconColor.toArgb()) > 0.4) {
-                                                        Color(
-                                                            red = (iconColor.red / 255) * (32 / 255),
-                                                            green = (iconColor.green / 255) * (32 / 255),
-                                                            blue = (iconColor.blue / 255) * (32 / 255),
-                                                        )
-                                                    } else {
-                                                        Color.White
-                                                    },
-                                            ),
-                                )
-                            }
-                        }
-                    }
-                }
-            }
+        val dynamicIcon = painterResource("logo.png")
 
         val startRoute =
             remember {
@@ -1301,7 +1223,7 @@ private fun runDesktopApp(args: Array<String>) {
             }
         }
 
-        val appTitle = if (BuildConfig.DEBUG) "Metrolist Debug" else "Metrolist"
+        val appTitle = if (BuildConfig.DEBUG) "MinMusic Debug" else "MinMusic"
         val windowTitle =
             PlayerState.currentTrack?.takeIf { it.title.isNotBlank() }?.let { track ->
                 val artists = track.artists.joinToString { it.displayName }

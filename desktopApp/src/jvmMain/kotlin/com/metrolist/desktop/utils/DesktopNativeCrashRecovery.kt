@@ -105,20 +105,10 @@ internal object DesktopNativeCrashRecovery {
                 AppLogger.warning("NativeCrash", it.summary)
                 PlaybackEventLog.warn(PlaybackEventKind.RECOVERY, it.summary)
                 AppLogger.flush()
+                // Crash files are only logged locally (nothing is uploaded), so log each one once.
+                store?.acknowledge(it)
             }
         }.onFailure { AppLogger.warning("NativeCrash", "Could not record desktop session", it) }
-    }
-
-    fun reportPending() {
-        val previous = pending ?: return
-        // A missing shutdown alone also follows logoff, updates and forced exits, so only crash files are reported.
-        if (!SentryManager.isEnabled || previous.crashes.isEmpty()) return
-        runCatching {
-            if (SentryManager.reportPreviousExit(previous)) {
-                store?.acknowledge(previous)
-                pending = null
-            }
-        }.onFailure { AppLogger.warning("NativeCrash", "Could not report previous desktop exit", it) }
     }
 
     fun cleanExit() {

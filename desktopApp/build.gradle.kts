@@ -1,5 +1,4 @@
 import org.gradle.api.tasks.PathSensitivity
-import org.gradle.api.tasks.WriteProperties
 import org.gradle.api.tasks.bundling.Jar
 import org.gradle.jvm.toolchain.JavaLanguageVersion
 import org.gradle.jvm.toolchain.JavaToolchainService
@@ -308,7 +307,6 @@ kotlin {
                 }
                 arm64WebViewJar?.let { implementation(files(it)) }
                 implementation(libs.slf4j.simple)
-                implementation(libs.sentry)
 
                 implementation(libs.ktor.client.core)
                 implementation(libs.ktor.client.cio)
@@ -588,8 +586,7 @@ tasks.withType<Test>().configureEach {
     jvmArgs("--enable-native-access=ALL-UNNAMED", "--sun-misc-unsafe-memory-access=allow")
 }
 
-val sentryDebugMetaProperties = layout.buildDirectory.file("generated/sentry/sentry-debug-meta.properties")
-val sentrySourceRevision =
+val packageSourceRevision =
     providers
         .gradleProperty("metrolist.sourceRevision")
         .orElse(providers.environmentVariable("GITHUB_SHA"))
@@ -597,19 +594,10 @@ val sentrySourceRevision =
         .filter { it.matches(Regex("[0-9a-fA-F]{40}")) }
         .orElse("local")
         .get()
-val sentryBundleId = UUID.nameUUIDFromBytes("com.metrolist.desktop:$platform:$appVersion:$sentrySourceRevision".encodeToByteArray())
-val generateSentryDebugMetaProperties =
-    tasks.register<WriteProperties>("generateSentryDebugMetaProperties") {
-        destinationFile.set(sentryDebugMetaProperties)
-        encoding = "UTF-8"
-        lineSeparator = "\n"
-        property("io.sentry.build-tool", "gradle")
-        property("io.sentry.bundle-ids", sentryBundleId)
-    }
+// Names the per-build AppCDS archive so a new build never maps an archive written by another one.
+val cdsArchiveId = UUID.nameUUIDFromBytes("com.metrolist.desktop:$platform:$appVersion:$packageSourceRevision".encodeToByteArray())
 
 tasks.named<ProcessResources>("jvmProcessResources") {
-    dependsOn(generateSentryDebugMetaProperties)
-    from(sentryDebugMetaProperties)
     from(layout.projectDirectory.dir("src/desktopMain/resources")) {
         include("logo.svg", "logo.png", "logo_dark.png", "logo.icns", "nucleus/nucleus-app.properties")
     }
@@ -723,7 +711,8 @@ compose.desktop {
                 "-XX:ErrorFile=${
                     when (platform) {
                         "linux" -> "\$METROLIST_JVM_ERROR_FILE"
-                        "win" -> "\$USERPROFILE/.local/state/metrolist/logs/hs_err_pid%p.log"
+                        // Must match DesktopJvmErrorFile: the Windows XDG state home is %LOCALAPPDATA%/MinMusic/state.
+                        "win" -> "\$LOCALAPPDATA/MinMusic/state/metrolist/logs/hs_err_pid%p.log"
                         else -> "\$HOME/.local/state/metrolist/logs/hs_err_pid%p.log"
                     }
                 }",
@@ -731,11 +720,11 @@ compose.desktop {
 
         nativeDistributions {
             when (platform) {
-                "win" -> Unit
+                "win" -> targetFormats(TargetFormat.Exe)
                 "mac" -> targetFormats(TargetFormat.Dmg)
                 else -> targetFormats(TargetFormat.Deb, TargetFormat.Rpm, TargetFormat.AppImage)
             }
-            packageName = "Metrolist"
+            packageName = "MinMusic"
             val versionMatch =
                 Regex("""^(\d+)\.(\d+)\.(\d+)(?:-[A-Za-z0-9][A-Za-z0-9._-]*)?(?:\+[0-9A-Za-z.-]+)?$""")
                     .matchEntire(appVersion)
@@ -760,9 +749,9 @@ compose.desktop {
                 } else {
                     versionComponents.joinToString(".")
                 }
-            description = "Metrolist"
-            copyright = "© 2026 Metrolist"
-            vendor = "MetrolistGroup"
+            description = "MinMusic music player"
+            copyright = "© 2026 nev-minhnh. Based on Metrolist (GPL-3.0)."
+            vendor = "nev-minhnh"
 
             appResourcesRootDir.set(nativeResourcesDir)
 
@@ -803,6 +792,14 @@ compose.desktop {
 
             windows {
                 iconFile.set(project.file("src/desktopMain/resources/logo.ico"))
+                // Stable MinMusic upgrade code (see MinMusic-notes/windows-release.md). Never change it, or new
+                // installers stop upgrading older installs. It differs from Metrolist's, so both can be installed.
+                upgradeUuid = "4ce33e04-b190-4983-b1b1-037bdff99a71"
+                perUserInstall = true
+                dirChooser = true
+                menu = true
+                menuGroup = "MinMusic"
+                shortcut = true
             }
             linux {
                 iconFile.set(project.file("src/desktopMain/resources/logo.png"))
@@ -846,7 +843,7 @@ compose.desktop {
 
 val cdsCache =
     when (platform) {
-        "win" -> "\$LOCALAPPDATA/Metrolist/cache"
+        "win" -> "\$LOCALAPPDATA/MinMusic/cds"
         "mac" -> "\$HOME/Library/Caches/com.metrolist.desktop"
         else -> "\$METROLIST_CDS_CACHE"
     }
@@ -869,7 +866,7 @@ afterEvaluate {
                 "-Xshare:auto",
                 "-XX:+VerifySharedSpaces",
                 "-XX:+AutoCreateSharedArchive",
-                "-XX:SharedArchiveFile=$cdsCache/appcds-$sentryBundleId.jsa",
+                "-XX:SharedArchiveFile=$cdsCache/appcds-$cdsArchiveId.jsa",
             )
         }
     }

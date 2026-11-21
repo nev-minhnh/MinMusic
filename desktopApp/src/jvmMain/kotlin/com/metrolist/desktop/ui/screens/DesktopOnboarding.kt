@@ -40,7 +40,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ColorFilter
-import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.heading
@@ -71,13 +70,9 @@ import com.metrolist.shared.generated.resources.onboarding_finish_description
 import com.metrolist.shared.generated.resources.onboarding_finish_title
 import com.metrolist.shared.generated.resources.onboarding_language_lyrics_description
 import com.metrolist.shared.generated.resources.onboarding_playback_description
-import com.metrolist.shared.generated.resources.onboarding_sentry_diagnostics
-import com.metrolist.shared.generated.resources.onboarding_sentry_opt_in
-import com.metrolist.shared.generated.resources.onboarding_sentry_private
 import com.metrolist.shared.generated.resources.onboarding_settings_hint
 import com.metrolist.shared.generated.resources.onboarding_step_of
 import com.metrolist.shared.generated.resources.onboarding_welcome_privacy_description
-import com.metrolist.shared.generated.resources.privacy_policy
 import com.metrolist.shared.generated.resources.restore_from_backup
 import com.metrolist.shared.generated.resources.settings_localization
 import com.metrolist.shared.generated.resources.settings_playback
@@ -85,7 +80,6 @@ import com.metrolist.shared.generated.resources.side_menu_welcome
 import com.metrolist.shared.generated.resources.yes
 import com.metrolist.shared.settings.Settings
 import com.metrolist.shared.ui.components.ContainedLoadingIndicator
-import com.metrolist.shared.ui.components.GroupedListItem
 import com.metrolist.shared.ui.icons.MetrolistIcons
 import com.metrolist.shared.ui.onboarding.OnboardingPage
 import com.metrolist.shared.ui.onboarding.OnboardingPageContent
@@ -96,7 +90,6 @@ import com.metrolist.shared.ui.settings.SettingsPageId
 import com.metrolist.shared.ui.settings.SettingsPlatform
 import com.metrolist.shared.ui.settings.SharedSettingsHost
 import com.metrolist.shared.ui.utils.verticalScrollWithDrag
-import com.metrolist.shared.utils.isCrashReportingAvailable
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -110,8 +103,8 @@ fun DesktopOnboarding(onComplete: (sendCrashReports: Boolean, openLogin: Boolean
     val pages =
         remember {
             buildList {
+                // MinMusic sends no telemetry, so there is no crash-report consent page.
                 add(OnboardingPage.WELCOME)
-                if (isCrashReportingAvailable()) add(OnboardingPage.CRASH_REPORTS)
                 add(OnboardingPage.LANGUAGE_LYRICS)
                 add(OnboardingPage.PLAYBACK)
                 add(OnboardingPage.FINISH)
@@ -153,9 +146,6 @@ fun DesktopOnboarding(onComplete: (sendCrashReports: Boolean, openLogin: Boolean
                 withContext(Dispatchers.IO) {
                     DesktopBackupRestoreManager.stageRestoreAndRestart(selected) {
                         Settings.shared.desktopOnboardingComplete = true
-                        if (isCrashReportingAvailable()) {
-                            Settings.shared.desktopPendingOnboardingSentryConsent = sendCrashReports.toString()
-                        }
                     }
                 }.onFailure {
                     Settings.shared.desktopOnboardingComplete = false
@@ -350,7 +340,6 @@ private fun DesktopOnboardingPage(
                             color = colors.onSurfaceVariant,
                             modifier = Modifier.padding(top = 8.dp),
                         )
-                        if (page.page == OnboardingPage.CRASH_REPORTS) SentryDetails()
                         featureContent(page.page)
                         page.error?.let {
                             Text(
@@ -367,15 +356,6 @@ private fun DesktopOnboardingPage(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    if (content.page == OnboardingPage.WELCOME || content.page == OnboardingPage.CRASH_REPORTS) {
-                        val uriHandler = LocalUriHandler.current
-                        TextButton(
-                            onClick = { runCatching { uriHandler.openUri("https://metrolist.cc/privacy") } },
-                            shapes = ButtonDefaults.shapes(),
-                        ) {
-                            Text(stringResource(Res.string.privacy_policy))
-                        }
-                    }
                     Spacer(Modifier.weight(1f))
                     content.onBack?.let { back ->
                         TextButton(
@@ -417,30 +397,6 @@ private fun StepIndicator(
                         CircleShape,
                     ),
             )
-        }
-    }
-}
-
-@Composable
-private fun SentryDetails() {
-    val details =
-        listOf(
-            MetrolistIcons.Outlined.Tune to stringResource(Res.string.onboarding_sentry_opt_in),
-            MetrolistIcons.Outlined.Info to stringResource(Res.string.onboarding_sentry_diagnostics),
-            MetrolistIcons.Rounded.Lock to stringResource(Res.string.onboarding_sentry_private),
-        )
-    Column(Modifier.fillMaxWidth().padding(top = 24.dp)) {
-        details.forEachIndexed { index, (icon, label) ->
-            GroupedListItem(index = index, count = details.size) {
-                Row(
-                    Modifier.fillMaxWidth().padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
-                ) {
-                    Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                    Text(label, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
-                }
-            }
         }
     }
 }
