@@ -89,7 +89,7 @@ Filter 3: OFF PK Fc 2000 Hz Gain -4 dB Q 2",
             )
         val (preamp, bands) = assertNotNull(parseParametricEq(profile.toParametricEqText()))
         assertEquals(profile.preamp, preamp)
-        assertEquals(profile.bands, bands)
+        assertEquals(profile.bands.sortedBy { it.frequency }, bands)
     }
 
     @Test

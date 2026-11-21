@@ -644,12 +644,12 @@ fun parseGraphicEq(content: String): Pair<Double, List<ParametricEqBand>>? {
     return 0.0 to template.mapIndexed { index, band -> band.copy(gain = round(gains[index] * 10) / 10) }
 }
 
-/** Equalizer APO ParametricEQ text; disabled bands are written as OFF filters. */
+/** Equalizer APO ParametricEQ text, filters ordered by frequency; disabled bands are written as OFF filters. */
 fun EqualizerProfile.toParametricEqText(): String =
     buildString {
         append("Preamp: ").append(preamp.toDecimalString(1)).append(" dB\n")
         // Tone controls are written as the shelves they apply; crossfeed and width have no APO filter equivalent.
-        (toneBands.filterNot { it.isIdentity() } + bands).forEachIndexed { index, band ->
+        (toneBands.filterNot { it.isIdentity() } + bands).sortedBy { it.frequency }.forEachIndexed { index, band ->
             append("Filter ").append(index + 1).append(": ").append(if (band.enabled) "ON " else "OFF ")
             append(
                 when (band.filterType) {
