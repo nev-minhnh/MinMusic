@@ -3,6 +3,8 @@ package com.metrolist.android.ui.menu
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.metrolist.android.LocalSaveToFolder
+import com.metrolist.android.playback.UserAlbumExport
+import com.metrolist.shared.db.MusicDatabase
 import com.metrolist.shared.generated.resources.Res
 import com.metrolist.shared.generated.resources.save_all_to_folder
 import com.metrolist.shared.generated.resources.save_to_folder_desc
@@ -16,6 +18,7 @@ import com.metrolist.shared.ui.menu.MediaMenuSheetContent
 import com.metrolist.shared.ui.menu.loadMediaItemSongs
 import com.metrolist.shared.ui.menu.playlistMediaMenuModel
 import org.jetbrains.compose.resources.stringResource
+import org.koin.compose.koinInject
 
 @Composable
 fun PlaylistMenu(
@@ -41,6 +44,7 @@ fun PlaylistMenu(
     val playlist = localizedBuiltinPlaylist(playlist)
     val download = rememberMediaDownloadAction(playlist, onDismiss, onDownload, loadSongs)
     val saveToFolder = LocalSaveToFolder.current
+    val database: MusicDatabase = koinInject()
     val saveAllToFolder =
         if (download.isDownloaded) {
             PlayerMenuAction(
@@ -48,7 +52,15 @@ fun PlaylistMenu(
                 stringResource(Res.string.save_all_to_folder),
                 stringResource(Res.string.save_to_folder_desc),
             ) {
-                saveToFolder { SaveToFolderBatch(loadSongs().map { it.id }) }
+                saveToFolder {
+                    val userAlbum =
+                        database
+                            .dao()
+                            .findPlaylistEntity(playlist.id)
+                            ?.takeIf { it.isUserAlbum }
+                            ?.let { UserAlbumExport(it.name, it.customThumbnailUrl ?: it.thumbnailUrl) }
+                    SaveToFolderBatch(loadSongs().map { it.id }, userAlbum)
+                }
                 onDismiss()
             }
         } else {

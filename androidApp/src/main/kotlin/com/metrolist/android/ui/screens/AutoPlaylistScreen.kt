@@ -48,6 +48,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -107,9 +108,13 @@ import com.metrolist.shared.db.entities.toSongItem
 import com.metrolist.shared.db.refreshUploadedSongs
 import com.metrolist.shared.db.synchronizeUploadedSongs
 import com.metrolist.shared.generated.resources.Res
+import com.metrolist.shared.generated.resources.album_created
+import com.metrolist.shared.generated.resources.album_name
 import com.metrolist.shared.generated.resources.back
 import com.metrolist.shared.generated.resources.cached_playlist
 import com.metrolist.shared.generated.resources.cancel
+import com.metrolist.shared.generated.resources.create_album
+import com.metrolist.shared.generated.resources.create_album_desc
 import com.metrolist.shared.generated.resources.delete
 import com.metrolist.shared.generated.resources.download_format_value
 import com.metrolist.shared.generated.resources.edit_playlist_cover
@@ -151,6 +156,7 @@ import com.metrolist.shared.model.defaultDirection
 import com.metrolist.shared.model.indexOfPlaylistOccurrence
 import com.metrolist.shared.model.isReordering
 import com.metrolist.shared.model.toSongItem
+import com.metrolist.shared.playlist.createUserAlbum
 import com.metrolist.shared.settings.BlockedContent
 import com.metrolist.shared.settings.HiddenLibraryItem
 import com.metrolist.shared.settings.HiddenLibraryItemType
@@ -328,6 +334,7 @@ fun AutoPlaylistScreen(
     LaunchedEffect(currentType) { downloadFilter.select(null) }
     LaunchedEffect(downloadFilterState) { selection.exit() }
     var pendingRemovalIds by remember(currentType) { mutableStateOf<Set<String>?>(null) }
+    var albumSongs by remember(currentType) { mutableStateOf<List<SongItem>?>(null) }
     var selectedMenuSong by remember { mutableStateOf<SongItem?>(null) }
     val downloadedSongIds by remember(
         database,
@@ -635,6 +642,13 @@ fun AutoPlaylistScreen(
                         ) {
                             val ids = selectedSongs.map { it.id }
                             saveToFolder { SaveToFolderBatch(ids) }
+                        },
+                        PlayerMenuAction(
+                            MetrolistIcons.Outlined.Album,
+                            stringResource(Res.string.create_album),
+                            stringResource(Res.string.create_album_desc),
+                        ) {
+                            albumSongs = selectedSongs
                         },
                     )
                 } else {
@@ -1058,6 +1072,48 @@ fun AutoPlaylistScreen(
             dismissButton = {
                 TextButton(
                     onClick = { showClearConfirmation = false },
+                    shapes = ButtonDefaults.shapes(),
+                ) { Text(stringResource(Res.string.cancel)) }
+            },
+        )
+    }
+
+    PopupContent(albumSongs) { songsForAlbum ->
+        var albumName by remember { mutableStateOf("") }
+        AlertDialog(
+            onDismissRequest = { albumSongs = null },
+            title = { Text(stringResource(Res.string.create_album)) },
+            text = {
+                OutlinedTextField(
+                    value = albumName,
+                    onValueChange = { albumName = it },
+                    label = { Text(stringResource(Res.string.album_name)) },
+                    singleLine = true,
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = albumName.isNotBlank(),
+                    onClick = {
+                        val name = albumName
+                        albumSongs = null
+                        scope.launch {
+                            val created = createUserAlbum(database, name, songsForAlbum)
+                            Toast
+                                .makeText(
+                                    context,
+                                    getString(if (created.isSuccess) Res.string.album_created else Res.string.error_unknown),
+                                    Toast.LENGTH_SHORT,
+                                ).show()
+                            if (created.isSuccess) selection.exit()
+                        }
+                    },
+                    shapes = ButtonDefaults.shapes(),
+                ) { Text(stringResource(Res.string.create_album)) }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { albumSongs = null },
                     shapes = ButtonDefaults.shapes(),
                 ) { Text(stringResource(Res.string.cancel)) }
             },

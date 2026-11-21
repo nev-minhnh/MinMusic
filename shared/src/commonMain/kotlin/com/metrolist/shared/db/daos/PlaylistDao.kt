@@ -164,6 +164,9 @@ interface PlaylistDao {
     @Query("SELECT COUNT(*) FROM playlist_song_map WHERE playlistId = :playlistId")
     suspend fun localPlaylistSongCount(playlistId: String): Int
 
+    @Query("SELECT * FROM playlist WHERE isUserAlbum ORDER BY createdAt DESC")
+    fun userAlbums(): Flow<List<PlaylistEntity>>
+
     @Query(
         """
         SELECT playlist.id AS playlistId,

@@ -617,6 +617,24 @@ suspend fun createStoredLocalPlaylist(
         entity
     }
 
+/** Creates a local playlist marked as a user album; its cover defaults to the first song's artwork. */
+suspend fun createUserAlbum(
+    database: MusicDatabase,
+    name: String,
+    songs: List<SongItem>,
+): Result<PlaylistEntity> =
+    playlistMutation {
+        val normalizedName = name.trim()
+        require(normalizedName.isNotEmpty())
+        require(songs.isNotEmpty())
+        val entity = PlaylistEntity(name = normalizedName, isLocal = true, thumbnailUrl = songs.first().thumbnail, isUserAlbum = true)
+        database.dao().insert(entity)
+        songs.distinctBy { it.id }.chunked(100).forEach { chunk ->
+            addSongsToLocalPlaylist(database, entity.id, chunk).failure?.let { throw it }
+        }
+        entity
+    }
+
 private suspend fun <T> playlistMutation(block: suspend () -> T): Result<T> =
     try {
         Result.success(block())
