@@ -18,6 +18,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import com.metrolist.android.LocalListenTogetherManager
 import com.metrolist.android.LocalPlaylistAdder
+import com.metrolist.android.LocalSaveToFolder
 import com.metrolist.android.listentogether.AndroidListenTogetherManager
 import com.metrolist.android.playback.PlayerConnection
 import com.metrolist.android.utils.startActivitySafely
@@ -28,6 +29,8 @@ import com.metrolist.shared.generated.resources.disliked_song
 import com.metrolist.shared.generated.resources.refetch
 import com.metrolist.shared.generated.resources.refetch_desc
 import com.metrolist.shared.generated.resources.removed_dislike
+import com.metrolist.shared.generated.resources.save_to_folder
+import com.metrolist.shared.generated.resources.save_to_folder_desc
 import com.metrolist.shared.generated.resources.share_song
 import com.metrolist.shared.generated.resources.song_updated
 import com.metrolist.shared.generated.resources.suggested_to_host
@@ -95,6 +98,7 @@ fun SongMenu(
     val downloadAction = rememberMediaDownloadAction(song, onDismiss, onDownload)
     val speedDialToggle = rememberSpeedDialToggle(song)
     val addToPlaylist = LocalPlaylistAdder.current
+    val saveToFolder = LocalSaveToFolder.current
     val listenTogetherManager = LocalListenTogetherManager.current
     val listenTogetherRole by listenTogetherManager?.role?.collectAsState()
         ?: remember { mutableStateOf(ListenTogetherRoomRole.NONE) }
@@ -202,6 +206,18 @@ fun SongMenu(
             trailingPrimaryActions = trailingPrimaryActions,
             additionalActions =
                 listOfNotNull(
+                    if (downloadAction.isDownloaded) {
+                        PlayerMenuAction(
+                            MetrolistIcons.Outlined.Storage,
+                            stringResource(Res.string.save_to_folder),
+                            stringResource(Res.string.save_to_folder_desc),
+                        ) {
+                            saveToFolder { SaveToFolderBatch(listOf(song.id)) }
+                            onDismiss()
+                        }
+                    } else {
+                        null
+                    },
                     onRefetch?.let {
                         PlayerMenuAction(
                             MetrolistIcons.Outlined.Refresh,

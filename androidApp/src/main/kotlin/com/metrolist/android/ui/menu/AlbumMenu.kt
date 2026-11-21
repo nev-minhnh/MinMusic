@@ -10,10 +10,15 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import com.metrolist.android.LocalPlaylistAdder
+import com.metrolist.android.LocalSaveToFolder
 import com.metrolist.shared.generated.resources.Res
 import com.metrolist.shared.generated.resources.home_load_item_failed
+import com.metrolist.shared.generated.resources.save_all_to_folder
+import com.metrolist.shared.generated.resources.save_to_folder_desc
 import com.metrolist.shared.model.AlbumItem
 import com.metrolist.shared.model.SongItem
+import com.metrolist.shared.ui.components.PlayerMenuAction
+import com.metrolist.shared.ui.icons.MetrolistIcons
 import com.metrolist.shared.ui.menu.MediaDownloadState
 import com.metrolist.shared.ui.menu.MediaMenuSheetContent
 import com.metrolist.shared.ui.menu.albumMediaMenuModel
@@ -21,6 +26,7 @@ import com.metrolist.shared.ui.menu.loadMediaItemSongs
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.getString
+import org.jetbrains.compose.resources.stringResource
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -46,6 +52,20 @@ fun AlbumMenu(
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val download = rememberMediaDownloadAction(album, onDismiss, onDownload, loadSongs)
+    val saveToFolder = LocalSaveToFolder.current
+    val saveAllToFolder =
+        if (download.isDownloaded) {
+            PlayerMenuAction(
+                MetrolistIcons.Outlined.Storage,
+                stringResource(Res.string.save_all_to_folder),
+                stringResource(Res.string.save_to_folder_desc),
+            ) {
+                saveToFolder { SaveToFolderBatch(loadSongs().map { it.id }) }
+                onDismiss()
+            }
+        } else {
+            null
+        }
     val pin = rememberSpeedDialToggle(album)
     val model =
         albumMediaMenuModel(
@@ -94,6 +114,7 @@ fun AlbumMenu(
             onDownload = download.invoke,
             onHideFromLibrary = onHideFromLibrary,
             onExport = onExport,
+            additionalActions = listOfNotNull(saveAllToFolder),
             onGoToArtist = onGoToArtist,
         )
     MediaMenuBottomSheet(model = model, onDismissRequest = onDismiss, canDismiss = { !loadingPlaylistSongs && !download.isConfirming() }) {
