@@ -90,6 +90,7 @@ import com.metrolist.android.viewmodels.LibraryViewModel
 import com.metrolist.shared.constants.ThumbnailCornerRadius
 import com.metrolist.shared.db.MusicDatabase
 import com.metrolist.shared.db.entities.KIND_CACHE
+import com.metrolist.shared.db.entities.toPlaylistItem
 import com.metrolist.shared.db.entities.toSongItem
 import com.metrolist.shared.db.isHistoryPlaylistId
 import com.metrolist.shared.db.refreshUploadedSongs
@@ -156,6 +157,7 @@ import com.metrolist.shared.utils.ShareUrls
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import org.jetbrains.compose.resources.stringResource
@@ -202,6 +204,14 @@ fun LibraryScreen(
     val contentMatchedSongs by viewModel.contentMatchedSongs.collectAsStateWithLifecycle()
     val contentSearchHasMore by viewModel.contentSearchHasMore.collectAsStateWithLifecycle()
     val contentFilterVersion by BlockedContent.version.collectAsStateWithLifecycle()
+    val userAlbums by remember(database) {
+        database.dao().userAlbums().map { albums -> albums.map { it.toPlaylistItem(it.remoteSongCount ?: 0) } }
+    }.collectAsStateWithLifecycle(emptyList())
+    val libraryItems =
+        remember(uiState.items, userAlbums) {
+            val userAlbumIds = userAlbums.mapTo(mutableSetOf()) { it.id }
+            uiState.items.filterNot { it is PlaylistItem && it.id in userAlbumIds }
+        }
 
     var lastScrollToTopEvent by rememberSaveable { mutableLongStateOf(-1L) }
     LaunchedEffect(scrollToTopEvents) {
@@ -474,7 +484,8 @@ fun LibraryScreen(
             LibraryContent(
                 presentation = viewModel.presentation,
                 text = libraryContentText(),
-                items = uiState.items,
+                items = libraryItems,
+                userAlbums = userAlbums,
                 autoPlaylists = autoPlaylists,
                 hiddenItemKeys = hiddenItemKeys,
                 isLoading = uiState.isLoading,

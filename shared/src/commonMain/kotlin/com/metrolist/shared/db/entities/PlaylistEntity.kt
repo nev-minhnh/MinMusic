@@ -38,6 +38,9 @@ data class PlaylistEntity(
     val description: String? = null,
     val customThumbnailUrl: String? = null,
     val remoteHeader: PlaylistItem? = null,
+    // A local playlist the user built from downloads and exports as one album.
+    @ColumnInfo(name = "isUserAlbum", defaultValue = "0")
+    val isUserAlbum: Boolean = false,
 ) {
     companion object {
         const val LIKED_PLAYLIST_ID = "LP_LIKED"

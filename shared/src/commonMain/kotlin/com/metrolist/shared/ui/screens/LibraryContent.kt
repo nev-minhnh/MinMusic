@@ -81,6 +81,7 @@ import com.metrolist.shared.generated.resources.Res
 import com.metrolist.shared.generated.resources.display_density
 import com.metrolist.shared.generated.resources.filter_downloaded
 import com.metrolist.shared.generated.resources.library_load_failed
+import com.metrolist.shared.generated.resources.my_albums
 import com.metrolist.shared.generated.resources.playlist_direction_ascending
 import com.metrolist.shared.generated.resources.playlist_direction_descending
 import com.metrolist.shared.generated.resources.song_count
@@ -253,6 +254,7 @@ fun LibraryContent(
     onSearchDescendingChange: (Boolean) -> Unit = {},
     onPlayAlbum: ((AlbumItem) -> Unit)? = null,
     presentation: LibraryPresentation = remember { LibraryPresentation() },
+    userAlbums: List<PlaylistItem> = emptyList(),
 ) {
     val currentSongIdState = rememberUpdatedState(currentSongId)
     val isPlayingState = rememberUpdatedState(isPlaying)
@@ -359,6 +361,16 @@ fun LibraryContent(
             } else {
                 val term = searchQuery.trim()
                 visibleAutoPlaylists.filter { it.title.contains(term, ignoreCase = true) }
+            }
+        }
+
+    val visibleUserAlbums =
+        remember(userAlbums, effectiveFilter, searchQuery) {
+            if (effectiveFilter != null && effectiveFilter != LibraryFilter.ALBUMS) {
+                emptyList()
+            } else {
+                val term = searchQuery.trim()
+                userAlbums.filter { term.isEmpty() || it.title.contains(term, ignoreCase = true) }
             }
         }
 
@@ -516,7 +528,33 @@ fun LibraryContent(
                             }
                         }
                     }
-                    if (searchedItems.isEmpty() && searchedAutoPlaylists.isEmpty() && !error) {
+                    if (visibleUserAlbums.isNotEmpty()) {
+                        item(key = "user_albums_header", contentType = "header", span = { GridItemSpan(maxLineSpan) }) {
+                            Text(
+                                stringResource(Res.string.my_albums),
+                                style = MaterialTheme.typography.titleMedium,
+                                modifier = Modifier.padding(top = 8.dp),
+                            )
+                        }
+                        items(
+                            count = visibleUserAlbums.size,
+                            key = { "user_album_${visibleUserAlbums[it].id}" },
+                            contentType = { "user_album" },
+                            span = { GridItemSpan(if (isGridView) 1 else maxLineSpan) },
+                        ) { index ->
+                            val album = visibleUserAlbums[index]
+                            itemContainer(HiddenLibraryItem.from(album), album, isGridView, { onItemClick(album) }) {
+                                LibraryItem(
+                                    artistLabel = text.artist,
+                                    item = album,
+                                    isGridView = isGridView,
+                                    isCurrent = false,
+                                    isPlaying = false,
+                                )
+                            }
+                        }
+                    }
+                    if (searchedItems.isEmpty() && searchedAutoPlaylists.isEmpty() && visibleUserAlbums.isEmpty() && !error) {
                         item(key = "library_empty", contentType = "status", span = { GridItemSpan(maxLineSpan) }) {
                             Box(Modifier.fillMaxWidth().padding(48.dp), contentAlignment = Alignment.Center) {
                                 if (isLoading) {
