@@ -452,7 +452,18 @@ object EqualizerProfiles {
     fun resetAllBands() {
         val current = activeProfile ?: return
         val original = baselineProfile(current) ?: return
-        editCurrent(current.copy(bands = original.bands))
+        // Tone and spatial controls return to neutral, as in the flat preset.
+        editCurrent(
+            current.copy(
+                bands = original.bands,
+                preamp = original.preamp,
+                bassDb = 0.0,
+                trebleDb = 0.0,
+                crossfeedEnabled = false,
+                crossfeedPreset = CrossfeedPreset.DEFAULT,
+                stereoWidth = 1.0,
+            ),
+        )
     }
 
     fun bandHasChanges(index: Int): Boolean {
