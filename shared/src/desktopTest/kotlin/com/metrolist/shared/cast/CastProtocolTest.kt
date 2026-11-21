@@ -199,6 +199,8 @@ class CastProtocolTest {
 
     @Test
     fun proxyBoundsAcceptedSocketsAndClosesActiveAndQueuedClients() {
+        // Relies on POSIX socket backlog/close semantics; flaky on Windows hosts, still runs on Linux CI.
+        org.junit.Assume.assumeTrue(!System.getProperty("os.name").startsWith("Windows"))
         val address = InetAddress.getLoopbackAddress()
         val media =
             CastMedia(
