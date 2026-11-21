@@ -41,6 +41,7 @@ import com.metrolist.shared.generated.resources.loading
 import com.metrolist.shared.generated.resources.lyrics
 import com.metrolist.shared.generated.resources.mm_player_eq_chip
 import com.metrolist.shared.generated.resources.mm_player_eq_chip_profile
+import com.metrolist.shared.generated.resources.mm_lyrics_unsynced_hint
 import com.metrolist.shared.generated.resources.mm_player_lyrics_peek_empty
 import com.metrolist.shared.generated.resources.mm_player_lyrics_peek_hint
 import com.metrolist.shared.generated.resources.mm_player_playing_from
@@ -380,9 +381,10 @@ private fun MmPlayerLyricsPeekSection(
     val placeholder = stringResource(if (isLoading) Res.string.loading else Res.string.mm_player_lyrics_peek_empty)
     val lines = remember(lyrics) { lyrics.filter { it.text.isNotBlank() } }
     if (lines.isEmpty() || !LyricsUtils.hasPlaybackTiming(lines)) {
+        val unsyncedHint = stringResource(Res.string.mm_lyrics_unsynced_hint)
         MmPlayerLyricsPeek(
             title = title,
-            hint = hint,
+            hint = if (lines.isEmpty()) hint else unsyncedHint,
             currentLine = lines.firstOrNull()?.text ?: placeholder,
             nextLine = lines.getOrNull(1)?.text,
             onOpen = onOpen,

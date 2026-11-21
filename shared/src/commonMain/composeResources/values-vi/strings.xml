@@ -2664,4 +2664,5 @@
     <string name="mm_charts_no_sources">Bật Zing MP3, NhacCuaTui hoặc SoundCloud trong Cài đặt để xem bảng xếp hạng</string>
     <string name="mm_charts_load_more_failed">Không tải thêm được bài hát</string>
     <string name="mm_charts_song_count">%1$d bài hát</string>
+    <string name="mm_lyrics_unsynced_hint">Lời chưa đồng bộ</string>
 </resources>

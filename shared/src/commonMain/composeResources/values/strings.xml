@@ -5794,4 +5794,6 @@
     <string name="mm_charts_no_sources">Turn on Zing MP3, NhacCuaTui or SoundCloud in Settings to see charts</string>
     <string name="mm_charts_load_more_failed">Couldn\u0027t load more songs</string>
     <string name="mm_charts_song_count">%1$d songs</string>
+    <!-- Shown with lyrics that have no timing, so they cannot follow playback. -->
+    <string name="mm_lyrics_unsynced_hint">Lyrics not synced</string>
 </resources>
