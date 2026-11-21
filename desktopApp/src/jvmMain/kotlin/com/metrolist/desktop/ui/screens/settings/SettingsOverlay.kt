@@ -127,6 +127,7 @@ fun SettingsOverlay(colorScheme: ColorScheme) {
             add(SettingsPageId.BACKUP_RESTORE)
             add(SettingsPageId.UPDATES)
             add(SettingsPageId.ABOUT)
+            add(SettingsPageId.SOURCES)
             if (devtoolsUnlocked) add(SettingsPageId.DEVTOOLS)
         }
     val availablePages =
@@ -372,6 +373,11 @@ fun SettingsOverlay(colorScheme: ColorScheme) {
                             DesktopNavigation.navigate(Screen.Artist(artistId))
                         },
                         availablePages = availablePages,
+                        // MinMusic: the equalizer opens as its own full-window page, like the phone's full-screen route.
+                        externalPages = setOf(SettingsPageId.EQUALIZER),
+                        onOpenPage = { page ->
+                            if (page == SettingsPageId.EQUALIZER) UiState.openEqualizer()
+                        },
                         initialPage =
                             when {
                                 openPlaylistImportOnLaunch -> SettingsPageId.BACKUP_RESTORE
@@ -489,6 +495,10 @@ fun SettingsOverlay(colorScheme: ColorScheme) {
 
                                 SettingsPageId.BACKUP_RESTORE -> {
                                     BackupRestoreSettingsScreen(colorScheme)
+                                }
+
+                                SettingsPageId.SOURCES -> {
+                                    SourcesSettingsScreen()
                                 }
 
                                 SettingsPageId.UPDATES -> {

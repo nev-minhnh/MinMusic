@@ -13,6 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.ColorMatrix
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.layout.ContentScale
@@ -23,6 +24,7 @@ import coil3.compose.rememberConstraintsSizeResolver
 import coil3.request.ImageRequest
 import coil3.request.crossfade
 import coil3.size.Scale
+import com.metrolist.shared.ui.components.minmusic.mmArtworkEdge
 import com.metrolist.shared.utils.rememberCachedArtworkPreview
 
 @Composable
@@ -64,15 +66,29 @@ actual fun AsyncImage(
             ColorFilter.colorMatrix(ColorMatrix().apply { setToSaturation(saturation) })
         }
 
+    // MinMusic (Windows too): soft edge (zoom + fade) on artwork; fallback/error painters keep the plain clip.
+    val clipped =
+        when {
+            artworkEdge && errorPainter == null -> modifier.mmArtworkEdge(shape ?: RectangleShape)
+            shape != null -> modifier.clip(shape)
+            else -> modifier
+        }
     Box(
         modifier =
-            (if (shape != null) modifier.clip(shape) else modifier)
+            clipped
                 .then(sizeResolver)
                 .background(MaterialTheme.colorScheme.surfaceContainerHigh),
     ) {
         if (!url.isNullOrBlank() && !showImage && preview == null) {
             if (previewUrl != null && previewUrl != url) {
-                AsyncImage(previewUrl, Modifier.fillMaxSize(), contentScale = contentScale, alignment = alignment, saturation = saturation)
+                AsyncImage(
+                    previewUrl,
+                    Modifier.fillMaxSize(),
+                    contentScale = contentScale,
+                    alignment = alignment,
+                    saturation = saturation,
+                    artworkEdge = false,
+                )
             } else {
                 ImageLoadingPlaceholder(
                     modifier = Modifier.fillMaxSize(),

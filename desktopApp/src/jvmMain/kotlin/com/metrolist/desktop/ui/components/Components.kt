@@ -39,6 +39,7 @@ import com.metrolist.desktop.state.playback.PlayerArtworkPreview
 import com.metrolist.desktop.state.playback.PlayerState
 import com.metrolist.shared.constants.ThumbnailCornerRadius
 import com.metrolist.shared.settings.Settings
+import com.metrolist.shared.ui.components.minmusic.mmArtworkEdge
 import com.metrolist.shared.ui.icons.MetrolistIcons
 import com.metrolist.shared.ui.theme.ThemeColorExtractor
 import com.metrolist.shared.ui.utils.ArtworkBlurStyle
@@ -120,6 +121,7 @@ internal fun AsyncImage(
     artworkPreview: PlayerArtworkPreview? = null,
     saturation: Float = 1f,
     blur: ArtworkBlurStyle? = null,
+    artworkEdge: Boolean = true,
 ) {
     val context = LocalPlatformContext.current
     val canonicalUrl = remember(url) { canonicalArtworkUrl(url) }
@@ -136,6 +138,9 @@ internal fun AsyncImage(
     val imageModifier =
         if (blur != null) {
             modifier.cachedArtworkBlur(blur, if (url.isBlank()) RectangleShape else shape)
+        } else if (artworkEdge && url.isNotBlank()) {
+            // MinMusic: soft edge (slight zoom + edge fade) on artwork, as on Android.
+            modifier.mmArtworkEdge(shape)
         } else {
             modifier.clip(shape)
         }

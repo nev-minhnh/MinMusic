@@ -22,6 +22,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.Orientation
@@ -51,6 +52,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.material3.VerticalDragHandle
 import androidx.compose.material3.WideNavigationRailDefaults
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteDefaults
@@ -64,10 +66,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.WindowScope
 import com.metrolist.desktop.state.app.DesktopNavigation
@@ -91,12 +96,14 @@ import com.metrolist.desktop.ui.components.TopBarWithPlayer
 import com.metrolist.desktop.ui.components.VideoMiniViewer
 import com.metrolist.desktop.ui.components.deviceConnectSideSheetWidth
 import com.metrolist.shared.generated.resources.Res
+import com.metrolist.shared.generated.resources.app_name
 import com.metrolist.shared.generated.resources.close
 import com.metrolist.shared.generated.resources.desktop_navigation_together
 import com.metrolist.shared.generated.resources.done
 import com.metrolist.shared.generated.resources.edit_sidebar
 import com.metrolist.shared.generated.resources.filter_library
 import com.metrolist.shared.generated.resources.home
+import com.metrolist.shared.generated.resources.logo
 import com.metrolist.shared.generated.resources.menu_history
 import com.metrolist.shared.generated.resources.statistics
 import com.metrolist.shared.settings.NavItem
@@ -116,6 +123,7 @@ import com.metrolist.shared.ui.navigation.currentAdaptiveLayout
 import com.metrolist.shared.ui.navigation.isNavigationBar
 import com.metrolist.shared.ui.navigation.navigationId
 import com.metrolist.shared.ui.navigation.screenForNavigationId
+import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 import java.awt.Cursor
 
@@ -276,6 +284,22 @@ private fun DesktopNavigationScaffold(
                         )
                     }
 
+                    // MinMusic: logo tile and wordmark at the top of the expanded sidebar.
+                    Row(
+                        modifier = Modifier.weight(1f).padding(horizontal = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        MinMusicSidebarLogo(size = 28.dp)
+                        Text(
+                            text = stringResource(Res.string.app_name),
+                            style = MaterialTheme.typography.titleSmall,
+                            color = colorScheme.onSurface,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.padding(start = 10.dp),
+                        )
+                    }
+
                     IconButton(
                         onClick = { LibraryState.isEditingSidebar = !LibraryState.isEditingSidebar },
                         modifier = Modifier.size(36.dp),
@@ -293,10 +317,12 @@ private fun DesktopNavigationScaffold(
                     }
                 }
             } else {
-                Box(
+                Column(
                     modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
-                    contentAlignment = Alignment.Center,
+                    horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
+                    // MinMusic: logo tile above the collapsed rail.
+                    MinMusicSidebarLogo(size = 32.dp, modifier = Modifier.padding(top = 4.dp, bottom = 8.dp))
                     IconButton(
                         onClick = {
                             LibraryState.isEditingSidebar = !LibraryState.isEditingSidebar
@@ -334,6 +360,19 @@ private fun DesktopNavigationScaffold(
     ) {
         content(isNavigationRail)
     }
+}
+
+/** The owner's logo tile (rounded square, never recoloured) for the sidebar header (design-system section 8). */
+@Composable
+private fun MinMusicSidebarLogo(
+    size: Dp,
+    modifier: Modifier = Modifier,
+) {
+    Image(
+        painter = painterResource(Res.drawable.logo),
+        contentDescription = stringResource(Res.string.app_name),
+        modifier = modifier.size(size).clip(RoundedCornerShape(size / 4)),
+    )
 }
 
 @Composable

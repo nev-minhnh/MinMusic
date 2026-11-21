@@ -116,6 +116,14 @@ object UiState {
 
     var restartRequested by mutableStateOf(false)
 
+    // MinMusic: full-window MetroEQ page, drawn above the player and the content (Esc closes it first).
+    var showEqualizer by mutableStateOf(false)
+
+    fun openEqualizer() {
+        showSettings = false
+        showEqualizer = true
+    }
+
     fun toggleDeviceConnectPanel() {
         showDeviceConnectPanel = !showDeviceConnectPanel
         if (showDeviceConnectPanel) {

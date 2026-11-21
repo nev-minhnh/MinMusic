@@ -378,6 +378,12 @@ internal fun handleShortcut(
                 true
             }
 
+            // MinMusic: the equalizer page sits above the player, so it peels first.
+            UiState.showEqualizer -> {
+                UiState.showEqualizer = false
+                true
+            }
+
             UiState.showDeviceConnectPanel -> {
                 UiState.showDeviceConnectPanel = false
                 true
@@ -405,6 +411,18 @@ internal fun handleShortcut(
 
             UiState.showVideoFullscreen -> {
                 UiState.showVideoFullscreen = false
+                true
+            }
+
+            // Like Android Back: lyrics, then the queue, then the full player, then the previous page.
+            UiState.showLyricsDrawer && PlayerState.currentTrack != null -> {
+                UiState.showLyricsDrawer = false
+                true
+            }
+
+            // The docked queue beside the pages stays open while browsing; only the full player's queue peels.
+            UiState.showPersistentPlayerDrawer && PlayerState.isExpanded -> {
+                UiState.showPersistentPlayerDrawer = false
                 true
             }
 

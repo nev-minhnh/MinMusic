@@ -97,9 +97,11 @@ import com.metrolist.shared.settings.Settings
 import com.metrolist.shared.ui.components.ContainedLoadingIndicator
 import com.metrolist.shared.ui.components.LiquidBackground
 import com.metrolist.shared.ui.components.lyrics.LyricsContrastScrim
+import com.metrolist.shared.ui.components.minmusic.MmPlayerTintBackground
 import com.metrolist.shared.ui.icons.MetrolistIcons
 import com.metrolist.shared.ui.player.PlayerGradientBackground
 import com.metrolist.shared.ui.theme.getGradientColors
+import com.metrolist.shared.ui.theme.rememberArtworkSeedColor
 import com.metrolist.shared.ui.utils.ArtworkBlurStyle
 import com.metrolist.shared.utils.OsUtil
 import org.jetbrains.compose.resources.pluralStringResource
@@ -189,6 +191,13 @@ fun FullscreenPlayerView(
             }
 
             PlayerBackgroundStyle.SOLID -> {
+                if (isMinMusicPlayer()) {
+                    // MinMusic: static artwork tint fading into the stage, no blur (design-system 2.4).
+                    MmPlayerTintBackground(
+                        artworkColor = rememberArtworkSeedColor(PlayerState.currentArtworkUrl),
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                }
             }
         }
         if (!isSolid) {

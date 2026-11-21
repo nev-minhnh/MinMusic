@@ -5796,4 +5796,9 @@
     <string name="mm_charts_song_count">%1$d songs</string>
     <!-- Shown with lyrics that have no timing, so they cannot follow playback. -->
     <string name="mm_lyrics_unsynced_hint">Lyrics not synced</string>
+    <!-- MinMusic for Windows. -->
+    <!-- Translators: Hint on the lyrics card in the desktop player; clicking the card opens the lyrics. -->
+    <string name="mm_desktop_lyrics_peek_hint">Click to open</string>
+    <!-- Translators: Privacy note in the NhacCuaTui sign-in dialog on Windows. -->
+    <string name="source_nct_privacy_token_desktop">Only the sign-in token is kept, encrypted on this computer and left out of backups. Signing out deletes it at once.</string>
 </resources>

@@ -42,6 +42,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import com.metrolist.desktop.state.app.AppState
+import com.metrolist.desktop.state.app.UiState
 import com.metrolist.desktop.state.content.ArtistState
 import com.metrolist.desktop.state.content.PlaylistAlbumState
 import com.metrolist.desktop.state.playback.ListenTogetherState
@@ -100,7 +101,6 @@ import com.metrolist.shared.ui.components.PopupVisibility
 import com.metrolist.shared.ui.components.TempoPitchControls
 import com.metrolist.shared.ui.components.lyrics.LyricsEditorScreen
 import com.metrolist.shared.ui.components.playbackMarquee
-import com.metrolist.shared.ui.equalizer.EqualizerDialog
 import com.metrolist.shared.ui.icons.MetrolistIcons
 import com.metrolist.shared.ui.menu.CursorDropdownMenu
 import com.metrolist.shared.ui.menu.LyricsProviderDialog
@@ -528,13 +528,6 @@ fun PlayerMenuPanel(
         PlayerState.isListenTogetherGuest() ||
             (isInListenTogetherRoom && listenTogetherRole == ListenTogetherRoomRole.GUEST)
     var showTempoPitch by remember { mutableStateOf(false) }
-    var showEqualizer by remember { mutableStateOf(false) }
-    if (showEqualizer) {
-        EqualizerDialog(
-            onDismiss = { showEqualizer = false },
-            rememberProfilePicker = { onPicked -> rememberMetroEqProfilePicker(onPicked) },
-        )
-    }
     val speed by PlayerState.player.playbackSpeed.collectAsState()
     val pitch by PlayerState.player.playbackPitch.collectAsState()
     val varispeed = Settings.shared.varispeed
@@ -624,7 +617,10 @@ fun PlayerMenuPanel(
                     },
                 ),
                 listOfNotNull(
-                    equalizerMenuAction(onOpen = { showEqualizer = true }),
+                    equalizerMenuAction(onOpen = {
+                        onDismiss()
+                        UiState.openEqualizer()
+                    }),
                     tempoPitchMenuAction(varispeed) { showTempoPitch = true },
                     onShowDetailsDialog?.let { action ->
                         PlayerMenuAction(

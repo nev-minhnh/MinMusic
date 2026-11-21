@@ -74,6 +74,7 @@ import com.metrolist.shared.generated.resources.pause
 import com.metrolist.shared.generated.resources.play
 import com.metrolist.shared.generated.resources.previous
 import com.metrolist.shared.generated.resources.view_album
+import com.metrolist.shared.model.RepeatMode
 import com.metrolist.shared.model.SongItem
 import com.metrolist.shared.model.isLive
 import com.metrolist.shared.model.previewAspectRatio
@@ -87,6 +88,7 @@ import com.metrolist.shared.ui.components.PlayerPrimaryControls
 import com.metrolist.shared.ui.components.PopupVisibility
 import com.metrolist.shared.ui.components.VintagePlayerControls
 import com.metrolist.shared.ui.components.VintagePlayerControlsText
+import com.metrolist.shared.ui.components.minmusic.MmPlayerTransportRow
 import com.metrolist.shared.ui.components.playbackMarquee
 import com.metrolist.shared.ui.icons.MetrolistIcons
 import com.metrolist.shared.ui.menu.cursorContextMenu
@@ -144,6 +146,7 @@ fun PlayerCoreContent(
     var showCastDialog by remember { mutableStateOf(false) }
     var showDetailsDialog by remember { mutableStateOf(false) }
     var showSleepDialog by remember { mutableStateOf(false) }
+    val mmStyle = isMinMusicPlayer()
 
     val artworkRatio =
         if (PlayerState.animatedCoverUrl != null) 1f else (currentTrack?.previewAspectRatio ?: 1f).coerceAtLeast(1f)
@@ -241,6 +244,9 @@ fun PlayerCoreContent(
                         color = textBackgroundColor.copy(alpha = 0.8f),
                         modifier = Modifier.fillMaxWidth(),
                     )
+                    if (mmStyle) {
+                        MmDesktopNowPlayingBadges(Modifier.padding(top = 6.dp))
+                    }
                 }
 
                 Spacer(Modifier.width(16.dp))
@@ -285,7 +291,7 @@ fun PlayerCoreContent(
 
             Spacer(Modifier.height(8.dp * scale))
 
-            PlayerProgressSection()
+            PlayerProgressSection(mmStyle = mmStyle)
 
             if (!isListenTogetherGuest) {
                 Spacer(Modifier.height(14.dp * scale))
@@ -294,7 +300,29 @@ fun PlayerCoreContent(
                     modifier = Modifier.fillMaxWidth(),
                     contentAlignment = Alignment.Center,
                 ) {
-                    if (Settings.shared.playerType == PlayerType.VINTAGE ||
+                    if (mmStyle) {
+                        // MinMusic transport: shuffle, previous, 72 dp gradient play button, next, repeat.
+                        MmPlayerTransportRow(
+                            isPlaying = isPlaying,
+                            isLoading = PlayerState.isPlaybackLoading,
+                            isShuffleOn = PlayerState.shuffleEnabled,
+                            repeatMode =
+                                when (PlayerState.repeatMode) {
+                                    RepeatMode.ONE -> 1
+                                    RepeatMode.ALL -> 2
+                                    RepeatMode.OFF -> 0
+                                },
+                            onToggleShuffle = { PlayerState.toggleShuffle() },
+                            onToggleRepeat = { PlayerState.cycleRepeatMode() },
+                            onSkipPrevious = { if (PlayerState.canSkipPrevious) PlayerState.skipPrevious() },
+                            onTogglePlay = { PlayerState.togglePlay() },
+                            onSkipNext = { PlayerState.skipNext() },
+                            playButtonSize = (72.dp * scale).coerceIn(56.dp, 72.dp),
+                            contentColor = textBackgroundColor,
+                            useRoundedRectPlayButton = Settings.shared.useRoundedRectPlayButton,
+                            modifier = Modifier.widthIn(max = 420.dp),
+                        )
+                    } else if (Settings.shared.playerType == PlayerType.VINTAGE ||
                         Settings.shared.playerType == PlayerType.CLASSIC
                     ) {
                         VintagePlayerControls(
@@ -350,7 +378,7 @@ fun PlayerCoreContent(
                 }
             }
 
-            Spacer(Modifier.height(42.dp * scale))
+            Spacer(Modifier.height(if (mmStyle) 24.dp * scale else 42.dp * scale))
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -361,9 +389,10 @@ fun PlayerCoreContent(
                     modifier = Modifier.weight(1f),
                     sectioned = true,
                     touchTarget = 40.dp,
-                    onShuffleClick = if (!isListenTogetherGuest) ({ PlayerState.toggleShuffle() }) else null,
+                    // MinMusic puts shuffle and repeat in the transport row.
+                    onShuffleClick = if (!isListenTogetherGuest && !mmStyle) ({ PlayerState.toggleShuffle() }) else null,
                     isShuffled = PlayerState.shuffleEnabled,
-                    onRepeatClick = if (!isListenTogetherGuest) ({ PlayerState.cycleRepeatMode() }) else null,
+                    onRepeatClick = if (!isListenTogetherGuest && !mmStyle) ({ PlayerState.cycleRepeatMode() }) else null,
                     repeatMode = PlayerState.repeatMode,
                     volume = PlayerState.volume,
                     onVolumeChange = { PlayerState.setVolumeLevel(it) },
@@ -394,6 +423,18 @@ fun PlayerCoreContent(
                     onFullscreenClick = toggleWindowFullscreen,
                     isFullscreen = PlayerState.isFullscreen || UiState.isNativeFullscreen,
                 )
+            }
+
+            if (mmStyle) {
+                // Output / EQ chips, the lyrics card (until the lyrics pane is open) and "Up next".
+                Spacer(Modifier.height(16.dp * scale))
+                MmDesktopPlayerChips(onOpenCast = if (!isListenTogetherGuest) ({ showCastDialog = true }) else null)
+                if (!UiState.showLyricsDrawer) {
+                    Spacer(Modifier.height(12.dp * scale))
+                    MmDesktopLyricsPeek(Modifier.fillMaxWidth())
+                }
+                Spacer(Modifier.height(12.dp * scale))
+                MmDesktopQueueHandle(Modifier.fillMaxWidth())
             }
         }
     }
@@ -446,7 +487,7 @@ fun PlayerCoreContent(
 }
 
 @Composable
-fun PlayerProgressSection() {
+fun PlayerProgressSection(mmStyle: Boolean = false) {
     val position = rememberPlaybackSecondPosition()
     val bufferedPosition by PlayerState.playbackBufferedPosition.collectAsSecondsState()
     val duration by PlayerState.playbackDuration.collectAsState()
@@ -541,9 +582,10 @@ fun PlayerProgressSection() {
                 },
                 style = Settings.shared.sliderStyle,
                 isPlaying = isPlaying,
-                color = MaterialTheme.colorScheme.primary,
+                color = if (mmStyle) textSecondaryColor else MaterialTheme.colorScheme.primary,
                 bufferedValue = bufferedProgress,
                 enabled = canSeek,
+                mmStyle = mmStyle,
                 modifier =
                     Modifier
                         .fillMaxWidth()

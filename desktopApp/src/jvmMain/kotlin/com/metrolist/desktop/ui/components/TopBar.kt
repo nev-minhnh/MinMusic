@@ -795,6 +795,7 @@ private fun AccountMenuButton(
                 AsyncImage(
                     url = profilePicUrl,
                     modifier = Modifier.size(28.dp).clip(CircleShape),
+                    artworkEdge = false,
                 )
             } else {
                 Icon(

@@ -2665,4 +2665,6 @@
     <string name="mm_charts_load_more_failed">Không tải thêm được bài hát</string>
     <string name="mm_charts_song_count">%1$d bài hát</string>
     <string name="mm_lyrics_unsynced_hint">Lời chưa đồng bộ</string>
+    <string name="mm_desktop_lyrics_peek_hint">Bấm để mở</string>
+    <string name="source_nct_privacy_token_desktop">Chỉ lưu mã đăng nhập, mã hoá trên máy này và không nằm trong bản sao lưu. Đăng xuất là xoá ngay.</string>
 </resources>

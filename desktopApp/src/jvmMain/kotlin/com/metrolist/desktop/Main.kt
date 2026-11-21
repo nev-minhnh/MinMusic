@@ -113,6 +113,7 @@ import com.metrolist.desktop.ui.components.VideoFullscreenOverlay
 import com.metrolist.desktop.ui.layouts.ExpressLayout
 import com.metrolist.desktop.ui.layouts.FocusedLayout
 import com.metrolist.desktop.ui.layouts.LayoutUtils
+import com.metrolist.desktop.ui.screens.DesktopEqualizerPage
 import com.metrolist.desktop.ui.screens.DesktopOnboarding
 import com.metrolist.desktop.ui.screens.LastFmArtistBrowser
 import com.metrolist.desktop.ui.screens.LastFmArtistBrowserHost
@@ -581,6 +582,9 @@ private fun WindowScope.AppContent(
                             window.requestFocus()
                         },
                     )
+                }
+                DesktopPlayerVisibility(visible = UiState.showEqualizer) {
+                    DesktopEqualizerPage()
                 }
             }
             VideoFullscreenOverlay(colorScheme, toggleWindowFullscreen)

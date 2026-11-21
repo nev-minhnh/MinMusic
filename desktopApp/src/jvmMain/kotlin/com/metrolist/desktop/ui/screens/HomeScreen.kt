@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.ButtonDefaults
@@ -62,6 +63,8 @@ import com.metrolist.shared.ui.components.ChipShelf
 import com.metrolist.shared.ui.components.DesktopHorizontalScrollControls
 import com.metrolist.shared.ui.components.HomeLoadingPlaceholder
 import com.metrolist.shared.ui.components.PlayerMenuAction
+import com.metrolist.shared.ui.components.minmusic.MmChartsShelf
+import com.metrolist.shared.ui.components.minmusic.rememberMmVnCharts
 import com.metrolist.shared.ui.icons.MetrolistIcons
 import com.metrolist.shared.ui.menu.MediaContextMenu
 import com.metrolist.shared.ui.menu.contextMenuAnchor
@@ -81,6 +84,10 @@ fun HomeScreen() {
     val contextMenu = rememberCursorContextMenuState()
     var selectedMenuItem by remember { mutableStateOf<YTItem?>(null) }
     var showSurpriseMenu by remember { mutableStateOf(false) }
+    // MinMusic charts shelf: only when Zing / NCT / SoundCloud are enabled and answered; never placeholder data.
+    val vnCharts by rememberMmVnCharts()
+    val chartCurrentSongId = remember { derivedStateOf { PlayerState.currentTrack?.id } }
+    val chartIsPlaying = remember { derivedStateOf { PlayerState.isPlaying } }
 
     fun dismissContextMenu() {
         contextMenu.dismiss()
@@ -152,6 +159,30 @@ fun HomeScreen() {
             currentSongId = remember { derivedStateOf { PlayerState.currentTrack?.id } },
             isPlaying = remember { derivedStateOf { PlayerState.isPlaying } },
             isLandscape = true,
+            afterQuickPicks =
+                if (vnCharts.isNotEmpty() && uiState.selectedChip == null) {
+                    {
+                        item(key = "mm_vn_charts", contentType = "mm_vn_charts") {
+                            Box(Modifier.widthIn(max = 960.dp)) {
+                                MmChartsShelf(
+                                    tabs = vnCharts,
+                                    onSongClick = { songs, index -> songs.getOrNull(index)?.let { PlayerState.playTrack(it, songs) } },
+                                    onSongMenu = { song ->
+                                        selectedMenuItem = song
+                                        showSurpriseMenu = false
+                                        contextMenu.open()
+                                    },
+                                    onPlayAll = { songs -> songs.firstOrNull()?.let { PlayerState.playTrack(it, songs) } },
+                                    currentSongId = chartCurrentSongId,
+                                    isPlaying = chartIsPlaying,
+                                    onSeeAll = { tab -> DesktopNavigation.navigate(Screen.SourceCharts(tab.source.key, tab.key)) },
+                                )
+                            }
+                        }
+                    }
+                } else {
+                    null
+                },
             listState = listState,
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(top = MdSpacing.sm, bottom = 32.dp),
