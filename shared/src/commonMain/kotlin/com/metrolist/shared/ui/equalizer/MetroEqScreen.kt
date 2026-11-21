@@ -333,7 +333,6 @@ private fun ProfilesPage(
     var pendingProfileChange by remember { mutableStateOf<(() -> Unit)?>(null) }
     var exportMessage by remember { mutableStateOf<StringResource?>(null) }
     val exportActions = LocalMetroEqExportActions.current
-    val hasUnsavedChanges = EqualizerProfiles.hasUnsavedChanges
     val history = remember { EqualizerEditHistory() }
     LaunchedEffect(activeProfile) {
         val current = activeProfile?.withoutOutputGain()
@@ -348,7 +347,8 @@ private fun ProfilesPage(
     }
 
     fun changeProfile(action: () -> Unit) {
-        if (hasUnsavedChanges) pendingProfileChange = action else action()
+        // Read when the action runs; a value captured at composition can be stale after a load or export.
+        if (EqualizerProfiles.hasUnsavedChanges) pendingProfileChange = action else action()
     }
 
     fun requestSave(asCopy: Boolean) {

@@ -279,9 +279,12 @@ object EqualizerProfiles {
         get() {
             val current = selectedConfiguration
             val profile = current.profile ?: return current.preampDb != 0.0
-            val baseline = baselineProfile(profile)
-            return baseline != profile.copy(outputGainDb = current.preampDb)
+            val baseline = baselineProfile(profile) ?: return true
+            return baseline.soundSettings() != profile.soundSettings()
         }
+
+    // Only bands, preamp, tone and spatial settings are edits; names, provenance and the separately stored output gain are not.
+    private fun EqualizerProfile.soundSettings() = copy(name = "", source = "", rig = "", addedTimestamp = 0L, outputGainDb = null)
 
     fun setActive(profileId: String?) {
         val profile = profiles.firstOrNull { it.id == profileId }
@@ -380,7 +383,14 @@ object EqualizerProfiles {
         val bounded = (round(db * 2) / 2).coerceIn(MIN_AUDIO_PREAMP_DB, MAX_AUDIO_BOOST_DB)
         val current = activeProfile
         Settings.shared.audioBoostDb = bounded.toFloat()
-        if (current != null) Settings.shared.equalizerCurrentProfileJson = json.encodeToString(current.copy(outputGainDb = bounded))
+        if (current != null) {
+            Settings.shared.equalizerCurrentProfileJson = json.encodeToString(current.copy(outputGainDb = bounded))
+            // Output gain is not an unsaved edit, so store it with the saved profile right away.
+            val saved = profiles
+            if (saved.any { it.id == current.id && it.outputGainDb != bounded }) {
+                save(saved.map { if (it.id == current.id) it.copy(outputGainDb = bounded) else it })
+            }
+        }
     }
 
     fun updateBand(
