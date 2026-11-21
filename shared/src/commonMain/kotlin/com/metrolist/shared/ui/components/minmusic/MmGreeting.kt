@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -14,6 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.metrolist.shared.generated.resources.Res
 import com.metrolist.shared.generated.resources.logo
 import com.metrolist.shared.generated.resources.mm_greeting_afternoon
@@ -50,12 +52,16 @@ fun MmGreetingTitle(modifier: Modifier = Modifier) {
             contentDescription = null,
             modifier = Modifier.size(32.dp).clip(RoundedCornerShape(8.dp)),
         )
+        // The top bar actions leave ~150 dp at 360 dp width: shrink the greeting to fit instead of ellipsizing it.
+        val style = MaterialTheme.typography.headlineMedium
         Text(
             text = stringResource(greeting),
-            style = MaterialTheme.typography.headlineMedium,
+            style = style,
             color = MaterialTheme.colorScheme.onSurface,
             maxLines = 1,
+            softWrap = false,
             overflow = TextOverflow.Ellipsis,
+            autoSize = TextAutoSize.StepBased(minFontSize = 16.sp, maxFontSize = style.fontSize, stepSize = 1.sp),
         )
     }
 }

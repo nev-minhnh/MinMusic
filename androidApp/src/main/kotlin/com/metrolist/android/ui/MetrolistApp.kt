@@ -51,6 +51,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.systemGestureExclusion
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
@@ -280,6 +282,7 @@ import com.metrolist.shared.generated.resources.listen_together_guest_queue
 import com.metrolist.shared.generated.resources.listen_together_guest_solo
 import com.metrolist.shared.generated.resources.menu_history
 import com.metrolist.shared.generated.resources.menu_stop
+import com.metrolist.shared.generated.resources.mm_home_more_actions
 import com.metrolist.shared.generated.resources.mysterious_fourth_tab
 import com.metrolist.shared.generated.resources.mysterious_fourth_tab_description
 import com.metrolist.shared.generated.resources.offline_mode
@@ -1546,8 +1549,11 @@ fun MetrolistApp(
                                                     } else {
                                                         emptyList()
                                                     }
+                                                // MinMusic Home on phones: history and Listen Together move into an overflow
+                                                // menu so the greeting keeps its width (design: logo + greeting + gear).
+                                                val homeOverflow = navigationState.topLevelRoute == Screen.Home && !useDesktopUi
                                                 val topBarActions: @Composable RowScope.() -> Unit = {
-                                                    if (navigationState.topLevelRoute == Screen.Home && Screen.History !in railScreens) {
+                                                    if (navigationState.topLevelRoute == Screen.Home && Screen.History !in railScreens && !homeOverflow) {
                                                         TopBarIconButton(
                                                             floating = useFloatingTopBar,
                                                             onClick = { navigator.navigate(Screen.History) },
@@ -1576,6 +1582,59 @@ fun MetrolistApp(
                                                                 MetrolistIcons.Outlined.Download,
                                                                 contentDescription = stringResource(Res.string.downloads),
                                                             )
+                                                        }
+                                                    }
+                                                    val overflowHistory = homeOverflow && Screen.History !in railScreens
+                                                    val overflowListenTogether =
+                                                        homeOverflow && Settings.shared.listenTogetherEnabled && Screen.ListenTogether !in railScreens
+                                                    if (overflowHistory || overflowListenTogether) {
+                                                        var homeMenuExpanded by remember { mutableStateOf(false) }
+                                                        Box {
+                                                            TopBarIconButton(
+                                                                floating = useFloatingTopBar,
+                                                                onClick = { homeMenuExpanded = true },
+                                                                modifier =
+                                                                    Modifier.tvFocusHighlight(
+                                                                        CircleShape,
+                                                                        scale = 1.08f,
+                                                                        bringIntoView = false,
+                                                                    ),
+                                                            ) {
+                                                                Icon(
+                                                                    MetrolistIcons.Outlined.MoreVert,
+                                                                    contentDescription = stringResource(Res.string.mm_home_more_actions),
+                                                                    modifier = Modifier.size(24.dp),
+                                                                )
+                                                            }
+                                                            DropdownMenu(
+                                                                expanded = homeMenuExpanded,
+                                                                onDismissRequest = { homeMenuExpanded = false },
+                                                            ) {
+                                                                if (overflowHistory) {
+                                                                    DropdownMenuItem(
+                                                                        text = { Text(stringResource(Res.string.menu_history)) },
+                                                                        leadingIcon = {
+                                                                            Icon(MetrolistIcons.Outlined.MusicHistory, contentDescription = null)
+                                                                        },
+                                                                        onClick = {
+                                                                            homeMenuExpanded = false
+                                                                            navigator.navigate(Screen.History)
+                                                                        },
+                                                                    )
+                                                                }
+                                                                if (overflowListenTogether) {
+                                                                    DropdownMenuItem(
+                                                                        text = { Text(stringResource(Res.string.listen_together)) },
+                                                                        leadingIcon = {
+                                                                            Icon(MetrolistIcons.Outlined.Group, contentDescription = null)
+                                                                        },
+                                                                        onClick = {
+                                                                            homeMenuExpanded = false
+                                                                            navigator.navigate(Screen.ListenTogether)
+                                                                        },
+                                                                    )
+                                                                }
+                                                            }
                                                         }
                                                     }
                                                     if (navigationState.topLevelRoute == Screen.Home && Screen.Settings !in railScreens) {
@@ -1614,7 +1673,7 @@ fun MetrolistApp(
                                                             )
                                                         }
                                                     }
-                                                    if (Settings.shared.listenTogetherEnabled && Screen.ListenTogether !in railScreens) {
+                                                    if (Settings.shared.listenTogetherEnabled && Screen.ListenTogether !in railScreens && !homeOverflow) {
                                                         TopBarIconButton(
                                                             floating = useFloatingTopBar,
                                                             onClick = { navigator.navigate(Screen.ListenTogether) },
