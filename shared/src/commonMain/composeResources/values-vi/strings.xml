@@ -2520,4 +2520,15 @@
     <string name="metroeq_auto_preamp">Tự động</string>
     <string name="metroeq_limiter">Bộ giới hạn đỉnh</string>
     <string name="metroeq_limiter_summary">Nhìn trước 1,5 ms và giữ đỉnh dưới -0,3 dBFS</string>
+    <string name="redo">Làm lại</string>
+    <string name="metroeq_filter_peak">Đỉnh</string>
+    <string name="metroeq_filter_low_shelf">Kệ trầm</string>
+    <string name="metroeq_filter_high_shelf">Kệ cao</string>
+    <string name="metroeq_filter_low_pass">Thông thấp</string>
+    <string name="metroeq_filter_high_pass">Thông cao</string>
+    <string name="metroeq_filter_band_pass">Thông dải</string>
+    <string name="metroeq_filter_notch">Chặn dải hẹp</string>
+    <string name="metroeq_frequency">Tần số</string>
+    <string name="metroeq_gain">Độ lợi</string>
+    <string name="metroeq_value_range">Nhập giá trị từ %1$s đến %2$s</string>
 </resources>

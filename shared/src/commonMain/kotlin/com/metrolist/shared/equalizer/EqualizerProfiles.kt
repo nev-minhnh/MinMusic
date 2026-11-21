@@ -9,6 +9,7 @@ import com.metrolist.shared.settings.Settings
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlin.concurrent.Volatile
+import kotlin.math.abs
 import kotlin.math.pow
 import kotlin.math.round
 import kotlin.math.sqrt
@@ -16,7 +17,7 @@ import kotlin.time.Clock
 import kotlin.uuid.Uuid
 
 @Serializable
-enum class FilterType { PK, LSC, HSC, LPQ, HPQ }
+enum class FilterType { PK, LSC, HSC, LPQ, HPQ, BP, NO }
 
 @Serializable
 data class ParametricEqBand(
@@ -36,6 +37,9 @@ internal fun ParametricEqBand.withAdjustedGain(gain: Double): ParametricEqBand =
     } else {
         copy(gain = (round(gain * 2) / 2).coerceIn(MIN_EQUALIZER_BAND_GAIN_DB, MAX_EQUALIZER_BAND_GAIN_DB))
     }
+
+internal val FilterType.supportsGain: Boolean
+    get() = this == FilterType.PK || this == FilterType.LSC || this == FilterType.HSC
 
 // Zero-gain peaking and shelf filters have identical numerator and denominator coefficients.
 internal fun ParametricEqBand.isIdentity(): Boolean =
@@ -287,6 +291,21 @@ object EqualizerProfiles {
         if (current != null) Settings.shared.equalizerCurrentProfileJson = json.encodeToString(current.copy(outputGainDb = bounded))
     }
 
+    fun updateBand(
+        index: Int,
+        transform: (ParametricEqBand) -> ParametricEqBand,
+    ) {
+        val current = activeProfile ?: return
+        val band = current.bands.getOrNull(index) ?: return
+        val updated = transform(band)
+        if (updated != band) editCurrent(current.copy(bands = current.bands.toMutableList().apply { this[index] = updated }))
+    }
+
+    fun setBandType(
+        index: Int,
+        type: FilterType,
+    ) = updateBand(index) { band -> band.copy(filterType = type, gain = if (type.supportsGain) band.gain else 0.0) }
+
     fun setProfilePreamp(db: Double) {
         val current = activeProfile ?: return
         if (db.isNaN()) return
@@ -424,6 +443,8 @@ private val filterTypes =
         "LPQ" to FilterType.LPQ,
         "HP" to FilterType.HPQ,
         "HPQ" to FilterType.HPQ,
+        "BP" to FilterType.BP,
+        "NO" to FilterType.NO,
     )
 
 /** Parses AutoEq/Equalizer APO text; returns null for unusable or out-of-range profiles. */
@@ -445,12 +466,14 @@ fun parseParametricEq(content: String): Pair<Double, List<ParametricEqBand>>? {
             }
 
             tokens.first().startsWith("Filter", ignoreCase = true) -> {
-                if (tokens.none { it.equals("ON", ignoreCase = true) }) continue
+                // Exported profiles keep disabled bands as OFF filters.
+                val enabled = tokens.any { it.equals("ON", ignoreCase = true) }
+                if (!enabled && tokens.none { it.equals("OFF", ignoreCase = true) }) continue
                 val type = tokens.firstNotNullOfOrNull { filterTypes[it.uppercase()] } ?: continue
                 val frequency = after("Fc") ?: continue
-                // Pass filters carry no gain; shelves without Q use the cookbook's S=1 slope (Q 0.707).
-                val gain = after("Gain") ?: if (type == FilterType.LPQ || type == FilterType.HPQ) 0.0 else continue
-                bands += ParametricEqBand(frequency, gain, after("Q") ?: 0.707, type)
+                // Pass, band-pass and notch filters carry no gain; shelves without Q use the cookbook's S=1 slope (Q 0.707).
+                val gain = after("Gain") ?: if (type.supportsGain) continue else 0.0
+                bands += ParametricEqBand(frequency, gain, after("Q") ?: 0.707, type, enabled)
             }
         }
     }
@@ -465,7 +488,15 @@ fun parseParametricEq(content: String): Pair<Double, List<ParametricEqBand>>? {
     return if (valid) preamp.coerceIn(MIN_PROFILE_PREAMP_DB, MAX_PROFILE_PREAMP_DB) to bands else null
 }
 
-const val MAX_EQUALIZER_BANDS = 20
+/** Locale-independent fixed-point text, as Equalizer APO files and numeric entry expect. */
+internal fun Double.toDecimalString(decimals: Int): String {
+    val scaled = round(this * 10.0.pow(decimals)).toLong()
+    val digits = abs(scaled).toString().padStart(decimals + 1, '0')
+    val text = if (decimals == 0) digits else digits.dropLast(decimals) + "." + digits.takeLast(decimals)
+    return if (scaled < 0) "-$text" else text
+}
+
+const val MAX_EQUALIZER_BANDS = 32
 const val MIN_EQUALIZER_BAND_GAIN_DB = -30.0
 const val MAX_EQUALIZER_BAND_GAIN_DB = 30.0
 const val MIN_EQUALIZER_FREQUENCY = 20.0

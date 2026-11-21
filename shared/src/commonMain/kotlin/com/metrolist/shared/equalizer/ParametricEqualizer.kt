@@ -128,10 +128,14 @@ class ParametricEqualizer(
             val imaginaryNumerator = c[1] * sin(w) + c[2] * sin(2 * w)
             val realDenominator = 1.0 + c[3] * cos(w) + c[4] * cos(2 * w)
             val imaginaryDenominator = c[3] * sin(w) + c[4] * sin(2 * w)
+            // A notch has zero gain at its centre; floor it so the curve stays finite.
             db += 10.0 *
                 log10(
-                    (realNumerator * realNumerator + imaginaryNumerator * imaginaryNumerator) /
-                        (realDenominator * realDenominator + imaginaryDenominator * imaginaryDenominator),
+                    maxOf(
+                        MIN_RESPONSE_POWER,
+                        (realNumerator * realNumerator + imaginaryNumerator * imaginaryNumerator) /
+                            (realDenominator * realDenominator + imaginaryDenominator * imaginaryDenominator),
+                    ),
                 )
         }
         return db
@@ -343,6 +347,15 @@ class ParametricEqualizer(
                 FilterType.HPQ -> {
                     doubleArrayOf((1 + cosW) / 2, -(1 + cosW), (1 + cosW) / 2) to doubleArrayOf(1 + alpha, -2 * cosW, 1 - alpha)
                 }
+
+                // Constant 0 dB peak gain band-pass.
+                FilterType.BP -> {
+                    doubleArrayOf(alpha, 0.0, -alpha) to doubleArrayOf(1 + alpha, -2 * cosW, 1 - alpha)
+                }
+
+                FilterType.NO -> {
+                    doubleArrayOf(1.0, -2 * cosW, 1.0) to doubleArrayOf(1 + alpha, -2 * cosW, 1 - alpha)
+                }
             }
         val a0 = aCoeffs[0]
         return doubleArrayOf(b[0] / a0, b[1] / a0, b[2] / a0, aCoeffs[1] / a0, aCoeffs[2] / a0)
@@ -352,6 +365,7 @@ class ParametricEqualizer(
         const val LIMITER_CEILING = 0.9660508789898133 // -0.3 dBFS
         const val LIMITER_LOOKAHEAD_SECONDS = 0.0015
         const val LIMITER_RELEASE_SECONDS = 0.15
+        const val MIN_RESPONSE_POWER = 1e-12
     }
 }
 

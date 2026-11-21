@@ -5537,4 +5537,15 @@
     <string name="metroeq_auto_preamp">Auto</string>
     <string name="metroeq_limiter">Peak limiter</string>
     <string name="metroeq_limiter_summary">Looks ahead 1.5 ms and keeps peaks below -0.3 dBFS</string>
+    <string name="redo">Redo</string>
+    <string name="metroeq_filter_peak">Peak</string>
+    <string name="metroeq_filter_low_shelf">Low shelf</string>
+    <string name="metroeq_filter_high_shelf">High shelf</string>
+    <string name="metroeq_filter_low_pass">Low pass</string>
+    <string name="metroeq_filter_high_pass">High pass</string>
+    <string name="metroeq_filter_band_pass">Band pass</string>
+    <string name="metroeq_filter_notch">Notch</string>
+    <string name="metroeq_frequency">Frequency</string>
+    <string name="metroeq_gain">Gain</string>
+    <string name="metroeq_value_range">Enter a value from %1$s to %2$s</string>
 </resources>

@@ -45,4 +45,30 @@ class ParametricEqualizerTest {
         assertEquals(MIN_PROFILE_PREAMP_DB, preamp)
         assertEquals(1, bands.size)
     }
+
+    @Test
+    fun bandPassAndNotchFollowCookbookResponse() {
+        val equalizer = ParametricEqualizer(48_000, 1)
+        equalizer.update(EqualizerProfile("bp", "bp", listOf(ParametricEqBand(1_000.0, 0.0, 2.0, FilterType.BP))))
+        assertEquals(0.0, equalizer.responseDb(1_000.0), 0.01)
+        assertTrue(equalizer.responseDb(100.0) < -20.0)
+        equalizer.update(EqualizerProfile("no", "no", listOf(ParametricEqBand(1_000.0, 0.0, 2.0, FilterType.NO))))
+        assertTrue(equalizer.responseDb(1_000.0) < -100.0)
+        assertEquals(0.0, equalizer.responseDb(10_000.0), 0.2)
+    }
+
+    @Test
+    fun importReadsBandPassNotchAndDisabledFilters() {
+        val (_, bands) =
+            assertNotNull(
+                parseParametricEq(
+                    "Filter 1: ON BP Fc 500 Hz Q 1.5
+Filter 2: ON NO Fc 60 Hz Q 10
+Filter 3: OFF PK Fc 2000 Hz Gain -4 dB Q 2",
+                ),
+            )
+        assertEquals(listOf(FilterType.BP, FilterType.NO, FilterType.PK), bands.map { it.filterType })
+        assertEquals(listOf(true, true, false), bands.map { it.enabled })
+        assertEquals(-4.0, bands[2].gain)
+    }
 }
