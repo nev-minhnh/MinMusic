@@ -12,7 +12,7 @@ internal fun windowsWebViewDataDirectory(
     userHome: String,
 ): File {
     val baseDirectory = localAppData?.takeIf(String::isNotBlank)?.let(::File) ?: File(userHome, "AppData/Local")
-    return File(baseDirectory, "Metrolist/WebView2")
+    return File(baseDirectory, "MinMusic/WebView2")
 }
 
 internal fun desktopWebViewDataDirectory(
@@ -84,7 +84,7 @@ internal fun prepareAppOwnedDirectory(
         }
     }
     check(Files.isWritable(directoryPath)) {
-        "Metrolist cannot create a writable WebView data directory at ${directory.absolutePath}"
+        "MinMusic cannot create a writable WebView data directory at ${directory.absolutePath}"
     }
 }
 

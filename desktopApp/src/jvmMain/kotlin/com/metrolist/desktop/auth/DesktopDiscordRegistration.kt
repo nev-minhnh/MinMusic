@@ -62,8 +62,8 @@ internal fun linuxDiscordLauncher(
     ) {
         return null
     }
-    val wrapper = File(executable.parentFile, "Metrolist")
-    return if (appImage.isNullOrBlank() && executable.name == "Metrolist.bin" && wrapper.canExecute()) wrapper else executable
+    val wrapper = File(executable.parentFile, "MinMusic")
+    return if (appImage.isNullOrBlank() && executable.name == "MinMusic.bin" && wrapper.canExecute()) wrapper else executable
 }
 
 internal fun linuxDiscordDesktopEntry(

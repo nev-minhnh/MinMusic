@@ -133,7 +133,7 @@ abstract class PatchDmgAppearanceTask : DefaultTask() {
                       set icon size of theViewOptions to 128
                       set background picture of theViewOptions to POSIX file "$bgTiffPath"
                       -- Positions match the artwork blob centres (left app, right Applications).
-                      set position of item "Metrolist.app" of targetDisk to {163, 200}
+                      set position of item "MinMusic.app" of targetDisk to {163, 200}
                       set position of item "Applications" of targetDisk to {497, 189}
                       update targetDisk without registering applications
                       delay 5
@@ -238,7 +238,7 @@ private class VerifyReleaseDistributableAction(
         check(listOf(baseArchive, windowsBaseArchive).any { it.isFile && it.length() > 0 }) {
             "Release distributable must contain a base CDS archive"
         }
-        val launcherConfig = root.walkTopDown().single { it.name == "Metrolist.cfg" }.readText()
+        val launcherConfig = root.walkTopDown().single { it.name == "MinMusic.cfg" }.readText()
         listOf(
             "-Xshare:auto",
             "-XX:+VerifySharedSpaces",
@@ -437,7 +437,7 @@ val verifyReleaseDistributableJars =
     }
 
 tasks
-    .matching { it.name in setOf("assembleWindowsRelease", "packageReleaseDmg", "packageReleaseAppImage") }
+    .matching { it.name in setOf("assembleWindowsRelease", "packageReleaseExe", "packageReleaseDmg", "packageReleaseAppImage") }
     .configureEach {
         if (providers.gradleProperty("metrolist.verifyPackaging").map(String::toBooleanStrict).getOrElse(true)) {
             dependsOn(verifyReleaseDistributableJars)

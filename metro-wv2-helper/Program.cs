@@ -62,7 +62,7 @@ namespace MetroWv2Helper
             _outputPath = outputPath;
             _provider = provider;
             _loginUrl = loginUrl;
-            Text = provider == "spotify" ? "Metrolist login for Spotify" : "Metrolist login for YouTube Music";
+            Text = provider == "spotify" ? "MinMusic login for Spotify" : "MinMusic login for YouTube Music";
             Size = new System.Drawing.Size(800, 800);
             StartPosition = FormStartPosition.CenterScreen;
 
@@ -77,9 +77,9 @@ namespace MetroWv2Helper
             try
             {
                 string localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-                TryDeleteDirectory(Path.Combine(localAppData, "Metrolist", "spotify-login-helper"));
-                TryDeleteDirectory(Path.Combine(localAppData, "Metrolist", "login-helper"));
-                _userDataFolder = Path.Combine(Path.GetTempPath(), "Metrolist-login-" + Guid.NewGuid().ToString("N"));
+                TryDeleteDirectory(Path.Combine(localAppData, "MinMusic", "spotify-login-helper"));
+                TryDeleteDirectory(Path.Combine(localAppData, "MinMusic", "login-helper"));
+                _userDataFolder = Path.Combine(Path.GetTempPath(), "MinMusic-login-" + Guid.NewGuid().ToString("N"));
 
                 var env = await CoreWebView2Environment.CreateAsync(null, _userDataFolder);
                 var controllerOptions = env.CreateCoreWebView2ControllerOptions();

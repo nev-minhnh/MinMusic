@@ -65,7 +65,7 @@ class DesktopAnimatedArtworkCache internal constructor(
                     System.getProperty("os.name").startsWith("Windows", ignoreCase = true) -> {
                         File(
                             System.getenv("LOCALAPPDATA")?.takeIf(String::isNotBlank)?.let(::File) ?: File(home, "AppData/Local"),
-                            "Metrolist",
+                            "MinMusic",
                         )
                     }
 

@@ -91,8 +91,10 @@ object DesktopUrlHandler {
                 .trim()
         if (trimmed.isEmpty()) return null
 
-        if (trimmed.startsWith("metrolist://", ignoreCase = true)) {
-            val afterScheme = trimmed.substring("metrolist://".length)
+        // MinMusic registers minmusic:// on Windows; metrolist:// links still open when passed on the command line.
+        val appScheme = listOf("minmusic://", "metrolist://").firstOrNull { trimmed.startsWith(it, ignoreCase = true) }
+        if (appScheme != null) {
+            val afterScheme = trimmed.substring(appScheme.length)
             if (afterScheme.startsWith("open?url=", ignoreCase = true)) {
                 val encoded = afterScheme.substring("open?url=".length)
                 val decoded = runCatching { URLDecoder.decode(encoded, StandardCharsets.UTF_8) }.getOrDefault(encoded)

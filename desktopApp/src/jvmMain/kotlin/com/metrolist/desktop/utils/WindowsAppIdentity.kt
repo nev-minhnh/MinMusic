@@ -51,7 +51,7 @@ internal fun resolveWindowsIdentityIcon(resources: File): File? =
 internal fun registerWindowsUriHandler(
     launcher: File?,
     displayName: String,
-    scheme: String = "metrolist",
+    scheme: String = "minmusic",
     writeString: (key: String, name: String, value: String) -> Unit,
 ): Boolean {
     if (launcher == null || !launcher.isAbsolute || !launcher.isFile || !launcher.extension.equals("exe", ignoreCase = true) ||

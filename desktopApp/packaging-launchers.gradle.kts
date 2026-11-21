@@ -13,9 +13,9 @@ tasks.register("createAppImageLocal") {
 
     val toolsDir = rootProject.file("tools")
     val appImageTool = rootProject.file("tools/appimagetool.AppImage")
-    val packageAppDir = file("${layout.buildDirectory.get()}/compose/binaries/main-release/app/Metrolist")
-    val appDir = file("${layout.buildDirectory.get()}/appimage/Metrolist.AppDir")
-    val outFile = rootProject.file("dist/Metrolist.AppImage")
+    val packageAppDir = file("${layout.buildDirectory.get()}/compose/binaries/main-release/app/MinMusic")
+    val appDir = file("${layout.buildDirectory.get()}/appimage/MinMusic.AppDir")
+    val outFile = rootProject.file("dist/MinMusic.AppImage")
 
     doFirst {
         toolsDir.mkdirs()
@@ -39,17 +39,17 @@ tasks.register("createAppImageLocal") {
             .forEach { source -> File(appDir, source.relativeTo(packageAppDir).path).setExecutable(true, false) }
 
         // Compose desktop files can omit the AudioVideo category.
-        val desktopFile = file("${appDir.absolutePath}/Metrolist.desktop")
+        val desktopFile = file("${appDir.absolutePath}/MinMusic.desktop")
         desktopFile.parentFile.mkdirs()
         desktopFile.writeText(
             """
 [Desktop Entry]
 Type=Application
-Name=Metrolist
-Exec=Metrolist %u
-Icon=Metrolist
-StartupWMClass=Metrolist
-Comment=Metrolist music client
+Name=MinMusic
+Exec=MinMusic %u
+Icon=MinMusic
+StartupWMClass=MinMusic
+Comment=MinMusic music player
 Categories=AudioVideo;Player;
 Terminal=false
 MimeType=x-scheme-handler/metrolist;x-scheme-handler/metrolist-auth;
@@ -60,7 +60,7 @@ MimeType=x-scheme-handler/metrolist;x-scheme-handler/metrolist-auth;
         rootProject.file("scripts/linux-appimage-apprun.sh").copyTo(appRunFile, overwrite = true)
         appRunFile.setExecutable(true, false)
 
-        val appIconFile = file("${appDir.absolutePath}/Metrolist.png")
+        val appIconFile = file("${appDir.absolutePath}/MinMusic.png")
         val sourceIcon = file("src/desktopMain/resources/logo.png")
         if (!sourceIcon.exists()) {
             throw GradleException("Missing AppImage icon source at ${sourceIcon.absolutePath}")
@@ -100,17 +100,17 @@ tasks.register("patchLinuxLauncher") {
     notCompatibleWithConfigurationCache("File operations are not cached.")
     mustRunAfter(tasks.matching { it.name == "createReleaseDistributable" || it.name == "packageReleaseAppImage" })
 
-    val packageAppDir = file("${layout.buildDirectory.get()}/compose/binaries/main-release/app/Metrolist")
+    val packageAppDir = file("${layout.buildDirectory.get()}/compose/binaries/main-release/app/MinMusic")
     val linkedRuntimeDirectory = layout.buildDirectory.dir("compose/tmp/main-release/runtime")
     dependsOn("createReleaseRuntimeImage")
 
     doLast {
         val binDir = packageAppDir.resolve("bin")
-        val launcher = binDir.resolve("Metrolist")
-        val realBinary = binDir.resolve("Metrolist.bin")
+        val launcher = binDir.resolve("MinMusic")
+        val realBinary = binDir.resolve("MinMusic.bin")
         val libAppDir = packageAppDir.resolve("lib/app")
-        val cfgFile = libAppDir.resolve("Metrolist.cfg")
-        val newCfgFile = binDir.resolve("Metrolist.bin.cfg")
+        val cfgFile = libAppDir.resolve("MinMusic.cfg")
+        val newCfgFile = binDir.resolve("MinMusic.bin.cfg")
 
         fun patchCfgFile(file: File) {
             if (!file.exists()) return
@@ -155,10 +155,10 @@ tasks.register("patchLinuxLauncher") {
         if (cfgFile.exists()) {
             patchCfgFile(cfgFile)
             cfgFile.copyTo(newCfgFile, overwrite = true)
-            cfgFile.copyTo(libAppDir.resolve("Metrolist.bin.cfg"), overwrite = true)
+            cfgFile.copyTo(libAppDir.resolve("MinMusic.bin.cfg"), overwrite = true)
         } else {
             patchCfgFile(newCfgFile)
-            patchCfgFile(libAppDir.resolve("Metrolist.bin.cfg"))
+            patchCfgFile(libAppDir.resolve("MinMusic.bin.cfg"))
         }
 
         // Write the wrapper script
@@ -248,7 +248,7 @@ export METROLIST_JVM_ERROR_FILE
 
 # ── Launch ───────────────────────────────────────────────────────────────────
 DIR="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
-exec "$DIR/Metrolist.bin" "$@"
+exec "$DIR/MinMusic.bin" "$@"
                 """.trimIndent(),
         )
         launcher.setExecutable(true, false)
@@ -279,16 +279,16 @@ fun registerWindowsPortableArchive(
                 val manifest =
                     mapOf(
                         "schema" to 1,
-                        "appId" to "com.metrolist.desktop",
+                        "appId" to "nev-minhnh.MinMusic",
                         "version" to manifestVersion,
                         "platform" to "windows",
                         "architecture" to "x86_64",
-                        "launcher" to "Metrolist.exe",
+                        "launcher" to "MinMusic.exe",
                     )
                 output.writeText(JsonOutput.prettyPrint(JsonOutput.toJson(manifest)) + "\n")
             }
         }
-    val appDir = layout.buildDirectory.dir("compose/binaries/$appDirectory/app/Metrolist")
+    val appDir = layout.buildDirectory.dir("compose/binaries/$appDirectory/app/MinMusic")
     tasks.register<Zip>(taskName) {
         group = "distribution"
         description = "Assembles the $buildType portable Windows ZIP."
@@ -317,7 +317,7 @@ fun registerWindowsPortableArchive(
                 throw GradleException("$taskName can only run on Windows")
             }
             val directory = appDir.get().asFile
-            if (!directory.isDirectory || !directory.resolve("Metrolist.exe").isFile) {
+            if (!directory.isDirectory || !directory.resolve("MinMusic.exe").isFile) {
                 throw GradleException("Windows application directory is incomplete at ${directory.absolutePath}")
             }
             val requiredLoginHelperResources =
@@ -346,7 +346,7 @@ registerWindowsPortableArchive(
     buildType = "Release",
     distributableTask = "createReleaseDistributable",
     appDirectory = "main-release",
-    archiveName = "Metrolist-Desktop-Windows.zip",
+    archiveName = "MinMusic-Desktop-Windows.zip",
 )
 
 registerWindowsPortableArchive(
@@ -354,5 +354,5 @@ registerWindowsPortableArchive(
     buildType = "Debug",
     distributableTask = "createDistributable",
     appDirectory = "main",
-    archiveName = "Metrolist-Desktop-Windows-Debug.zip",
+    archiveName = "MinMusic-Desktop-Windows-Debug.zip",
 )
