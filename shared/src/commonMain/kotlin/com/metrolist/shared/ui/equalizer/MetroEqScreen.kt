@@ -62,6 +62,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -215,6 +216,7 @@ import com.metrolist.shared.ui.utils.verticalScrollWithDrag
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.jetbrains.compose.resources.StringResource
@@ -256,6 +258,10 @@ fun MetroEqScreen(
                 runCatching { EqualizerProfiles.importText(fileName, content) }
                     .fold({ null }, { Res.string.equalizer_invalid_profile })
         }
+    LaunchedEffect(Unit) {
+        // An import error no longer applies once another profile is active.
+        snapshotFlow { EqualizerProfiles.activeProfileId }.drop(1).collect { importError = null }
+    }
     Column(Modifier.fillMaxSize()) {
         if (!isAudioProcessingAvailable) {
             Text(
@@ -277,7 +283,10 @@ fun MetroEqScreen(
                     onImportFile = pickFile,
                     onSearchAutoEq =
                         if (allowAutoEqSearch) {
-                            { searchingAutoEq = true }
+                            {
+                                importError = null
+                                searchingAutoEq = true
+                            }
                         } else {
                             null
                         },
@@ -331,7 +340,14 @@ private fun ProfilesPage(
     var saveAs by remember { mutableStateOf(false) }
     var profileName by remember(activeId, currentTitle) { mutableStateOf(currentTitle ?: customProfileName) }
     var pendingProfileChange by remember { mutableStateOf<(() -> Unit)?>(null) }
-    var exportMessage by remember { mutableStateOf<StringResource?>(null) }
+    // Export results belong to the profile they were made from and fade after a few seconds.
+    var exportMessage by remember(activeId) { mutableStateOf<StringResource?>(null) }
+    LaunchedEffect(exportMessage) {
+        if (exportMessage != null) {
+            delay(MESSAGE_VISIBLE_MILLIS)
+            exportMessage = null
+        }
+    }
     val exportActions = LocalMetroEqExportActions.current
     val history = remember { EqualizerEditHistory() }
     LaunchedEffect(activeProfile) {
@@ -681,6 +697,7 @@ private fun ProfilesPage(
 }
 
 private const val EDIT_SETTLE_MILLIS = 600L
+private const val MESSAGE_VISIBLE_MILLIS = 4_000L
 private const val MAX_UNDO_STEPS = 50
 
 private fun EqualizerProfile.withoutOutputGain() = copy(outputGainDb = null)
