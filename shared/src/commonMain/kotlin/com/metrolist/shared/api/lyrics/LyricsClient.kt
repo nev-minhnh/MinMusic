@@ -39,6 +39,9 @@ interface LyricsFetcher {
         provider: LyricsProvider = LyricsProvider.AUTO,
         isVideoContext: Boolean = false,
     ): List<LyricsWithProvider> = listOfNotNull(getLyrics(title, artist, duration, album, videoId, provider, isVideoContext))
+
+    /** False for a provider this build cannot use (Lyprio without its endpoint/key), so lookups skip it at once. */
+    fun isProviderAvailable(provider: LyricsProvider): Boolean = true
 }
 
 class LyricsClient(
@@ -56,6 +59,8 @@ class LyricsClient(
     private val paxsenixLyricsProvider = PaxsenixLyricsProvider(httpClient)
     private val youtubeLyricsProvider = YouTubeLyricsProvider(youtubeLyricsApi)
     private val youtubeSubtitleLyricsProvider = YouTubeSubtitleLyricsProvider(youtubeLyricsApi)
+
+    override fun isProviderAvailable(provider: LyricsProvider): Boolean = provider != LyricsProvider.LYPRIO || lyprioLyricsProvider != null
 
     // Lyrics sources fail for many outside reasons; their errors and timeouts are not worth logging.
     override suspend fun getLyrics(
@@ -138,7 +143,7 @@ class LyricsClient(
                         LyricsProvider.parseUserOrderFromStoredCsv(Settings.shared.lyricsProviderOrder),
                         LyricsProvider.parseEnabledFromStoredCsv(Settings.shared.lyricsEnabledProviders),
                     )
-                for (candidate in providers) {
+                for (candidate in providers.filter { isProviderAvailable(it) }) {
                     try {
                         for (result in listOfNotNull(getLyrics(title, artist, duration, album, videoId, candidate, isVideoContext))) {
                             val parsed = LyricsUtils.parseLyrics(result.lyrics)
