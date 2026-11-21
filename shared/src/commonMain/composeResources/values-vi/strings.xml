@@ -2608,4 +2608,8 @@
     <string name="theme_color_minmusic">MinMusic</string>
     <string name="app_font_reset_default_description">Dùng phông chữ mặc định (Be Vietnam Pro) và xóa phông chữ đã nhập</string>
     <string name="app_font_reset_default_confirm">Xóa phông chữ đã nhập và dùng phông chữ mặc định?</string>
+    <string name="mm_player_playing_from">Đang phát từ</string>
+    <string name="mm_player_this_device">Thiết bị này</string>
+    <string name="mm_player_lyrics_peek_hint">Vuốt lên để mở</string>
+    <string name="mm_player_lyrics_peek_empty">Chạm để mở lời bài hát</string>
 </resources>

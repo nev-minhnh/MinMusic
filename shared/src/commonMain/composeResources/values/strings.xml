@@ -5693,4 +5693,18 @@
     <string name="app_font_reset_default_description">Use the default font (Be Vietnam Pro) and remove the imported font</string>
     <!-- Translators: Confirmation shown before resetting to the default font. -->
     <string name="app_font_reset_default_confirm">Remove the imported font and use the default font?</string>
+    <!-- Translators: Overline above the queue name at the top of the full player, e.g. "Playing from" + "Chill weekend". Shown in capitals. -->
+    <string name="mm_player_playing_from">Playing from</string>
+    <!-- Translators: Output device chip in the full player when nothing is cast and the output has no name. -->
+    <string name="mm_player_this_device">This device</string>
+    <!-- Equalizer chip in the full player when no profile is active. -->
+    <string name="mm_player_eq_chip" translatable="false">EQ</string>
+    <!-- Equalizer chip in the full player; %1$s is the active equalizer profile name. -->
+    <string name="mm_player_eq_chip_profile" translatable="false">EQ · %1$s</string>
+    <!-- Translators: Hint on the lyrics card at the bottom of the full player. -->
+    <string name="mm_player_lyrics_peek_hint">Swipe up to open</string>
+    <!-- Translators: Lyrics card text when the current lyric line is not known yet. -->
+    <string name="mm_player_lyrics_peek_empty">Tap to open lyrics</string>
+    <!-- Remaining playback time under the player progress bar; %1$s is a duration such as 1:55. -->
+    <string name="mm_player_time_remaining" translatable="false">−%1$s</string>
 </resources>
