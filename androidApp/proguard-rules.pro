@@ -19,3 +19,15 @@
 
 # ScrobbleManager uses coroutine lambdas that R8 may strip as unreachable.
 -keep class com.metrolist.shared.scrobble.ScrobbleManager$** { *; }
+
+# NewPipeExtractor (SoundCloud source). Rhino resolves its own runtime classes by
+# name, so keep it whole; javax.script, java.beans and jdk.dynalink do not exist
+# on Android and are only reached from desktop-only Rhino entry points.
+-keep class org.mozilla.javascript.** { *; }
+-keep class org.mozilla.classfile.ClassFileWriter
+-dontwarn org.mozilla.javascript.JavaToJSONConverters
+-dontwarn org.mozilla.javascript.tools.**
+-dontwarn javax.script.**
+-dontwarn java.beans.**
+-dontwarn jdk.dynalink.**
+-dontwarn javax.annotation.**

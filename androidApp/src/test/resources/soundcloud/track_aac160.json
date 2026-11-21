@@ -1,0 +1,68 @@
+{
+ "artwork_url": "https://i1.sndcdn.com/artworks-Q6DOEbZ6HmKyhJPL-qiLKyQ-large.jpg",
+ "duration": 216190,
+ "full_duration": 216144,
+ "id": 2398021050,
+ "kind": "track",
+ "media": {
+  "transcodings": [
+   {
+    "url": "https://api-v2.soundcloud.com/media/soundcloud:tracks:2398021050/6e3f518f-5ac1-49b4-80d8-a587837a5c35/stream/hls",
+    "preset": "aac_160k",
+    "duration": 216190,
+    "snipped": false,
+    "format": {
+     "protocol": "hls",
+     "mime_type": "audio/mp4; codecs=\"mp4a.40.2\""
+    },
+    "quality": "sq"
+   },
+   {
+    "url": "https://api-v2.soundcloud.com/media/soundcloud:tracks:2398021050/dc6112bf-0d2c-41a3-bded-61e9cdad2bcf/stream/hls",
+    "preset": "aac_96k",
+    "duration": 216190,
+    "snipped": false,
+    "format": {
+     "protocol": "hls",
+     "mime_type": "audio/mp4; codecs=\"mp4a.40.2\""
+    },
+    "quality": "lq"
+   },
+   {
+    "url": "https://api-v2.soundcloud.com/media/soundcloud:tracks:2398021050/d9727722-19ad-4e71-9ad3-2f498171442c/stream/hls",
+    "preset": "abr_sq",
+    "duration": 216190,
+    "snipped": false,
+    "format": {
+     "protocol": "hls",
+     "mime_type": "audio/mpegurl"
+    },
+    "quality": "sq"
+   }
+  ]
+ },
+ "permalink_url": "https://soundcloud.com/abcxyz16/gi-nh-anh-l-em-lofi-hot-tiktok",
+ "policy": "ALLOW",
+ "publisher_metadata": {
+  "id": 2398021050,
+  "artist": "S"
+ },
+ "streamable": true,
+ "title": "Giá Như Anh Là Em |Lofi .| - Lệ Quyên",
+ "track_authorization": "fixture-track-authorization",
+ "user": {
+  "id": 1210135090,
+  "username": "Olise",
+  "permalink_url": "https://soundcloud.com/abcxyz16",
+  "avatar_url": "https://i1.sndcdn.com/avatars-UMWQ688VTtMQbCie-iW56zA-large.jpg",
+  "verified": false
+ },
+ "created_at": "2026-09-10T16:11:42Z",
+ "description": "",
+ "genre": null,
+ "tag_list": "",
+ "sharing": "public",
+ "playback_count": 926077,
+ "likes_count": 7366,
+ "downloadable": false
+}

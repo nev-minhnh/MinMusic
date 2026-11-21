@@ -1,0 +1,138 @@
+[
+ {
+  "artwork_url": null,
+  "duration": 79618,
+  "full_duration": 79621,
+  "id": 1080322432,
+  "kind": "track",
+  "media": {
+   "transcodings": [
+    {
+     "url": "https://api-v2.soundcloud.com/media/soundcloud:tracks:1080322432/09d6b717-65f1-4348-8353-287709622a0f/stream/hls",
+     "preset": "aac_160k",
+     "duration": 79618,
+     "snipped": false,
+     "format": {
+      "protocol": "hls",
+      "mime_type": "audio/mp4; codecs=\"mp4a.40.2\""
+     },
+     "quality": "sq"
+    },
+    {
+     "url": "https://api-v2.soundcloud.com/media/soundcloud:tracks:1080322432/f9de870e-26e4-4de9-82a9-41b5f662b832/stream/hls",
+     "preset": "aac_96k",
+     "duration": 79618,
+     "snipped": false,
+     "format": {
+      "protocol": "hls",
+      "mime_type": "audio/mp4; codecs=\"mp4a.40.2\""
+     },
+     "quality": "lq"
+    },
+    {
+     "url": "https://api-v2.soundcloud.com/media/soundcloud:tracks:1080322432/0b36cdfc-5d14-4e7a-a1ea-be38f3a0fb19/stream/hls",
+     "preset": "abr_sq",
+     "duration": 79618,
+     "snipped": false,
+     "format": {
+      "protocol": "hls",
+      "mime_type": "audio/mpegurl"
+     },
+     "quality": "sq"
+    }
+   ]
+  },
+  "permalink_url": "https://soundcloud.com/david_sanya/certain",
+  "policy": "ALLOW",
+  "publisher_metadata": {
+   "id": 1080322432,
+   "artist": "David Sanya"
+  },
+  "streamable": true,
+  "title": "𝘾𝙚𝙧𝙩𝙖𝙞𝙣 // 𝘿𝙖𝙫𝙞𝙙 𝙎𝙖𝙣𝙮𝙖 // 𝘿𝙖𝙫𝙞𝙙𝙎𝙖𝙣𝙮𝙖𝘽𝙚𝙖𝙩𝙨.𝙘𝙤𝙢",
+  "track_authorization": "fixture-track-authorization",
+  "user": {
+   "id": 171315858,
+   "username": "𝘿𝙖𝙫𝙞𝙙 𝙎𝙖𝙣𝙮𝙖",
+   "permalink_url": "https://soundcloud.com/david_sanya",
+   "avatar_url": "https://i1.sndcdn.com/avatars-7y5CtP96sP3eFh97-e29oZQ-large.jpg",
+   "verified": false
+  },
+  "created_at": "2021-07-02T18:10:02Z",
+  "description": "",
+  "genre": "World",
+  "tag_list": "\"lofi hip hop\" Lo-Fi lofi Germany \"German music\"",
+  "sharing": "public",
+  "playback_count": null,
+  "likes_count": null,
+  "downloadable": false
+ },
+ {
+  "artwork_url": null,
+  "duration": 105062,
+  "full_duration": 105064,
+  "id": 951866101,
+  "kind": "track",
+  "media": {
+   "transcodings": [
+    {
+     "url": "https://api-v2.soundcloud.com/media/soundcloud:tracks:951866101/7d1f7257-7adc-4c38-b52c-f9fe892ba72f/stream/hls",
+     "preset": "aac_160k",
+     "duration": 105062,
+     "snipped": false,
+     "format": {
+      "protocol": "hls",
+      "mime_type": "audio/mp4; codecs=\"mp4a.40.2\""
+     },
+     "quality": "sq"
+    },
+    {
+     "url": "https://api-v2.soundcloud.com/media/soundcloud:tracks:951866101/3a63d836-f8e6-4511-a893-9bae94224ebb/stream/hls",
+     "preset": "aac_96k",
+     "duration": 105062,
+     "snipped": false,
+     "format": {
+      "protocol": "hls",
+      "mime_type": "audio/mp4; codecs=\"mp4a.40.2\""
+     },
+     "quality": "lq"
+    },
+    {
+     "url": "https://api-v2.soundcloud.com/media/soundcloud:tracks:951866101/05fd729f-c1a1-4104-a418-b6940e246624/stream/hls",
+     "preset": "abr_sq",
+     "duration": 105062,
+     "snipped": false,
+     "format": {
+      "protocol": "hls",
+      "mime_type": "audio/mpegurl"
+     },
+     "quality": "sq"
+    }
+   ]
+  },
+  "permalink_url": "https://soundcloud.com/david_sanya/save",
+  "policy": "ALLOW",
+  "publisher_metadata": {
+   "id": 951866101,
+   "artist": "David Sanya, Mas. Charade"
+  },
+  "streamable": true,
+  "title": "𝙎𝙖𝙫𝙚 // 𝘿𝙖𝙫𝙞𝙙 𝙎𝙖𝙣𝙮𝙖 // 𝘿𝙖𝙫𝙞𝙙𝙎𝙖𝙣𝙮𝙖𝘽𝙚𝙖𝙩𝙨.𝙘𝙤𝙢",
+  "track_authorization": "fixture-track-authorization",
+  "user": {
+   "id": 171315858,
+   "username": "𝘿𝙖𝙫𝙞𝙙 𝙎𝙖𝙣𝙮𝙖",
+   "permalink_url": "https://soundcloud.com/david_sanya",
+   "avatar_url": "https://i1.sndcdn.com/avatars-7y5CtP96sP3eFh97-e29oZQ-large.jpg",
+   "verified": false
+  },
+  "created_at": "2020-12-21T20:04:30Z",
+  "description": "",
+  "genre": "Triphop",
+  "tag_list": "Downtempo",
+  "sharing": "public",
+  "playback_count": null,
+  "likes_count": null,
+  "downloadable": false
+ }
+]
