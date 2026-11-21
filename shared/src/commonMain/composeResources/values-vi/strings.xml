@@ -2550,4 +2550,6 @@
     <string name="metroeq_crossfeed_default">Mặc định (700 Hz, 4,5 dB)</string>
     <string name="metroeq_crossfeed_chu_moy">Chu Moy (700 Hz, 6 dB)</string>
     <string name="metroeq_crossfeed_jan_meier">Jan Meier (650 Hz, 9,5 dB)</string>
+    <string name="metroeq_output_gain">Âm lượng đầu ra</string>
+    <string name="metroeq_output_gain_summary">Mức tăng âm lượng cuối cùng, sau bộ chỉnh âm và preamp của hồ sơ</string>
 </resources>

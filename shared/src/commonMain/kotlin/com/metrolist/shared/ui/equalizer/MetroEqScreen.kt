@@ -116,7 +116,6 @@ import com.metrolist.shared.equalizer.withAdjustedGain
 import com.metrolist.shared.generated.resources.Res
 import com.metrolist.shared.generated.resources.add
 import com.metrolist.shared.generated.resources.adjust_audio_equalizer
-import com.metrolist.shared.generated.resources.audio_boost
 import com.metrolist.shared.generated.resources.back
 import com.metrolist.shared.generated.resources.cancel
 import com.metrolist.shared.generated.resources.close
@@ -150,6 +149,8 @@ import com.metrolist.shared.generated.resources.metroeq_frequency_value
 import com.metrolist.shared.generated.resources.metroeq_gain
 import com.metrolist.shared.generated.resources.metroeq_output_bluetooth
 import com.metrolist.shared.generated.resources.metroeq_output_device
+import com.metrolist.shared.generated.resources.metroeq_output_gain
+import com.metrolist.shared.generated.resources.metroeq_output_gain_summary
 import com.metrolist.shared.generated.resources.metroeq_output_other
 import com.metrolist.shared.generated.resources.metroeq_output_speaker
 import com.metrolist.shared.generated.resources.metroeq_output_usb
@@ -1528,26 +1529,6 @@ private fun PreampControl(
         color = MaterialTheme.colorScheme.surfaceContainer,
     ) {
         Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    stringResource(Res.string.audio_boost),
-                    style = MaterialTheme.typography.titleSmall,
-                    modifier = Modifier.weight(1f).padding(end = 12.dp),
-                )
-                Text(
-                    stringResource(Res.string.loudness_value, preamp.toString()),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.primary,
-                )
-            }
-            Slider(
-                state = preampSliderState,
-                onValueChange = {
-                    preampSliderState.value = it
-                    EqualizerProfiles.setPreamp(it.toDouble())
-                },
-                modifier = Modifier.retainPlaybackKeyFocus(),
-            )
             if (profile != null) {
                 val profilePreamp = profile.preamp.coerceIn(MIN_PROFILE_PREAMP_DB, MAX_PROFILE_PREAMP_DB).toFloat()
                 val profilePreampSliderState =
@@ -1594,6 +1575,33 @@ private fun PreampControl(
                     modifier = Modifier.retainPlaybackKeyFocus(),
                 )
             }
+            // Output gain is applied after the profile, so it sits below the profile preamp.
+            Row(
+                Modifier.fillMaxWidth().padding(top = if (profile != null) 8.dp else 0.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(Modifier.weight(1f).padding(end = 12.dp)) {
+                    Text(stringResource(Res.string.metroeq_output_gain), style = MaterialTheme.typography.titleSmall)
+                    Text(
+                        stringResource(Res.string.metroeq_output_gain_summary),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Text(
+                    stringResource(Res.string.loudness_value, preamp.toString()),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            }
+            Slider(
+                state = preampSliderState,
+                onValueChange = {
+                    preampSliderState.value = it
+                    EqualizerProfiles.setPreamp(it.toDouble())
+                },
+                modifier = Modifier.retainPlaybackKeyFocus(),
+            )
             Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f).padding(end = 12.dp)) {
                     Text(stringResource(Res.string.metroeq_limiter), style = MaterialTheme.typography.titleSmall)

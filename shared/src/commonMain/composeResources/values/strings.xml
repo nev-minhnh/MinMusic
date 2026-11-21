@@ -5568,4 +5568,6 @@
     <string name="metroeq_crossfeed_default">Default (700 Hz, 4.5 dB)</string>
     <string name="metroeq_crossfeed_chu_moy">Chu Moy (700 Hz, 6 dB)</string>
     <string name="metroeq_crossfeed_jan_meier">Jan Meier (650 Hz, 9.5 dB)</string>
+    <string name="metroeq_output_gain">Output gain</string>
+    <string name="metroeq_output_gain_summary">Final volume boost after the equalizer and profile preamp</string>
 </resources>
