@@ -20,6 +20,8 @@ import com.metrolist.shared.api.lyrics.LyricsTranslationClient
 import com.metrolist.shared.api.lyrics.YouTubeLyricsApi
 import com.metrolist.shared.api.musicvideo.MusicVideoResolver
 import com.metrolist.shared.repository.LyricsRepository
+import com.metrolist.shared.source.SourceRegistry
+import com.metrolist.shared.source.SourceRoutingStreamResolver
 import com.metrolist.shared.state.GlobalYouTube
 import com.metrolist.shared.youtube.logging.MetrolistInnerTubeLogger
 import com.metrolist.shared.youtube.lyrics.InnerTubeLyricsApi
@@ -71,14 +73,21 @@ val sharedModule =
             )
         }
 
+        single { SourceRegistry() }
+
         single<StreamResolver> {
-            DefaultStreamResolver(
-                extractor = get(),
-                innerTube = get(),
-                tokenProvider = getOrNull(),
-                clientHealthTracker = get(),
-                playerConfigRefresh = { get<YouTubeCipherService>().refreshAfterStreamRejection() },
-                musicVideoResolver = get(),
+            SourceRoutingStreamResolver(
+                delegate =
+                    DefaultStreamResolver(
+                        extractor = get(),
+                        innerTube = get(),
+                        tokenProvider = getOrNull(),
+                        clientHealthTracker = get(),
+                        playerConfigRefresh = { get<YouTubeCipherService>().refreshAfterStreamRejection() },
+                        musicVideoResolver = get(),
+                        localAudioSource = getOrNull<LocalAudioSource>(),
+                    ),
+                registry = get(),
                 localAudioSource = getOrNull<LocalAudioSource>(),
             )
         }
