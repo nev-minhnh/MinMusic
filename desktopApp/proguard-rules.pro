@@ -74,3 +74,12 @@
 -dontwarn com.charleskorn.kaml.**
 
 -keepattributes Exceptions,InnerClasses,Signature,EnclosingMethod,*Annotation*
+
+# NewPipeExtractor (SoundCloud source). Rhino resolves its own runtime classes by name, so keep it whole.
+-keep class org.schabi.newpipe.extractor.** { *; }
+-keep class org.mozilla.javascript.** { *; }
+-keep class org.mozilla.classfile.ClassFileWriter
+-dontwarn org.mozilla.javascript.**
+-dontwarn org.schabi.newpipe.extractor.**
+-dontwarn com.google.re2j.**
+-dontwarn javax.annotation.**

@@ -1,4 +1,4 @@
-package com.metrolist.android.source.soundcloud
+package com.metrolist.shared.source.soundcloud
 
 import com.metrolist.shared.generated.resources.Res
 import com.metrolist.shared.generated.resources.mm_chart_sc_trending

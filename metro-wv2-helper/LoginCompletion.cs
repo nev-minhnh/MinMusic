@@ -29,6 +29,17 @@ namespace MetroWv2Helper
             }
         }
 
+        // Cookies zingmp3.vn sets only for a logged-in session; the visitor cookies (zmp3_rqid, zmp3_app_version) never
+        // match. Mirrors Android's ZingCookieStore.SESSION_COOKIE_NAMES; the app confirms the login via the profile API.
+        private static readonly string[] ZingSessionCookieNames = { "zmp3_sid", "zpsid" };
+
+        /// <summary>The full zingmp3.vn cookie header once a session cookie is present, otherwise null.</summary>
+        public static string? ReadZingCookieHeader(IReadOnlyDictionary<string, string> cookies)
+        {
+            if (!ZingSessionCookieNames.Any(name => cookies.TryGetValue(name, out var value) && !string.IsNullOrWhiteSpace(value))) return null;
+            return string.Join("; ", cookies.Where(kv => !string.IsNullOrEmpty(kv.Key)).Select(kv => $"{kv.Key}={kv.Value}"));
+        }
+
         public static YouTubeCredentials? ReadYouTubeCredentials(IReadOnlyDictionary<string, string> cookies, string snapshot)
         {
             if (!new[] { "SAPISID", "__Secure-3PAPISID", "__Secure-1PAPISID" }

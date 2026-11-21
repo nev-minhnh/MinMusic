@@ -1,4 +1,4 @@
-package com.metrolist.android.source.nct
+package com.metrolist.shared.source.nct
 
 import com.metrolist.shared.model.AlbumItem
 import com.metrolist.shared.model.AlbumPage
@@ -18,14 +18,6 @@ import com.metrolist.shared.source.SourceId
 import com.metrolist.shared.source.SourcePage
 import com.metrolist.shared.source.SourcePlaylist
 import com.metrolist.shared.source.SourceQuality
-import com.metrolist.shared.source.nct.NCT_ID_PREFIX
-import com.metrolist.shared.source.nct.NctArtist
-import com.metrolist.shared.source.nct.NctClient
-import com.metrolist.shared.source.nct.NctEntitlement
-import com.metrolist.shared.source.nct.NctException
-import com.metrolist.shared.source.nct.NctPlaylist
-import com.metrolist.shared.source.nct.NctSong
-import com.metrolist.shared.source.nct.NctStream
 import com.metrolist.shared.source.sourceNetworkFailure
 import com.metrolist.shared.source.sourceUnavailable
 import com.metrolist.shared.youtube.playback.PlaybackResource

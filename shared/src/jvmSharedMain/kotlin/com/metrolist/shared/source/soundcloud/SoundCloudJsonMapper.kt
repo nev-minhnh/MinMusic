@@ -1,4 +1,4 @@
-package com.metrolist.android.source.soundcloud
+package com.metrolist.shared.source.soundcloud
 
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray

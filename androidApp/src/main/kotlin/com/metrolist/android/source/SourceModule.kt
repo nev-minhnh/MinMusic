@@ -2,13 +2,13 @@ package com.metrolist.android.source
 
 import com.metrolist.android.source.credentials.AndroidNctTokenStore
 import com.metrolist.android.source.credentials.ZingCookieStore
-import com.metrolist.android.source.nct.NctSource
-import com.metrolist.android.source.soundcloud.SoundCloudClient
-import com.metrolist.android.source.soundcloud.SoundCloudSource
-import com.metrolist.android.source.zing.ZingSource
 import com.metrolist.shared.source.MusicSource
 import com.metrolist.shared.source.nct.NctClient
+import com.metrolist.shared.source.nct.NctSource
+import com.metrolist.shared.source.soundcloud.SoundCloudClient
+import com.metrolist.shared.source.soundcloud.SoundCloudSource
 import com.metrolist.shared.source.zing.ZingClient
+import com.metrolist.shared.source.zing.ZingSource
 import org.koin.android.ext.koin.androidContext
 import org.koin.dsl.bind
 import org.koin.dsl.module

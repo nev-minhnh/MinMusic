@@ -8,6 +8,8 @@ package com.metrolist.desktop.storage
 import com.metrolist.desktop.utils.AppLogger
 import com.metrolist.innertubex.extraction.AudioQuality
 import com.metrolist.shared.db.MusicDatabase
+import com.metrolist.shared.db.entities.FormatEntity
+import com.metrolist.shared.db.entities.LyricsEntity
 import com.metrolist.shared.db.upsertHistorySong
 import com.metrolist.shared.db.withDatabaseTransaction
 import com.metrolist.shared.model.AlbumTiny
@@ -23,11 +25,13 @@ import com.metrolist.shared.network.sharedHttpTransportHandlesFailures
 import com.metrolist.shared.playback.downloadSabrAudio
 import com.metrolist.shared.repository.LyricsRepository
 import com.metrolist.shared.settings.Settings
+import com.metrolist.shared.source.isForeignSourceId
 import com.metrolist.shared.state.GlobalYouTubeRepository
 import com.metrolist.shared.storage.DownloadedPlaylists
 import com.metrolist.shared.utils.XdgUtils
 import com.metrolist.shared.youtube.extraction.models.toContentHints
 import com.metrolist.shared.youtube.playback.PlaybackResource
+import com.metrolist.shared.youtube.playback.toCachedFormatEntity
 import io.ktor.client.HttpClient
 import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.request.headers
@@ -51,6 +55,7 @@ import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
@@ -165,6 +170,24 @@ data class DownloadedFile(
         )
     }
 }
+
+/** A user-created album (isUserAlbum playlist) that replaces the album tags of exported songs, numbered in list order. */
+data class UserAlbumExport(
+    val name: String,
+    val artworkUrl: String?,
+)
+
+data class SaveToFolderResult(
+    val saved: Int,
+    val failed: Int,
+)
+
+internal data class UserAlbumTrack(
+    val name: String,
+    val artworkUrl: String?,
+    val trackNumber: Int,
+    val trackTotal: Int,
+)
 
 internal data class HttpByteRange(
     val start: Long,
@@ -281,11 +304,11 @@ object DownloadManager {
                 AppLogger.error("DownloadManager", "Download catalog is unavailable; metadata changes are blocked until it can be read", it)
                 emptyList()
             }
-        _downloadedFiles.value = loaded.filter { isValidSongId(it.songId) }
+        _downloadedFiles.value = loaded.filter { isValidDownloadSongId(it.songId) }
         _downloadStates.value =
             loaded
                 .filter { entry ->
-                    isValidSongId(entry.songId) &&
+                    isValidDownloadSongId(entry.songId) &&
                         safePersistedFile(entry.audioFilePath)?.let { it.isFile && it.length() >= MIN_AUDIO_BYTES } == true
                 }.associate { it.songId to DownloadState.DOWNLOADED }
         scope.launch {
@@ -300,6 +323,12 @@ object DownloadManager {
 
     internal fun isValidSongId(songId: String): Boolean =
         songId.isNotBlank() && songId.length <= 128 && songId.all { it.isLetterOrDigit() || it == '-' || it == '_' }
+
+    /** Also accepts the `sc:` / `zing:` / `nct:` ids of other sources; file names use [fileSafeId] instead. */
+    internal fun isValidDownloadSongId(songId: String): Boolean = isValidSongId(fileSafeId(songId))
+
+    // ':' cannot appear in Windows file names (it would open an NTFS alternate data stream).
+    private fun fileSafeId(songId: String): String = songId.replace(':', '_')
 
     private fun fileInDownloadDir(
         name: String,
@@ -317,22 +346,29 @@ object DownloadManager {
         songId: String,
     ): String {
         val rawTitle = title.takeIf(String::isNotBlank) ?: songId
-        val rawName = artist.takeIf(String::isNotBlank)?.let { "$rawTitle by $it" } ?: rawTitle
+        // "Artist - Title", as Android names its downloads.
+        val rawName = artist.takeIf(String::isNotBlank)?.let { "$it - $rawTitle" } ?: rawTitle
         val sanitized =
             rawName
                 .replace(Regex("""[\u0000-\u001F\u007F<>:"/\\|?*]"""), "_")
                 .replace(Regex("""\s+"""), " ")
                 .trim()
                 .trimEnd('.', ' ')
-                .ifBlank { songId }
+                .ifBlank { fileSafeId(songId) }
                 .let { if (WINDOWS_RESERVED_FILE_NAME.matches(it)) "_$it" else it }
         return truncateUtf8(sanitized, MAX_AUDIO_BASE_NAME_BYTES)
     }
 
-    private fun reserveM4aDestination(song: SongItem): File {
-        val artist = song.artists.joinToString(", ") { it.name }
+    /** Creates an empty "Artist - Title[ id].ext" in [directory] (the download folder by default) and returns it. */
+    private fun reserveAudioDestination(
+        song: SongItem,
+        extension: String,
+        directory: File? = null,
+        artist: String = song.artists.joinToString(", ") { it.name },
+    ): File {
         val baseName = buildAudioBaseName(song.title, artist, song.id)
-        val idSuffix = song.id.take(8)
+        val idSuffix = fileSafeId(song.id).take(8)
+        val base = directory?.canonicalFile
         repeat(MAX_FILE_NAME_ATTEMPTS) { attempt ->
             val suffix =
                 when (attempt) {
@@ -340,7 +376,13 @@ object DownloadManager {
                     1 -> " [$idSuffix]"
                     else -> " [$idSuffix-$attempt]"
                 }
-            val candidate = fileInDownloadDir("$baseName$suffix.m4a")
+            val name = "$baseName$suffix$extension"
+            val candidate =
+                if (base == null) {
+                    fileInDownloadDir(name)
+                } else {
+                    File(base, name).canonicalFile.also { require(it.parentFile == base) { "Invalid export path" } }
+                }
             try {
                 Files.createFile(candidate.toPath())
                 return candidate
@@ -633,7 +675,7 @@ object DownloadManager {
 
     private fun mutateMetadata(block: (MutableList<DownloadedFile>) -> Unit) =
         synchronized(metadataLock) {
-            _downloadedFiles.value = metadataStore.mutate(block).filter { isValidSongId(it.songId) }
+            _downloadedFiles.value = metadataStore.mutate(block).filter { isValidDownloadSongId(it.songId) }
         }
 
     fun isDownloaded(songId: String): Boolean = _downloadStates.value[songId] == DownloadState.DOWNLOADED
@@ -653,13 +695,6 @@ object DownloadManager {
         return getDownloadMetadata(songId)?.toPlaybackResource(storedAudioReportingSong(song, database))?.copy(url = path)
     }
 
-    private fun resolveAudioQuality(): AudioQuality =
-        try {
-            AudioQuality.valueOf(Settings.shared.audioQuality)
-        } catch (_: Exception) {
-            AudioQuality.AUTO
-        }
-
     private suspend fun resolvePlaybackResource(
         song: SongItem,
         refresh: Boolean,
@@ -670,7 +705,230 @@ object DownloadManager {
                 .toContentHints()
                 .copy(wantVideo = false, playbackClientOverrideId = null, sabrFirst = false)
                 .withStreamCapabilities(allowHls = false, allowSabr = true, allowBoundedRange = true)
-        return resolver.resolveRemote(song.id, hints, resolveAudioQuality(), sourceSong = song, refresh = refresh)
+        // Downloads always ask for the best non-Premium stream (YouTube: Opus itag 251), like Android, whatever the
+        // streaming quality setting; other sources answer with their best tier the session may play.
+        return resolver.resolveRemote(song.id, hints, AudioQuality.AUTO, sourceSong = song, refresh = refresh)
+    }
+
+    private fun PlaybackResource.isHlsAudio(): Boolean =
+        mimeType.orEmpty().contains("mpegurl", ignoreCase = true) || url.substringBefore('?').endsWith(".m3u8", ignoreCase = true)
+
+    /** Stream-copies an HLS audio stream into [target] in its natural container (untagged; tagged in [storeAudio]). */
+    private suspend fun downloadHlsAudio(
+        resource: PlaybackResource,
+        target: File,
+        onProgress: (Float) -> Unit,
+    ) = withContext(Dispatchers.IO) {
+        if (!resource.url.startsWith("https://", ignoreCase = true)) throw IOException("Unsupported download transport")
+        AudioRemuxSource.open(resource.url, resource.headers).use { input ->
+            input.remuxTo(target, DownloadTags(title = "", artist = "", album = null), onProgress)
+        }
+        if (target.length() < MIN_AUDIO_BYTES || target.length() > MAX_AUDIO_BYTES) {
+            target.delete()
+            throw IOException("Downloaded HLS audio has an unexpected size")
+        }
+    }
+
+    private class StoredAudio(
+        val file: File,
+        val mimeType: String,
+        val codecs: String,
+        /** Bitrate of the stored stream when known; null for stream copies that do not declare one. */
+        val bitrate: Int?,
+        val sampleRate: Int?,
+        val durationMs: Long?,
+        val transcoded: Boolean = false,
+    )
+
+    /**
+     * Stores [source] as "Artist - Title.ext" in the download folder without re-encoding (see [AudioRemuxSource]):
+     * Opus -> .opus, AAC -> .m4a, MP3 -> .mp3, FLAC -> .flac, all with [tags]. Only codecs without a stream-copy
+     * container (never seen from YouTube, SoundCloud, Zing or NCT) fall back to the old AAC transcode.
+     */
+    private suspend fun storeAudio(
+        source: File,
+        song: SongItem,
+        tags: DownloadTags,
+        onProgress: (Float) -> Unit,
+    ): StoredAudio =
+        withContext(Dispatchers.IO) {
+            val input = AudioRemuxSource.open(source.path)
+            try {
+                val format = input.format
+                if (format == null) {
+                    input.close()
+                    AppLogger.warning("DownloadManager", "Audio codec has no stream-copy container; transcoding to AAC")
+                    val destination = reserveAudioDestination(song, ".m4a")
+                    try {
+                        AudioDownloadTranscoder.transcodeToM4a(source, destination, song, onProgress)
+                    } catch (e: Throwable) {
+                        destination.delete()
+                        throw e
+                    }
+                    return@withContext StoredAudio(
+                        destination,
+                        "audio/mp4",
+                        "mp4a.40.2",
+                        TRANSCODED_AAC_BITRATE,
+                        null,
+                        null,
+                        transcoded = true,
+                    )
+                }
+                val destination = reserveAudioDestination(song, format.extension)
+                val temp = fileInDownloadDir(".${fileSafeId(song.id)}.${System.nanoTime()}.tmp${format.extension}")
+                try {
+                    exportTaggedAudio(input, source, temp, tags, onProgress)
+                    check(promoteTempFile(temp, destination, MIN_AUDIO_BYTES)) { "Failed to finalize the download" }
+                } catch (e: Throwable) {
+                    destination.delete()
+                    throw e
+                } finally {
+                    temp.delete()
+                }
+                StoredAudio(destination, format.mimeType, format.codecs, input.bitrate, input.sampleRate, input.durationMs)
+            } finally {
+                input.close()
+            }
+        }
+
+    /** The format row of a stored download; lossless and HLS streams without a declared bitrate get the file average. */
+    private fun downloadFormat(
+        song: SongItem,
+        resource: PlaybackResource,
+        stored: StoredAudio,
+    ): FormatEntity? {
+        val bytes = stored.file.length().takeIf { it > 0 } ?: return null
+        val seconds = (stored.durationMs?.div(1000) ?: song.duration)?.takeIf { it > 0 }
+        val measured = seconds?.let { (bytes * 8 / it).coerceAtMost(Int.MAX_VALUE.toLong()).toInt() }
+        val bitrate = if (stored.transcoded) stored.bitrate else resource.bitrate ?: stored.bitrate ?: measured
+        return resource
+            .copy(
+                itag = resource.itag ?: -1,
+                mimeType = stored.mimeType,
+                codecs = stored.codecs,
+                bitrate = bitrate,
+                sampleRate = stored.sampleRate ?: resource.sampleRate,
+            ).toCachedFormatEntity(song.id, stored.mimeType, bytes)
+    }
+
+    /** Where a song came from: its YouTube Music URL, or the `sc:` / `zing:` / `nct:` id of another source. */
+    private fun songSourceUrl(song: SongItem): String =
+        if (isForeignSourceId(song.id)) song.id else "https://music.youtube.com/watch?v=${song.id}"
+
+    /**
+     * Tags from the stored song, album and lyrics rows (same rules as Android's exportMetadata). A user album replaces
+     * the album, cover and track fields. Lyrics are embedded only when they are already cached.
+     */
+    private suspend fun downloadTags(
+        song: SongItem,
+        userAlbum: UserAlbumTrack? = null,
+        thumbnailUrl: String? = song.thumbnail,
+        fallbackCover: File? = null,
+    ): DownloadTags {
+        val dao = database?.dao()
+        val stored = dao?.let { runCatching { it.getSongById(song.id) }.getOrNull() }
+        val lyrics =
+            dao
+                ?.let { runCatching { it.cachedLyrics(song.id) }.getOrNull() }
+                ?.let { entry -> entry.userLyrics ?: entry.lyrics.takeIf { entry.provider != LyricsEntity.LYRICS_NOT_FOUND } }
+                ?.takeIf { it.isNotBlank() && it != LyricsEntity.LYRICS_NOT_FOUND }
+        val artist = song.artists.joinToString(", ") { it.name }
+        if (userAlbum != null) {
+            return DownloadTags(
+                title = song.title,
+                artist = artist,
+                album = userAlbum.name,
+                trackNumber = userAlbum.trackNumber,
+                trackTotal = userAlbum.trackTotal,
+                lyrics = lyrics,
+                cover = DownloadArtwork.cover(userAlbum.artworkUrl ?: thumbnailUrl, fallbackCover),
+                source = songSourceUrl(song),
+            )
+        }
+        val albumId = stored?.album?.id ?: stored?.song?.albumId ?: song.album?.id
+        val storedAlbum = albumId?.let { id -> dao?.let { runCatching { it.album(id).first() }.getOrNull() } }
+        val trackNumber =
+            song.trackNumber ?: albumId?.let { id ->
+                dao
+                    ?.let { runCatching { it.albumSongMaps(id) }.getOrNull() }
+                    ?.firstOrNull { it.songId == song.id }
+                    ?.index
+                    ?.plus(1)
+            }
+        return DownloadTags(
+            title = song.title,
+            artist = artist,
+            album = song.album?.name ?: storedAlbum?.album?.title,
+            albumArtist = storedAlbum?.artists?.joinToString(", ") { it.name }?.takeIf(String::isNotBlank),
+            year = stored?.song?.year ?: storedAlbum?.album?.year ?: song.year,
+            trackNumber = trackNumber,
+            trackTotal = song.totalTrackCount ?: storedAlbum?.album?.songCount?.takeIf { trackNumber != null && it >= trackNumber },
+            lyrics = lyrics,
+            cover = DownloadArtwork.cover(thumbnailUrl, fallbackCover),
+            source = songSourceUrl(song),
+        )
+    }
+
+    /**
+     * Copies downloaded songs into [folder] as tagged files named "Artist - Title", without re-encoding. The stored
+     * downloads stay in place; songs that are not downloaded count as failed. With [userAlbum] the files get
+     * ALBUM = its name, its cover, and track numbers in list order (Android's "Save to folder" for user albums).
+     * UI: pick a folder (e.g. FileKit directory picker), then call this from a coroutine.
+     */
+    suspend fun saveDownloadsToFolder(
+        songIds: List<String>,
+        folder: File,
+        userAlbum: UserAlbumExport? = null,
+    ): SaveToFolderResult =
+        withContext(Dispatchers.IO) {
+            require(folder.isDirectory || folder.mkdirs()) { "No folder selected" }
+            var saved = 0
+            var failed = 0
+            songIds.forEachIndexed { index, songId ->
+                try {
+                    val track = userAlbum?.let { UserAlbumTrack(it.name, it.artworkUrl, index + 1, songIds.size) }
+                    if (saveDownloadToFolder(songId, folder, track)) saved++ else failed++
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (error: Exception) {
+                    AppLogger.warning("DownloadManager", "Failed to save a download to the folder", error)
+                    failed++
+                }
+            }
+            SaveToFolderResult(saved, failed)
+        }
+
+    private suspend fun saveDownloadToFolder(
+        songId: String,
+        folder: File,
+        userAlbum: UserAlbumTrack?,
+    ): Boolean {
+        val entry = getDownloadMetadata(songId) ?: return false
+        val source = safePersistedFile(entry.audioFilePath)?.takeIf { it.isFile && it.length() >= MIN_AUDIO_BYTES } ?: return false
+        val song = entry.toSongItem()
+        val tags =
+            downloadTags(
+                song,
+                userAlbum = userAlbum,
+                thumbnailUrl = entry.thumbnailUrl,
+                fallbackCover = entry.thumbnailFilePath?.let(::safePersistedFile),
+            )
+        AudioRemuxSource.open(source.path).use { input ->
+            val format = input.format ?: return false
+            val destination = reserveAudioDestination(song, format.extension, folder, artist = entry.artist)
+            val temp = File(destination.parentFile, ".${fileSafeId(songId)}.${System.nanoTime()}.tmp${format.extension}")
+            try {
+                exportTaggedAudio(input, source, temp, tags)
+                check(promoteTempFile(temp, destination, MIN_AUDIO_BYTES)) { "Failed to finalize the exported file" }
+            } catch (e: Throwable) {
+                destination.delete()
+                throw e
+            } finally {
+                temp.delete()
+            }
+        }
+        return true
     }
 
     fun downloadPlaylist(
@@ -718,20 +976,20 @@ object DownloadManager {
     }
 
     fun downloadAll(songs: List<SongItem>) {
-        val valid = songs.filter { !it.isLocal && isValidSongId(it.id) && !isDownloaded(it.id) }
+        val valid = songs.filter { !it.isLocal && isValidDownloadSongId(it.id) && !isDownloaded(it.id) }
         if (valid.isEmpty()) return
         valid.forEach { download(it) }
     }
 
     fun download(song: SongItem) {
-        if (song.isUnavailable || song.isLocal || !isValidSongId(song.id) || isDownloaded(song.id)) return
+        if (song.isUnavailable || song.isLocal || !isValidDownloadSongId(song.id) || isDownloaded(song.id)) return
         val job =
             scope.launch(start = CoroutineStart.LAZY) {
                 var audioPath: String? = null
                 var thumbnailPath: String? = null
                 var failed = false
                 try {
-                    synchronized(metadataLock) { _downloadedFiles.value = metadataStore.load().filter { isValidSongId(it.songId) } }
+                    synchronized(metadataLock) { _downloadedFiles.value = metadataStore.load().filter { isValidDownloadSongId(it.songId) } }
                     downloadSemaphore.withPermit {
                         updateState(song.id, DownloadState.DOWNLOADING)
                         updateProgress(song.id, 0f)
@@ -757,19 +1015,25 @@ object DownloadManager {
                                         }
                                     }
                                 }
-                                val cachedSource = fileInDownloadDir("${song.id}.source.${System.nanoTime()}.tmp")
+                                val safeId = fileSafeId(song.id)
+                                val cachedSource = fileInDownloadDir("$safeId.source.${System.nanoTime()}.tmp")
                                 downloadedAudioPath =
                                     if (SongCacheManager.copyCachedAudio(resource, cachedSource)) {
                                         cachedSource.absolutePath
                                     } else if (resource.isSabr) {
-                                        val source = fileInDownloadDir("${song.id}.source.${System.nanoTime()}.tmp")
+                                        val source = fileInDownloadDir("$safeId.source.${System.nanoTime()}.tmp")
                                         downloadSabrAudio(resource, source, onProgress = onProgress)
+                                        source.absolutePath
+                                    } else if (resource.isHlsAudio()) {
+                                        // SoundCloud HLS: FFmpeg fetches the playlist and segments and stream-copies them.
+                                        val source = fileInDownloadDir("$safeId.source.${System.nanoTime()}.tmp")
+                                        downloadHlsAudio(resource, source) { progress -> updateProgress(song.id, progress * 0.7f) }
                                         source.absolutePath
                                     } else {
                                         if (!resource.isDirectFile) throw IOException("Unsupported download transport")
                                         downloadUrl(
                                             resource.url,
-                                            "${song.id}.source",
+                                            "$safeId.source",
                                             false,
                                             resource.headers,
                                             onProgress,
@@ -791,22 +1055,25 @@ object DownloadManager {
                             ?: throw IOException("Failed to download audio after $maxRetries attempts")
                         val sourceFile =
                             safePersistedFile(audioPath) ?: throw IOException("Downloaded source file is unavailable")
-                        val destination = reserveM4aDestination(song)
-                        try {
+                        val tags = downloadTags(song)
+                        val stored =
                             transcodeSemaphore.withPermit {
-                                AudioDownloadTranscoder.transcodeToM4a(sourceFile, destination, song) { progress ->
+                                storeAudio(sourceFile, song, tags) { progress ->
                                     coroutineContext.ensureActive()
                                     updateProgress(song.id, 0.7f + progress * 0.29f)
                                 }
                             }
-                            audioPath = destination.absolutePath
-                            runCatching { Files.deleteIfExists(sourceFile.toPath()) }
-                        } catch (e: Throwable) {
-                            destination.delete()
-                            throw e
-                        }
+                        audioPath = stored.file.absolutePath
+                        runCatching { Files.deleteIfExists(sourceFile.toPath()) }
 
-                        database?.let { db -> db.withDatabaseTransaction { db.dao().upsertHistorySong(song) } }
+                        val storedFormat = downloadedResource?.let { downloadFormat(song, it, stored) }
+                        database?.let { db ->
+                            db.withDatabaseTransaction {
+                                db.dao().upsertHistorySong(song)
+                                // The format row drives the quality badges, as on Android.
+                                storedFormat?.let { db.dao().upsert(it) }
+                            }
+                        }
                         val entry =
                             DownloadedFile(
                                 songId = song.id,
@@ -819,8 +1086,8 @@ object DownloadManager {
                                 downloadDate = System.currentTimeMillis(),
                                 album = song.album?.name,
                                 year = song.year,
-                                sourceUrl = "https://music.youtube.com/watch?v=${song.id}",
-                                mimeType = "audio/mp4",
+                                sourceUrl = songSourceUrl(song),
+                                mimeType = stored.mimeType,
                                 explicitness = song.artworkExplicitness,
                                 loudnessDb = downloadedResource?.loudnessDb,
                                 perceptualLoudnessDb = downloadedResource?.perceptualLoudnessDb,
@@ -845,7 +1112,7 @@ object DownloadManager {
                                         downloadedThumbPath =
                                             targetSongThumbnail?.takeIf { it.isNotBlank() }?.let { url ->
                                                 try {
-                                                    downloadUrl(url, "$targetSongId-thumb", true)
+                                                    downloadUrl(url, "${fileSafeId(targetSongId)}-thumb", true)
                                                 } catch (e: CancellationException) {
                                                     throw e
                                                 } catch (_: Exception) {
@@ -964,14 +1231,14 @@ object DownloadManager {
     }
 
     internal suspend fun deleteDownloadsAndAwait(songIds: Collection<String>) {
-        val ids = songIds.filter(::isValidSongId).toSet()
+        val ids = songIds.filter(::isValidDownloadSongId).toSet()
         if (ids.isEmpty()) return
         withContext(Dispatchers.IO) { deleteStoredDownloads(ids) }
     }
 
     private fun deleteStoredDownloads(ids: Set<String>) {
         synchronized(metadataLock) {
-            _downloadedFiles.value = metadataStore.load().filter { isValidSongId(it.songId) }
+            _downloadedFiles.value = metadataStore.load().filter { isValidDownloadSongId(it.songId) }
             removedDownloadIds.addAll(ids)
             cancelDownloadJobs(ids, activeJobs)
             cancelDownloadJobs(ids, enrichmentJobs)
@@ -1032,6 +1299,7 @@ object DownloadManager {
         client.close()
     }
 
+    private const val TRANSCODED_AAC_BITRATE = 192_000
     private const val MAX_AUDIO_BASE_NAME_BYTES = 180
     private const val MAX_FILE_NAME_ATTEMPTS = 10_000
     private val WINDOWS_RESERVED_FILE_NAME = Regex("(?i)^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(?:\\..*)?$")

@@ -1,4 +1,4 @@
-package com.metrolist.android.source.soundcloud
+package com.metrolist.shared.source.soundcloud
 
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers

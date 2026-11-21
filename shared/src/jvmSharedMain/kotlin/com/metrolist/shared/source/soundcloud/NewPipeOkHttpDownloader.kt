@@ -1,4 +1,4 @@
-package com.metrolist.android.source.soundcloud
+package com.metrolist.shared.source.soundcloud
 
 import okhttp3.OkHttpClient
 import okhttp3.RequestBody

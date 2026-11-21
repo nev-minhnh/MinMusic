@@ -1,4 +1,4 @@
-package com.metrolist.android.source.soundcloud
+package com.metrolist.shared.source.soundcloud
 
 /** Prefix of every SoundCloud track id handed to the rest of the app, e.g. `sc:123456`. */
 const val SOUNDCLOUD_ID_PREFIX = "sc:"

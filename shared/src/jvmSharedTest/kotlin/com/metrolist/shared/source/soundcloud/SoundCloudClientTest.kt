@@ -1,18 +1,18 @@
-package com.metrolist.android.source.soundcloud
+package com.metrolist.shared.source.soundcloud
 
 import kotlinx.coroutines.runBlocking
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNull
-import org.junit.Assert.assertThrows
-import org.junit.Assert.assertTrue
-import org.junit.Before
-import org.junit.Test
 import org.schabi.newpipe.extractor.NewPipe
 import org.schabi.newpipe.extractor.downloader.Downloader
 import org.schabi.newpipe.extractor.downloader.Request
 import org.schabi.newpipe.extractor.downloader.Response
 import org.schabi.newpipe.extractor.localization.Localization
+import kotlin.test.BeforeTest
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
+import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 /** Recorded, reduced api-v2 responses from public unauthenticated SoundCloud endpoints (2026-11-21). */
 class SoundCloudClientTest {
@@ -20,7 +20,7 @@ class SoundCloudClientTest {
     private val now = 1_800_000_000_000L
     private val client = SoundCloudClient(initialize = {}, clock = { now })
 
-    @Before
+    @BeforeTest
     fun setUp() {
         NewPipe.init(downloader, Localization("vi", "VN"))
     }
@@ -54,7 +54,7 @@ class SoundCloudClientTest {
             assertTrue(next.items.isEmpty())
             assertNull(next.nextPageToken)
 
-            assertThrows(IllegalArgumentException::class.java) {
+            assertFailsWith<IllegalArgumentException> {
                 runBlocking { client.search("lofi", SoundCloudSearchFilter.TRACKS, "https://example.com/next") }
             }
             Unit
@@ -123,10 +123,10 @@ class SoundCloudClientTest {
     @Test
     fun previewAndBlockedTracksMapToTypedFailures() {
         downloader.api = trackRoutes(2181406707L, fixture("track_snip.json"))
-        assertThrows(SoundCloudException.PreviewOnly::class.java) { runBlocking { client.stream("sc:2181406707") } }
+        assertFailsWith<SoundCloudException.PreviewOnly> { runBlocking { client.stream("sc:2181406707") } }
 
         downloader.api = trackRoutes(2181406707L, fixture("track_snip.json").replace("\"policy\": \"SNIP\"", "\"policy\": \"BLOCK\""))
-        assertThrows(SoundCloudException.Blocked::class.java) { runBlocking { client.stream("sc:2181406707") } }
+        assertFailsWith<SoundCloudException.Blocked> { runBlocking { client.stream("sc:2181406707") } }
     }
 
     @Test

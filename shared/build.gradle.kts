@@ -394,6 +394,8 @@ kotlin {
                     implementation(libs.ktor.client.logging)
                     implementation(libs.ktor.client.cio)
                     implementation(libs.okhttp)
+                    // SoundCloud source (shared by Android and desktop).
+                    implementation(libs.newpipe.extractor)
                 }
             }
         getByName("androidMain") {
