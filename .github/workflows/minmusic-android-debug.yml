@@ -80,7 +80,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          ndk=$(sed -n 's/^androidNdk *= *"\(.*\)"//p' gradle/libs.versions.toml)
+          ndk=$(sed -n 's/^androidNdk *= *"\(.*\)"/\1/p' gradle/libs.versions.toml)
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-37.1" "ndk;$ndk" > /dev/null
 
