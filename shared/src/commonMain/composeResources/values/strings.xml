@@ -5533,4 +5533,8 @@
     <string name="ai_setup_privacy_settings">Open privacy settings</string>
     <string name="ai_setup_sign_in_again">Sign in again</string>
     <string name="ai_setup_key_limits">Review key limits</string>
+    <string name="metroeq_profile_preamp">Profile preamp</string>
+    <string name="metroeq_auto_preamp">Auto</string>
+    <string name="metroeq_limiter">Peak limiter</string>
+    <string name="metroeq_limiter_summary">Looks ahead 1.5 ms and keeps peaks below -0.3 dBFS</string>
 </resources>

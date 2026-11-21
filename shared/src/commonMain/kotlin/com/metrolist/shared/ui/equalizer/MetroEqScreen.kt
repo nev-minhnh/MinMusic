@@ -90,9 +90,11 @@ import com.metrolist.shared.equalizer.MAX_AUDIO_BOOST_DB
 import com.metrolist.shared.equalizer.MAX_EQUALIZER_BANDS
 import com.metrolist.shared.equalizer.MAX_EQUALIZER_BAND_GAIN_DB
 import com.metrolist.shared.equalizer.MAX_EQUALIZER_FREQUENCY
+import com.metrolist.shared.equalizer.MAX_PROFILE_PREAMP_DB
 import com.metrolist.shared.equalizer.MIN_AUDIO_PREAMP_DB
 import com.metrolist.shared.equalizer.MIN_EQUALIZER_BAND_GAIN_DB
 import com.metrolist.shared.equalizer.MIN_EQUALIZER_FREQUENCY
+import com.metrolist.shared.equalizer.MIN_PROFILE_PREAMP_DB
 import com.metrolist.shared.equalizer.ParametricEqualizer
 import com.metrolist.shared.equalizer.bandsByFrequency
 import com.metrolist.shared.equalizer.searchAutoEqModels
@@ -122,7 +124,11 @@ import com.metrolist.shared.generated.resources.loudness_value
 import com.metrolist.shared.generated.resources.metroeq_custom_profile
 import com.metrolist.shared.generated.resources.metroeq_delete_profile_confirm
 import com.metrolist.shared.generated.resources.metroeq_frequency_value
+import com.metrolist.shared.generated.resources.metroeq_auto_preamp
+import com.metrolist.shared.generated.resources.metroeq_limiter
+import com.metrolist.shared.generated.resources.metroeq_limiter_summary
 import com.metrolist.shared.generated.resources.metroeq_peak_reduction
+import com.metrolist.shared.generated.resources.metroeq_profile_preamp
 import com.metrolist.shared.generated.resources.metroeq_preset_bass
 import com.metrolist.shared.generated.resources.metroeq_preset_flat
 import com.metrolist.shared.generated.resources.metroeq_preset_rock
@@ -368,7 +374,7 @@ private fun ProfilesPage(
             )
         }
         EqualizerGraph(activeProfile, meter.sampleRate, meter.levels)
-        PreampControl(meter.gainReductionDb)
+        PreampControl(activeProfile, meter.gainReductionDb)
         Surface(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
             shape = RoundedCornerShape(20.dp),
@@ -1019,7 +1025,10 @@ private fun VerticalBandFader(
 }
 
 @Composable
-private fun PreampControl(reduction: Float) {
+private fun PreampControl(
+    profile: EqualizerProfile?,
+    reduction: Float,
+) {
     val preamp =
         EqualizerProfiles.selectedConfiguration.preampDb
             .coerceIn(MIN_AUDIO_PREAMP_DB, MAX_AUDIO_BOOST_DB)
@@ -1054,8 +1063,54 @@ private fun PreampControl(reduction: Float) {
                 },
                 modifier = Modifier.retainPlaybackKeyFocus(),
             )
+            if (profile != null) {
+                val profilePreamp = profile.preamp.coerceIn(MIN_PROFILE_PREAMP_DB, MAX_PROFILE_PREAMP_DB).toFloat()
+                val profilePreampSliderState =
+                    rememberSliderState(
+                        value = profilePreamp,
+                        trackRange = MIN_PROFILE_PREAMP_DB.toFloat()..MAX_PROFILE_PREAMP_DB.toFloat(),
+                    )
+                profilePreampSliderState.value = profilePreamp
+                Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        stringResource(Res.string.metroeq_profile_preamp),
+                        style = MaterialTheme.typography.titleSmall,
+                        modifier = Modifier.weight(1f).padding(end = 12.dp),
+                    )
+                    TextButton(onClick = EqualizerProfiles::applyAutoPreamp, shapes = ButtonDefaults.shapes()) {
+                        Text(stringResource(Res.string.metroeq_auto_preamp))
+                    }
+                    Text(
+                        stringResource(Res.string.loudness_value, profile.preamp.toString()),
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
+                Slider(
+                    state = profilePreampSliderState,
+                    onValueChange = {
+                        profilePreampSliderState.value = it
+                        EqualizerProfiles.setProfilePreamp(it.toDouble())
+                    },
+                    modifier = Modifier.retainPlaybackKeyFocus(),
+                )
+            }
+            Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f).padding(end = 12.dp)) {
+                    Text(stringResource(Res.string.metroeq_limiter), style = MaterialTheme.typography.titleSmall)
+                    Text(
+                        stringResource(Res.string.metroeq_limiter_summary),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                ExpressiveSwitch(
+                    checked = EqualizerProfiles.limiterEnabled,
+                    onCheckedChange = { EqualizerProfiles.limiterEnabled = it },
+                )
+            }
             Box(Modifier.fillMaxWidth().height(24.dp)) {
-                if (reduction >= 0.5f) {
+                if (reduction >= 0.5f && EqualizerProfiles.limiterEnabled) {
                     Text(
                         stringResource(Res.string.metroeq_peak_reduction, (-reduction).roundToInt().toString()),
                         style = MaterialTheme.typography.bodySmall,

@@ -122,7 +122,7 @@ class AudioRenderer private constructor(
                 val current = configuration()
                 equalizer.update(current.profile)
                 val boostDb = current.preampDb.coerceIn(MIN_AUDIO_PREAMP_DB, MAX_AUDIO_BOOST_DB)
-                val equalized = equalize(data, boostDb)
+                val equalized = equalize(data, boostDb, current.limiterEnabled)
                 val (enabled, instant) = silenceSettings()
                 val input = silenceSkipper.process(equalized, enabled, instant, positionClock::skipSilence)
                 val chunks =
@@ -258,6 +258,7 @@ class AudioRenderer private constructor(
     private fun equalize(
         data: ByteArray,
         outputBoostDb: Double,
+        limiter: Boolean,
     ): ByteArray {
         val count = data.size / 2
         if (equalizerSamples.size < count) equalizerSamples = ShortArray(count)
@@ -265,7 +266,7 @@ class AudioRenderer private constructor(
         for (i in 0 until count) {
             equalizerSamples[i] = ((data[2 * i].toInt() and 0xff) or (data[2 * i + 1].toInt() shl 8)).toShort()
         }
-        equalizer.processPcm16(equalizerSamples, count, outputBoostDb)
+        equalizer.processPcm16(equalizerSamples, count, outputBoostDb, limiter)
         AudioSpectrumMeter.accept(equalizerSamples, count, channelCount, sampleRate, equalizer.gainReductionDb.toFloat())
         data.copyInto(equalizerOutput)
         for (i in 0 until count) {

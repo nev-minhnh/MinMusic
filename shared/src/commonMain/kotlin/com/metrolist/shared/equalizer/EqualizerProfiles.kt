@@ -100,6 +100,7 @@ class InvalidEqualizerProfileException : IllegalArgumentException()
 data class EqualizerConfiguration(
     val profile: EqualizerProfile?,
     val preampDb: Double,
+    val limiterEnabled: Boolean = true,
 ) {
     val isIdentity: Boolean
         get() = preampDb == 0.0 && (profile == null || (profile.preamp == 0.0 && profile.bands.all { it.isIdentity() }))
@@ -147,7 +148,15 @@ object EqualizerProfiles {
         }
 
     val configuration: EqualizerConfiguration
-        get() = selectedConfiguration.takeIf { Settings.shared.equalizerEnabled } ?: EqualizerConfiguration(null, 0.0)
+        get() =
+            selectedConfiguration.takeIf { Settings.shared.equalizerEnabled }?.copy(limiterEnabled = limiterEnabled)
+                ?: EqualizerConfiguration(null, 0.0)
+
+    var limiterEnabled: Boolean
+        get() = Settings.shared.equalizerLimiterEnabled
+        set(value) {
+            Settings.shared.equalizerLimiterEnabled = value
+        }
 
     val isEnabled: Boolean
         get() = Settings.shared.equalizerEnabled && (activeProfile != null || selectedConfiguration.preampDb != 0.0)
@@ -276,6 +285,17 @@ object EqualizerProfiles {
         val current = activeProfile
         Settings.shared.audioBoostDb = bounded.toFloat()
         if (current != null) Settings.shared.equalizerCurrentProfileJson = json.encodeToString(current.copy(outputGainDb = bounded))
+    }
+
+    fun setProfilePreamp(db: Double) {
+        val current = activeProfile ?: return
+        if (db.isNaN()) return
+        val bounded = (round(db * 10) / 10).coerceIn(MIN_PROFILE_PREAMP_DB, MAX_PROFILE_PREAMP_DB)
+        if (bounded != current.preamp) editCurrent(current.copy(preamp = bounded))
+    }
+
+    fun applyAutoPreamp() {
+        activeProfile?.let { setProfilePreamp(it.autoPreampDb()) }
     }
 
     fun saveCurrent(
@@ -437,12 +457,12 @@ fun parseParametricEq(content: String): Pair<Double, List<ParametricEqBand>>? {
     val valid =
         bands.isNotEmpty() &&
             bands.size <= MAX_EQUALIZER_BANDS &&
-            preamp in -50.0..50.0 &&
+            preamp.isFinite() &&
             bands.all {
                 it.frequency in 1.0..100_000.0 && it.gain in MIN_EQUALIZER_BAND_GAIN_DB..MAX_EQUALIZER_BAND_GAIN_DB && it.q > 0.0 &&
                     it.q <= 20.0
             }
-    return if (valid) preamp to bands else null
+    return if (valid) preamp.coerceIn(MIN_PROFILE_PREAMP_DB, MAX_PROFILE_PREAMP_DB) to bands else null
 }
 
 const val MAX_EQUALIZER_BANDS = 20

@@ -7,8 +7,10 @@ package com.metrolist.shared.equalizer
 
 import kotlin.math.PI
 import kotlin.math.abs
+import kotlin.math.ceil
 import kotlin.math.cos
 import kotlin.math.exp
+import kotlin.math.ln
 import kotlin.math.log10
 import kotlin.math.pow
 import kotlin.math.roundToInt
@@ -17,6 +19,8 @@ import kotlin.math.sqrt
 
 const val MIN_AUDIO_PREAMP_DB = -12.0
 const val MAX_AUDIO_BOOST_DB = 12.0
+const val MIN_PROFILE_PREAMP_DB = -24.0
+const val MAX_PROFILE_PREAMP_DB = 24.0
 
 /** RBJ biquad chain; use one instance per audio pipeline because filter state is not thread-safe. */
 class ParametricEqualizer(
@@ -38,9 +42,22 @@ class ParametricEqualizer(
     // Per filter: x1, x2, y1, y2 for each channel.
     private var state = emptyArray<DoubleArray>()
     private var preampGain = 1.0
-    private var peakEnvelope = 0.0
-    private var peakHoldFrames = 0
-    private val peakHoldDuration = (sampleRate * PEAK_HOLD_SECONDS).toInt()
+
+    // Lookahead limiter; while it runs, the output is delayed by lookaheadFrames - 1 frames.
+    private val lookaheadFrames = maxOf(1, (sampleRate * LIMITER_LOOKAHEAD_SECONDS).roundToInt())
+    private val delayFrames = lookaheadFrames - 1
+    private val delayLine = DoubleArray(maxOf(1, delayFrames * channelCount))
+    private var delayPosition = 0
+    private val minimumValues = DoubleArray(lookaheadFrames)
+    private val minimumFrames = LongArray(lookaheadFrames)
+    private var minimumHead = 0
+    private var minimumSize = 0
+    private val averageWindow = DoubleArray(lookaheadFrames) { 1.0 }
+    private var averagePosition = 0
+    private var averageSum = lookaheadFrames.toDouble()
+    private var releaseEnvelope = 1.0
+    private var frameCounter = 0L
+    private var limiterActive = false
     private val releaseDecay = exp(-1.0 / (sampleRate * LIMITER_RELEASE_SECONDS))
     var gainReductionDb = 0.0
         private set
@@ -77,7 +94,8 @@ class ParametricEqualizer(
                         if (previousBands.getOrNull(index) == band) previousCoefficients[index] else coefficientsFor(band)
                     }.toTypedArray()
             appliedBands = bands
-            preampGain = 10.0.pow((profile?.preamp ?: 0.0) / 20.0)
+            val preampDb = profile?.preamp?.takeIf { it.isFinite() } ?: 0.0
+            preampGain = 10.0.pow(preampDb.coerceIn(MIN_PROFILE_PREAMP_DB, MAX_PROFILE_PREAMP_DB) / 20.0)
         }
         return profile != null
     }
@@ -123,29 +141,13 @@ class ParametricEqualizer(
         samples: ShortArray,
         count: Int = samples.size,
         outputGainDb: Double = 0.0,
+        limiter: Boolean = true,
     ) {
         val outputGain = 10.0.pow(outputGainDb.coerceIn(MIN_AUDIO_PREAMP_DB, MAX_AUDIO_BOOST_DB) / 20.0)
-        if (activeFilters.isEmpty() && preampGain == 1.0 && outputGain == 1.0) {
-            var frameStart = 0
-            var lastGain = 1.0
-            while (frameStart < count) {
-                val frameEnd = minOf(frameStart + channelCount, count)
-                var peak = 0
-                for (i in frameStart until frameEnd) peak = maxOf(peak, abs(samples[i].toInt()))
-                val gain = limiterGain(peak / 32768.0, 1.0)
-                lastGain = gain
-                if (gain != 1.0) {
-                    for (i in frameStart until frameEnd) samples[i] = (samples[i] * gain).roundToInt().toShort()
-                }
-                frameStart = frameEnd
-            }
-            gainReductionDb = -20.0 * log10(lastGain)
-            return
-        }
+        if (isBypassed(outputGain)) return
         if (processingBuffer.size < count) processingBuffer = DoubleArray(count)
         for (i in 0 until count) processingBuffer[i] = samples[i] / 32768.0
-        filterBuffer(count)
-        limitFrames(count, outputGain)
+        processBuffer(count, outputGain, limiter)
         for (i in 0 until count) {
             val y = processingBuffer[i] * 32768.0
             samples[i] = y.coerceIn(-32768.0, 32767.0).roundToInt().toShort()
@@ -156,32 +158,38 @@ class ParametricEqualizer(
         samples: FloatArray,
         count: Int = samples.size,
         outputGainDb: Double = 0.0,
+        limiter: Boolean = true,
     ) {
         val outputGain = 10.0.pow(outputGainDb.coerceIn(MIN_AUDIO_PREAMP_DB, MAX_AUDIO_BOOST_DB) / 20.0)
-        if (activeFilters.isEmpty() && preampGain == 1.0 && outputGain == 1.0) {
-            var frameStart = 0
-            var lastGain = 1.0
-            while (frameStart < count) {
-                val frameEnd = minOf(frameStart + channelCount, count)
-                var peak = 0.0
-                for (i in frameStart until frameEnd) peak = maxOf(peak, abs(samples[i].toDouble()))
-                val gain = limiterGain(peak, 1.0)
-                lastGain = gain
-                if (gain != 1.0 || !(peak <= 1.0)) {
-                    for (i in frameStart until frameEnd) samples[i] = (samples[i] * gain).coerceIn(-1.0, 1.0).toFloat()
-                }
-                frameStart = frameEnd
-            }
-            gainReductionDb = -20.0 * log10(lastGain)
-            return
-        }
+        if (isBypassed(outputGain)) return
         if (processingBuffer.size < count) processingBuffer = DoubleArray(count)
         for (i in 0 until count) processingBuffer[i] = samples[i].toDouble()
+        processBuffer(count, outputGain, limiter)
+        for (i in 0 until count) samples[i] = processingBuffer[i].coerceIn(-1.0, 1.0).toFloat()
+    }
+
+    // Without filters or gain the output must stay bit-identical to the input, so neither the limiter nor its delay runs.
+    private fun isBypassed(outputGain: Double): Boolean {
+        if (activeFilters.isNotEmpty() || preampGain != 1.0 || outputGain != 1.0) return false
+        limiterActive = false
+        gainReductionDb = 0.0
+        return true
+    }
+
+    private fun processBuffer(
+        count: Int,
+        outputGain: Double,
+        limiter: Boolean,
+    ) {
         filterBuffer(count)
-        limitFrames(count, outputGain)
-        for (i in 0 until count) {
-            val y = processingBuffer[i]
-            samples[i] = y.coerceIn(-1.0, 1.0).toFloat()
+        if (limiter) {
+            if (!limiterActive) resetLimiter()
+            limiterActive = true
+            limitFrames(count, outputGain)
+        } else {
+            limiterActive = false
+            gainReductionDb = 0.0
+            if (outputGain != 1.0) for (i in 0 until count) processingBuffer[i] *= outputGain
         }
     }
 
@@ -220,44 +228,82 @@ class ParametricEqualizer(
         if (preampGain != 1.0) for (i in 0 until count) processingBuffer[i] *= preampGain
     }
 
+    /*
+     * Lookahead peak limiter with linked channels. Each frame's target gain is held as a sliding minimum over the
+     * lookahead window, release-smoothed without ever exceeding the held value, then box-averaged over the same
+     * window. Every averaged value is at most the target of the frame leaving the delay line, so the ceiling holds
+     * while gain changes stay ramped instead of clipping.
+     */
     private fun limitFrames(
         count: Int,
         outputGain: Double,
     ) {
+        val window = lookaheadFrames
+        var minimumGain = 1.0
         var frameStart = 0
-        var lastGain = outputGain
         while (frameStart < count) {
             val frameEnd = minOf(frameStart + channelCount, count)
             var peak = 0.0
             for (i in frameStart until frameEnd) peak = maxOf(peak, abs(processingBuffer[i]))
-            val gain = limiterGain(peak, outputGain)
-            lastGain = gain
-            for (i in frameStart until frameEnd) processingBuffer[i] *= gain
+            peak *= outputGain
+            val target = if (peak > LIMITER_CEILING) LIMITER_CEILING / peak else 1.0
+
+            if (minimumSize > 0 && minimumFrames[minimumHead] <= frameCounter - window) {
+                minimumHead = (minimumHead + 1) % window
+                minimumSize--
+            }
+            while (minimumSize > 0 && minimumValues[(minimumHead + minimumSize - 1) % window] >= target) minimumSize--
+            val tail = (minimumHead + minimumSize) % window
+            minimumValues[tail] = target
+            minimumFrames[tail] = frameCounter
+            minimumSize++
+            val held = minimumValues[minimumHead]
+
+            releaseEnvelope = if (held < releaseEnvelope) held else held + (releaseEnvelope - held) * releaseDecay
+            averageSum += releaseEnvelope - averageWindow[averagePosition]
+            averageWindow[averagePosition] = releaseEnvelope
+            if (++averagePosition == window) {
+                averagePosition = 0
+                // Re-sum once per window so floating-point drift cannot accumulate.
+                averageSum = averageWindow.sum()
+            }
+            val gain = (averageSum / window).coerceAtMost(1.0)
+            minimumGain = minOf(minimumGain, gain)
+            val applied = gain * outputGain
+
+            if (delayFrames == 0) {
+                for (i in frameStart until frameEnd) processingBuffer[i] *= applied
+            } else {
+                val offset = delayPosition * channelCount
+                for (i in frameStart until frameEnd) {
+                    val slot = offset + (i - frameStart)
+                    val delayed = delayLine[slot]
+                    delayLine[slot] = processingBuffer[i]
+                    processingBuffer[i] = delayed * applied
+                }
+                delayPosition = (delayPosition + 1) % delayFrames
+            }
+            frameCounter++
             frameStart = frameEnd
         }
-        gainReductionDb = -20.0 * log10(lastGain / outputGain)
+        gainReductionDb = -20.0 * log10(minimumGain)
     }
 
-    private fun limiterGain(
-        peak: Double,
-        outputGain: Double,
-    ): Double {
-        if (peak >= peakEnvelope) {
-            peakEnvelope = peak
-            peakHoldFrames = peakHoldDuration
-        } else if (peakHoldFrames > 0) {
-            peakHoldFrames--
-        } else {
-            peakEnvelope = peak + (peakEnvelope - peak) * releaseDecay
-        }
-        // Hold the detected peak across waveform cycles instead of reshaping each sample.
-        return if (peakEnvelope > 0.0) minOf(outputGain, LIMITER_CEILING / peakEnvelope) else outputGain
+    private fun resetLimiter() {
+        delayLine.fill(0.0)
+        delayPosition = 0
+        minimumHead = 0
+        minimumSize = 0
+        averageWindow.fill(1.0)
+        averagePosition = 0
+        averageSum = lookaheadFrames.toDouble()
+        releaseEnvelope = 1.0
+        frameCounter = 0L
     }
 
     fun reset() {
         state.forEach { it.fill(0.0) }
-        peakEnvelope = 0.0
-        peakHoldFrames = 0
+        resetLimiter()
         gainReductionDb = 0.0
     }
 
@@ -303,8 +349,30 @@ class ParametricEqualizer(
     }
 
     private companion object {
-        const val LIMITER_CEILING = 0.98
-        const val PEAK_HOLD_SECONDS = 0.05
+        const val LIMITER_CEILING = 0.9660508789898133 // -0.3 dBFS
+        const val LIMITER_LOOKAHEAD_SECONDS = 0.0015
         const val LIMITER_RELEASE_SECONDS = 0.15
     }
 }
+
+/**
+ * Preamp that keeps the combined band response at or below -0.5 dBFS:
+ * -(highest positive gain + 0.5 dB), or 0 dB when no frequency is boosted.
+ */
+fun EqualizerProfile.autoPreampDb(sampleRate: Int = AUTO_PREAMP_SAMPLE_RATE): Double {
+    val analyzer = ParametricEqualizer(sampleRate, 1).apply { update(copy(preamp = 0.0)) }
+    val maxFrequency = minOf(MAX_EQUALIZER_FREQUENCY, sampleRate * 0.475)
+    val span = ln(maxFrequency / MIN_EQUALIZER_FREQUENCY)
+    var peak =
+        bands
+            .filter { it.enabled && it.frequency in MIN_EQUALIZER_FREQUENCY..maxFrequency }
+            .maxOfOrNull { analyzer.responseDb(it.frequency) } ?: Double.NEGATIVE_INFINITY
+    for (index in 0 until AUTO_PREAMP_POINTS) {
+        peak = maxOf(peak, analyzer.responseDb(MIN_EQUALIZER_FREQUENCY * exp(index * span / (AUTO_PREAMP_POINTS - 1))))
+    }
+    if (!(peak > 0.0)) return 0.0
+    return (-ceil((peak + 0.5) * 10.0) / 10.0).coerceIn(MIN_PROFILE_PREAMP_DB, MAX_PROFILE_PREAMP_DB)
+}
+
+private const val AUTO_PREAMP_SAMPLE_RATE = 48_000
+private const val AUTO_PREAMP_POINTS = 512
