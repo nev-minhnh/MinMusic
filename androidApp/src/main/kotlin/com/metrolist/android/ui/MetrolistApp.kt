@@ -179,6 +179,7 @@ import com.metrolist.android.playback.isRunnable
 import com.metrolist.android.playback.resolveIncomingPlaybackSong
 import com.metrolist.android.playback.voiceSearchRequest
 import com.metrolist.android.ui.component.BottomSheetMenu
+import com.metrolist.android.ui.component.EqualizerDeviceSuggestion
 import com.metrolist.android.ui.component.FloatingTopAppBar
 import com.metrolist.android.ui.component.LocalMenuState
 import com.metrolist.android.ui.component.MenuState
@@ -711,6 +712,7 @@ fun MetrolistApp(
         HiddenHomeItemsSnackbar(snackbarHostState)
         UnavailableSongSnackbar(snackbarHostState)
         YouTubeSyncSnackbar(snackbarHostState)
+        EqualizerDeviceSuggestion(snackbarHostState)
         LyricsTranslationSnackbar(snackbarHostState, playerViewModel.lyricsTranslationFailures)
         listenTogetherManager?.let { manager ->
             ListenTogetherGlobalEvents(manager) { snackbarHostState.showSnackbar(it) }

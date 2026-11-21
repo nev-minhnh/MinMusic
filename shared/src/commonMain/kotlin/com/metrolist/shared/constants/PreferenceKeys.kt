@@ -150,6 +150,7 @@ val EqualizerCurrentProfileJsonKey = "equalizerCurrentProfileJson"
 val EqualizerActiveProfileIdKey = "equalizerActiveProfileId"
 val EqualizerEnabledKey = "equalizerEnabled"
 val EqualizerLimiterEnabledKey = "equalizerLimiterEnabled"
+val EqualizerDeviceProfilesJsonKey = "equalizerDeviceProfilesJson"
 val AudioBoostDbKey = "audioBoostDb"
 
 val MusicVideoCacheJsonKey = "musicVideoCacheJson"

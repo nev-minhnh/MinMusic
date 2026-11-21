@@ -86,6 +86,8 @@ import com.metrolist.shared.equalizer.AudioSpectrumMeter
 import com.metrolist.shared.equalizer.AutoEqCatalog
 import com.metrolist.shared.equalizer.AutoEqEntry
 import com.metrolist.shared.equalizer.AutoEqModel
+import com.metrolist.shared.equalizer.EqualizerOutputDevice
+import com.metrolist.shared.equalizer.EqualizerOutputKind
 import com.metrolist.shared.equalizer.EqualizerPreset
 import com.metrolist.shared.equalizer.EqualizerProfile
 import com.metrolist.shared.equalizer.EqualizerProfiles
@@ -142,6 +144,12 @@ import com.metrolist.shared.generated.resources.metroeq_filter_peak
 import com.metrolist.shared.generated.resources.metroeq_frequency
 import com.metrolist.shared.generated.resources.metroeq_frequency_value
 import com.metrolist.shared.generated.resources.metroeq_gain
+import com.metrolist.shared.generated.resources.metroeq_output_bluetooth
+import com.metrolist.shared.generated.resources.metroeq_output_device
+import com.metrolist.shared.generated.resources.metroeq_output_other
+import com.metrolist.shared.generated.resources.metroeq_output_speaker
+import com.metrolist.shared.generated.resources.metroeq_output_usb
+import com.metrolist.shared.generated.resources.metroeq_output_wired
 import com.metrolist.shared.generated.resources.metroeq_auto_preamp
 import com.metrolist.shared.generated.resources.metroeq_limiter
 import com.metrolist.shared.generated.resources.metroeq_limiter_summary
@@ -159,6 +167,7 @@ import com.metrolist.shared.generated.resources.metroeq_profiles
 import com.metrolist.shared.generated.resources.metroeq_q_value
 import com.metrolist.shared.generated.resources.metroeq_save_as
 import com.metrolist.shared.generated.resources.metroeq_unsaved_changes
+import com.metrolist.shared.generated.resources.metroeq_use_for_device
 import com.metrolist.shared.generated.resources.metroeq_value_range
 import com.metrolist.shared.generated.resources.redo
 import com.metrolist.shared.generated.resources.more_options
@@ -223,6 +232,7 @@ fun MetroEqScreen(
     allowAutoEqSearch: Boolean = true,
     isAudioProcessingAvailable: Boolean = true,
     initialAutoEqSearch: Boolean = false,
+    initialAutoEqQuery: String = "",
 ) {
     var searchingAutoEq by remember { mutableStateOf(initialAutoEqSearch) }
     var importError by remember { mutableStateOf<StringResource?>(null) }
@@ -242,7 +252,11 @@ fun MetroEqScreen(
         }
         AnimatedContent(targetState = searchingAutoEq, modifier = Modifier.weight(1f)) { autoEq ->
             if (autoEq) {
-                AutoEqPage(onBack = { searchingAutoEq = false }, onDismiss = { searchingAutoEq = false })
+                AutoEqPage(
+                    initialQuery = initialAutoEqQuery,
+                    onBack = { searchingAutoEq = false },
+                    onDismiss = { searchingAutoEq = false },
+                )
             } else {
                 ProfilesPage(
                     error = importError,
@@ -411,6 +425,39 @@ private fun ProfilesPage(
                             contentDescription = equalizerLabel
                         },
                 )
+            }
+        }
+        EqualizerProfiles.outputDevice?.let { device ->
+            val deviceName = outputDeviceName(device)
+            Surface(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                shape = RoundedCornerShape(20.dp),
+                color = MaterialTheme.colorScheme.surfaceContainer,
+            ) {
+                Row(
+                    Modifier.fillMaxWidth().padding(start = 16.dp, end = 12.dp, top = 12.dp, bottom = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(Modifier.weight(1f).padding(end = 12.dp)) {
+                        Text(
+                            stringResource(Res.string.metroeq_output_device, deviceName),
+                            style = MaterialTheme.typography.titleSmall,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        Text(
+                            stringResource(Res.string.metroeq_use_for_device, deviceName),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    // Only saved profiles can be restored when the device reconnects.
+                    ExpressiveSwitch(
+                        checked = activeId != null && EqualizerProfiles.deviceProfileId(device.key) == activeId,
+                        enabled = savedProfile,
+                        onCheckedChange = { use -> EqualizerProfiles.setDeviceProfile(device.key, activeId?.takeIf { use }) },
+                    )
+                }
             }
         }
         error?.let {
@@ -670,6 +717,20 @@ private class EqualizerEditHistory {
 }
 
 private enum class BandValue { FREQUENCY, GAIN }
+
+@Composable
+private fun outputDeviceName(device: EqualizerOutputDevice): String {
+    if (device.productName.isNotBlank()) return device.productName
+    return stringResource(
+        when (device.kind) {
+            EqualizerOutputKind.SPEAKER -> Res.string.metroeq_output_speaker
+            EqualizerOutputKind.WIRED -> Res.string.metroeq_output_wired
+            EqualizerOutputKind.BLUETOOTH -> Res.string.metroeq_output_bluetooth
+            EqualizerOutputKind.USB -> Res.string.metroeq_output_usb
+            EqualizerOutputKind.OTHER -> Res.string.metroeq_output_other
+        },
+    )
+}
 
 @Composable
 private fun filterTypeName(type: FilterType): String =
@@ -1424,13 +1485,14 @@ private fun PreampControl(
 
 @Composable
 private fun AutoEqPage(
+    initialQuery: String,
     onBack: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     var models by remember { mutableStateOf<List<AutoEqModel>?>(null) }
     var failed by remember { mutableStateOf(false) }
     var attempt by remember { mutableIntStateOf(0) }
-    var query by remember { mutableStateOf("") }
+    var query by remember { mutableStateOf(initialQuery) }
     var model by remember { mutableStateOf<AutoEqModel?>(null) }
     var loadingEntry by remember { mutableStateOf<AutoEqEntry?>(null) }
     val scope = rememberCoroutineScope()

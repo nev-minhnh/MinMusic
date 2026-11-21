@@ -41,6 +41,7 @@ fun MetroEqDialog(
     rememberProfilePicker: (@Composable (onPicked: (fileName: String, content: String) -> Unit) -> () -> Unit)? = null,
     isAudioProcessingAvailable: Boolean = true,
     initialAutoEqSearch: Boolean = false,
+    initialAutoEqQuery: String = "",
 ) {
     BasicAlertDialog(
         onDismissRequest = onDismiss,
@@ -71,6 +72,7 @@ fun MetroEqDialog(
                         rememberProfilePicker = rememberProfilePicker,
                         isAudioProcessingAvailable = isAudioProcessingAvailable,
                         initialAutoEqSearch = initialAutoEqSearch,
+                        initialAutoEqQuery = initialAutoEqQuery,
                     )
                 }
             }

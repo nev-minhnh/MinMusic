@@ -5550,4 +5550,12 @@
     <string name="metroeq_value_range">Enter a value from %1$s to %2$s</string>
     <string name="metroeq_export_file">Export to file</string>
     <string name="metroeq_export_failed">Could not export the profile</string>
+    <string name="metroeq_output_device">Output: %1$s</string>
+    <string name="metroeq_use_for_device">Use this profile for %1$s</string>
+    <string name="metroeq_output_speaker">Phone speaker</string>
+    <string name="metroeq_output_wired">Wired headphones</string>
+    <string name="metroeq_output_bluetooth">Bluetooth device</string>
+    <string name="metroeq_output_usb">USB audio</string>
+    <string name="metroeq_output_other">External output</string>
+    <string name="metroeq_device_no_profile">%1$s has no EQ profile yet</string>
 </resources>

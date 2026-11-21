@@ -394,6 +394,7 @@ class Settings(
     var equalizerActiveProfileId by preference(EqualizerActiveProfileIdKey, "")
     var equalizerEnabled by preference(EqualizerEnabledKey, false)
     var equalizerLimiterEnabled by preference(EqualizerLimiterEnabledKey, true)
+    var equalizerDeviceProfilesJson by preference(EqualizerDeviceProfilesJsonKey, "")
     var audioBoostDb by preference(AudioBoostDbKey, 0f)
     var playerType by preference(PlayerType.MODERN)
     var miniPlayerType by preference(MiniPlayerType.EXPRESSIVE)

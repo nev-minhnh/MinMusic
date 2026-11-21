@@ -30,6 +30,7 @@ import com.metrolist.android.onboarding.OnboardingManager
 import com.metrolist.android.onboarding.shouldApplyTvContinuePlaybackDefault
 import com.metrolist.android.playback.AudioCacheManager
 import com.metrolist.android.playback.DownloadService
+import com.metrolist.android.playback.EqualizerOutputDeviceMonitor
 import com.metrolist.android.playback.MusicService
 import com.metrolist.android.playback.SongDownloadManager
 import com.metrolist.android.playlistimport.AndroidPlaylistImportNotifier
@@ -155,6 +156,7 @@ class App :
         if (processName == packageName) {
             Settings.shared.hasCanvasToggle = true
             recovery.run { initializeMainProcess() }
+            EqualizerOutputDeviceMonitor(applicationContext).start()
             return
         }
         setResourceReaderAndroidContext(applicationContext)

@@ -5,6 +5,9 @@
 
 package com.metrolist.shared.equalizer
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import com.metrolist.shared.settings.Settings
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -111,6 +114,15 @@ data class EqualizerConfiguration(
         get() = preampDb == 0.0 && (profile == null || (profile.preamp == 0.0 && profile.bands.all { it.isIdentity() }))
 }
 
+enum class EqualizerOutputKind { SPEAKER, WIRED, BLUETOOTH, USB, OTHER }
+
+/** The active audio output; [key] identifies it across connections, e.g. "BLUETOOTH_A2DP:WH-1000XM4". */
+data class EqualizerOutputDevice(
+    val key: String,
+    val kind: EqualizerOutputKind,
+    val productName: String,
+)
+
 enum class EqualizerPreset(
     val gains: List<Double>,
 ) {
@@ -165,6 +177,50 @@ object EqualizerProfiles {
 
     val isEnabled: Boolean
         get() = Settings.shared.equalizerEnabled && (activeProfile != null || selectedConfiguration.preampDb != 0.0)
+
+    var outputDevice by mutableStateOf<EqualizerOutputDevice?>(null)
+        private set
+
+    /** A newly connected named headset without an assigned profile, offered an AutoEq search once per run. */
+    var autoEqSuggestion by mutableStateOf<EqualizerOutputDevice?>(null)
+        private set
+    private val suggestedDeviceKeys = mutableSetOf<String>()
+
+    private val deviceProfiles: Map<String, String>
+        get() =
+            Settings.shared.equalizerDeviceProfilesJson
+                .takeIf { it.isNotEmpty() }
+                ?.let { raw -> runCatching { json.decodeFromString<Map<String, String>>(raw) }.getOrNull() }
+                .orEmpty()
+
+    fun deviceProfileId(deviceKey: String): String? = deviceProfiles[deviceKey]
+
+    fun setDeviceProfile(
+        deviceKey: String,
+        profileId: String?,
+    ) {
+        val updated = if (profileId == null) deviceProfiles - deviceKey else deviceProfiles + (deviceKey to profileId)
+        Settings.shared.equalizerDeviceProfilesJson = json.encodeToString(updated)
+    }
+
+    fun onOutputDeviceChanged(device: EqualizerOutputDevice?) {
+        if (device == outputDevice) return
+        outputDevice = device
+        if (device == null) return
+        val assigned = deviceProfileId(device.key)?.let { id -> profiles.firstOrNull { it.id == id } }
+        when {
+            // Switching would discard edits that have not been saved yet.
+            assigned != null -> if (assigned.id != activeProfileId && !hasUnsavedChanges) activate(assigned, Settings.shared.equalizerEnabled)
+
+            device.productName.isNotBlank() &&
+                (device.kind == EqualizerOutputKind.BLUETOOTH || device.kind == EqualizerOutputKind.USB) &&
+                suggestedDeviceKeys.add(device.key) -> autoEqSuggestion = device
+        }
+    }
+
+    fun dismissAutoEqSuggestion() {
+        autoEqSuggestion = null
+    }
 
     fun setEnabled(enabled: Boolean) {
         if (enabled) ensureDefaultProfile()

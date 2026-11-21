@@ -2533,4 +2533,12 @@
     <string name="metroeq_value_range">Nhập giá trị từ %1$s đến %2$s</string>
     <string name="metroeq_export_file">Xuất ra tệp</string>
     <string name="metroeq_export_failed">Không thể xuất hồ sơ</string>
+    <string name="metroeq_output_device">Đầu ra: %1$s</string>
+    <string name="metroeq_use_for_device">Dùng hồ sơ này cho %1$s</string>
+    <string name="metroeq_output_speaker">Loa điện thoại</string>
+    <string name="metroeq_output_wired">Tai nghe có dây</string>
+    <string name="metroeq_output_bluetooth">Thiết bị Bluetooth</string>
+    <string name="metroeq_output_usb">Âm thanh USB</string>
+    <string name="metroeq_output_other">Đầu ra ngoài</string>
+    <string name="metroeq_device_no_profile">%1$s chưa có hồ sơ EQ</string>
 </resources>
