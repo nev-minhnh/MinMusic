@@ -388,7 +388,9 @@ fun MiniPlayer(
                 isPlaying = isPlaying,
                 isLoading = isPlaybackLoading && miniPlayerActive,
                 progress = { progress.value },
-                progressAvailable = !isLive && duration > 0L,
+                // Keep the 2 dp track visible while the duration is still unknown (restored or paused queue);
+                // the gradient fill starts once the player reports a duration.
+                progressAvailable = !isLive,
                 onExpand = {
                     hapticManager.perform(HapticEvent.PRESS)
                     onExpand()

@@ -23,6 +23,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -85,6 +87,9 @@ fun MmPlayerMiniBar(
     val ink = scheme.onSurface
     val gradientColors = LocalBrand.current.gradientColors
     val lineColor = scheme.outlineVariant
+    // outlineVariant is nearly invisible on surface2; the unplayed track uses ink at 16% instead.
+    val trackColor = ink.copy(alpha = 0.16f)
+    val currentProgress by rememberUpdatedState(progress)
     val playLabel = playbackActionLabel ?: stringResource(if (isPlaying) Res.string.pause else Res.string.play)
     val loadingLabel = stringResource(Res.string.loading)
     PlayerSheetSurface(
@@ -175,8 +180,9 @@ fun MmPlayerMiniBar(
                                 val brush = Brush.horizontalGradient(gradientColors, startX = 0f, endX = size.width)
                                 val radius = CornerRadius(size.height / 2f)
                                 onDrawBehind {
-                                    drawRoundRect(lineColor, cornerRadius = radius)
-                                    val width = size.width * progress().coerceIn(0f, 1f)
+                                    drawRoundRect(trackColor, cornerRadius = radius)
+                                    // Read progress only here, so playback ticks redraw the line without recomposing the bar.
+                                    val width = size.width * currentProgress().coerceIn(0f, 1f)
                                     if (width > 0f) {
                                         val left = if (layoutDirection == LayoutDirection.Rtl) size.width - width else 0f
                                         drawRoundRect(brush, Offset(left, 0f), Size(width, size.height), radius)
