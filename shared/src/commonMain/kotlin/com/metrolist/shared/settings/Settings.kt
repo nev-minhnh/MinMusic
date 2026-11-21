@@ -368,7 +368,8 @@ class Settings(
     var showExpressiveMiniPlayerPlaylistButton by preference(ShowExpressiveMiniPlayerPlaylistButtonKey, false)
     var showExpressiveMiniPlayerSubscribeButton by preference(ShowExpressiveMiniPlayerSubscribeButtonKey, false)
     var showExpressiveMiniPlayerLikeButton by preference(ShowExpressiveMiniPlayerLikeButtonKey, false)
-    var showExpressiveMiniPlayerProgress by preference(ShowExpressiveMiniPlayerProgressKey, false)
+    // MinMusic: the mini player's 2 dp progress line is part of the design, so it is on unless the user turns it off.
+    var showExpressiveMiniPlayerProgress by preference(ShowExpressiveMiniPlayerProgressKey, true)
     var expressiveMiniPlayerArtworkPlayback by preference(ExpressiveMiniPlayerArtworkPlaybackKey, false)
     var expressiveMiniPlayerCookieArtwork by preference(ExpressiveMiniPlayerCookieArtworkKey, true)
     var expressiveMiniPlayerShapeMotion by preference(ExpressiveMiniPlayerShapeMotionKey, true)
