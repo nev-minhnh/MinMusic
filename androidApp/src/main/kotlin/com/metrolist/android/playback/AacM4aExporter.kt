@@ -160,7 +160,10 @@ private fun m4aMetadataBox(metadata: AudioExportMetadata): ByteArray {
             (metadata.year?.takeIf { it > 0 }?.let { textTag("©day", it.toString()) } ?: byteArrayOf()) +
             (metadata.trackNumber?.takeIf { it > 0 }?.let { trackTag(it, metadata.trackTotal) } ?: byteArrayOf()) +
             (metadata.lyrics?.takeIf(String::isNotBlank)?.let { textTag("©lyr", it) } ?: byteArrayOf()) +
-            (metadata.artwork?.let { mp4Box("covr", mp4Box("data", byteArrayOf(0, 0, 0, coverType, 0, 0, 0, 0) + it.data)) } ?: byteArrayOf())
+            (
+                metadata.artwork?.let { mp4Box("covr", mp4Box("data", byteArrayOf(0, 0, 0, coverType, 0, 0, 0, 0) + it.data)) }
+                    ?: byteArrayOf()
+            )
     val handler = mp4Box("hdlr", ByteArray(8) + "mdir".encodeToByteArray() + ByteArray(13))
     return mp4Box("udta", mp4Box("meta", ByteArray(4) + handler + mp4Box("ilst", items)))
 }
