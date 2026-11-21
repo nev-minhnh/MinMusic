@@ -415,8 +415,9 @@ class Settings(
     var equalizerLimiterEnabled by preference(EqualizerLimiterEnabledKey, true)
     var equalizerDeviceProfilesJson by preference(EqualizerDeviceProfilesJsonKey, "")
     var audioBoostDb by preference(AudioBoostDbKey, 0f)
-    var playerType by preference(PlayerType.MODERN)
-    var miniPlayerType by preference(MiniPlayerType.EXPRESSIVE)
+    // MinMusic: the redesigned player and mini player are the defaults; a saved choice (Modern, Expressive, ...) still wins.
+    var playerType by preference(PlayerType.MINMUSIC)
+    var miniPlayerType by preference(MiniPlayerType.MINMUSIC)
     var useRoundedRectPlayButton by preference(false)
     var cropAlbumArt by preference(true)
     var swapPlayerControls by preference(false)

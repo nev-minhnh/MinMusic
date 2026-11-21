@@ -643,7 +643,7 @@ fun PlayerScreen(
 
     val playerType = Settings.shared.playerType
     // MinMusic "Sân khấu tối" layout: the default modern player on phones (portrait), see MmPlayerSections.kt.
-    val mmStyle = playerType == PlayerType.MODERN && !isTv
+    val mmStyle = playerType == PlayerType.MINMUSIC && !isTv
     var showEqualizerShortcut by remember { mutableStateOf(false) }
     val usesFullscreenThumbnail = playerThumbnailStyle == PlayerThumbnailStyle.FULLSCREEN
     val prefersTallCover = usesFullscreenThumbnail && !isLandscape
@@ -2282,7 +2282,7 @@ fun PlayerScreen(
                                                     )
                                                 }
 
-                                                PlayerType.MODERN -> if (mmStyle) {
+                                                PlayerType.MODERN, PlayerType.MINMUSIC -> if (mmStyle) {
                                                     MmPlayerTransportRow(
                                                         isPlaying = isPlaying,
                                                         isLoading =
@@ -2310,6 +2310,7 @@ fun PlayerScreen(
                                                             viewModel.next()
                                                         },
                                                         playButtonSize = primaryControlSize,
+                                                        useRoundedRectPlayButton = useRoundedRectPlayButton,
                                                         contentColor = textBackgroundColor,
                                                         playPauseFocusRequester = playPauseFocusRequester,
                                                     )

@@ -164,12 +164,18 @@ enum class PlayerType {
     MODERN,
     VINTAGE,
     CLASSIC,
+
+    // MinMusic player (default). Appended last: settings store the ordinal.
+    MINMUSIC,
 }
 
 enum class MiniPlayerType {
     MODERN,
     VINTAGE,
     EXPRESSIVE,
+
+    // MinMusic mini player bar (default). Appended last: settings store the ordinal.
+    MINMUSIC,
 }
 
 enum class DensityScale(

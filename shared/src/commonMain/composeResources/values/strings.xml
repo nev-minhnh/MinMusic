@@ -5780,4 +5780,6 @@
     </plurals>
     <!-- Accessibility action label of the full player queue handle. -->
     <string name="mm_player_queue_open">Open queue</string>
+    <!-- Player type / mini player type choice for the MinMusic design (default). -->
+    <string name="mm_player_type_minmusic">MinMusic</string>
 </resources>

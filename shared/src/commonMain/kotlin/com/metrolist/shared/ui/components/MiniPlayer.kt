@@ -137,7 +137,8 @@ fun MiniPlayer(
     val lifecycleState by LocalLifecycleOwner.current.lifecycle.currentStateAsState()
     val active = isActive && lifecycleState == Lifecycle.State.RESUMED
     val marqueeModifier = rememberTrackMarquee(song.id, active, 3_000L)
-    if (Settings.shared.miniPlayerType == MiniPlayerType.EXPRESSIVE) {
+    // The MinMusic bar is Android-only; desktop and iOS keep showing the expressive mini player for it.
+    if (Settings.shared.miniPlayerType == MiniPlayerType.EXPRESSIVE || Settings.shared.miniPlayerType == MiniPlayerType.MINMUSIC) {
         val pixelSensitivity = (173f - Settings.shared.swipeSensitivity.coerceIn(0f, 100f)) / 100f
         ExpressiveMiniPlayer(
             song = song,

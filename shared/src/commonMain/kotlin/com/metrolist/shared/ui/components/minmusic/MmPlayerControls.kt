@@ -88,7 +88,8 @@ private const val INK2_ALPHA = 0.76f
 
 /**
  * The 72 dp play button: brand gradient fill with #0B0B0B content. It is a squircle (r24) while playing and
- * morphs to a circle when paused. Shape and press scale are applied in the layer block only.
+ * morphs to a circle when paused. With [useRoundedRect] (the "Rounded rectangle play button" setting) it keeps a
+ * fixed rounded rectangle instead. Shape and press scale are applied in the layer block only.
  */
 @Composable
 fun MmPlayerPlayButton(
@@ -101,6 +102,7 @@ fun MmPlayerPlayButton(
     focusRequester: FocusRequester? = null,
     icon: ImageVector? = null,
     label: String? = null,
+    useRoundedRect: Boolean = false,
 ) {
     val brand = LocalBrand.current
     val interactionSource = remember { MutableInteractionSource() }
@@ -113,7 +115,12 @@ fun MmPlayerPlayButton(
         )
     val corner =
         animateDpAsState(
-            targetValue = if (isPlaying) size / 3 else size / 2,
+            targetValue =
+                when {
+                    useRoundedRect -> size * (16f / 72f)
+                    isPlaying -> size / 3
+                    else -> size / 2
+                },
             animationSpec = MinMotion.standardEnter<Dp>(),
             label = "mmPlayCorner",
         )
@@ -177,6 +184,7 @@ fun MmPlayerTransportRow(
     playButtonSize: Dp = 72.dp,
     contentColor: Color = MaterialTheme.colorScheme.onSurface,
     playPauseFocusRequester: FocusRequester? = null,
+    useRoundedRectPlayButton: Boolean = false,
 ) {
     val accent = MaterialTheme.colorScheme.primary
     val restColor = contentColor.copy(alpha = INK2_ALPHA)
@@ -211,6 +219,7 @@ fun MmPlayerTransportRow(
             onClick = onTogglePlay,
             size = playButtonSize,
             focusRequester = playPauseFocusRequester,
+            useRoundedRect = useRoundedRectPlayButton,
         )
         IconButton(onClick = onSkipNext, modifier = Modifier.size(56.dp)) {
             Icon(
