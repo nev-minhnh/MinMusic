@@ -20,8 +20,7 @@ class M4aMetadataTest {
                 year = 1997,
                 trackNumber = 3,
                 trackTotal = 12,
-                lyrics = "[00:01.00]Ánh trăng
-[00:05.50]夜の歌",
+                lyrics = "[00:01.00]Ánh trăng\n[00:05.50]夜の歌",
             )
         val moviePayload =
             box(
