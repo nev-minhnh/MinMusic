@@ -337,7 +337,8 @@ class Settings(
     var materialYouEnabled by preference(false)
     var uiEnhancements by preference(true)
     var dynamicTheme by preference(true)
-    var themeMode by preference(ThemeMode.AUTO)
+    // MinMusic is dark-first ("Sân khấu tối"); only the default changes, a saved choice still wins.
+    var themeMode by preference(ThemeMode.DARK)
     var autoPureBlack by preference(AutoPureBlackKey, false)
     var selectedThemeColor by preference(0L)
     var themePaletteStyle by preference(ThemePaletteStyle.TONAL_SPOT)

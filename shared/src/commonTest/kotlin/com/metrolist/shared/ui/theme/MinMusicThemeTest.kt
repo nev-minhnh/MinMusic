@@ -35,6 +35,18 @@ class MinMusicThemeTest {
     }
 
     @Test
+    fun customAndArtworkSeedsKeepTheNeutralStage() {
+        for (seed in listOf(Color(0xFF006A6A), Color(0xFF9C4146))) {
+            val dark = appColorScheme(seed, true, ThemePaletteStyle.TONAL_SPOT)
+            assertEquals(Color(0xFF0B0B0B), dark.surface)
+            assertEquals(Color(0xFF0B0B0B), dark.background)
+            assertEquals(MinMusicDarkColorScheme.surfaceContainer, dark.surfaceContainer)
+            assertEquals(Color.Black, dark.pureBlack().surface)
+            assertEquals(MinMusicLightColorScheme.surface, appColorScheme(seed, false, ThemePaletteStyle.TONAL_SPOT).surface)
+        }
+    }
+
+    @Test
     fun darkSchemeUsesTheStageNeutrals() {
         assertEquals(Color(0xFF0B0B0B), MinMusicDarkColorScheme.surface)
         assertEquals(Color(0xFF151617), MinMusicDarkColorScheme.surfaceContainerLow)

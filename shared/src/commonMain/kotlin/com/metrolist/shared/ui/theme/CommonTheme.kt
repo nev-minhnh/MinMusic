@@ -135,7 +135,9 @@ fun rememberDynamicColorScheme(
 
 /**
  * The app scheme for a seed: the fixed MinMusic scheme for the brand seed ([DefaultThemeColor], also what an unset
- * theme colour resolves to), otherwise a scheme generated from the seed.
+ * theme colour resolves to), otherwise a scheme generated from the seed. A custom, wallpaper or song-artwork seed
+ * only changes the accents: surfaces always keep the neutral MinMusic stage (#0B0B0B in dark), so Home and lists
+ * never pick up an artwork tint.
  */
 fun appColorScheme(
     seedColor: Color,
@@ -146,7 +148,7 @@ fun appColorScheme(
     if (seedColor == DefaultThemeColor) {
         minMusicColorScheme(isDark)
     } else {
-        themeColorScheme(seedColor, isDark, paletteStyle, contrastLevel)
+        themeColorScheme(seedColor, isDark, paletteStyle, contrastLevel).withBrandNeutrals(isDark)
     }
 
 fun themeColorScheme(
