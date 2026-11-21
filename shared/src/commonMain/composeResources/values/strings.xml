@@ -5570,8 +5570,6 @@
     <string name="metroeq_crossfeed_jan_meier">Jan Meier (650 Hz, 9.5 dB)</string>
     <string name="metroeq_output_gain">Output gain</string>
     <string name="metroeq_output_gain_summary">Final volume boost after the equalizer and profile preamp</string>
-    <!-- Translators: Codec and bitrate of a downloaded song in the downloads list, for example Opus 160 kbps. -->
-    <string name="download_format_value">%1$s %2$d kbps</string>
     <!-- Translators: Song menu action that copies a downloaded song into the chosen folder. -->
     <string name="save_to_folder">Save to folder</string>
     <!-- Translators: Menu action that copies the downloaded songs of an album, playlist or selection into the chosen folder. -->
@@ -5609,6 +5607,13 @@
     <string name="source_nhaccuatui_experimental">NhacCuaTui (experimental)</string>
     <!-- Translators: Summary under a music source that cannot be turned on yet. -->
     <string name="source_coming_soon">Coming soon</string>
+    <!-- Short source codes shown in source badges. -->
+    <string name="source_badge_yt" translatable="false">YT</string>
+    <string name="source_badge_sc" translatable="false">SC</string>
+    <string name="source_badge_zing" translatable="false">Zing</string>
+    <string name="source_badge_nct" translatable="false">NCT</string>
+    <!-- Codec name and bitrate in kbps on a quality badge, for example Opus 160. -->
+    <string name="quality_badge_value" translatable="false">%1$s %2$d</string>
     <!-- MinMusic redesign: theme foundation. -->
     <!-- Translators: Title of the appearance switch that replaces the MinMusic colours with colours from the wallpaper (Material You). -->
     <string name="wallpaper_colors">Wallpaper colors</string>

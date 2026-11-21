@@ -773,6 +773,7 @@ fun YTListItem(
     compactSongSubtitle: Boolean = false,
     contentPadding: PaddingValues = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
     onAlbumPlay: (() -> Unit)? = null,
+    badges: (@Composable () -> Unit)? = null,
 ) {
     val pageArtwork = rememberAlbumArtworkSource(item, onClick)
     val itemEnabled = enabled && !item.isUnavailable
@@ -864,6 +865,10 @@ fun YTListItem(
             Row(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
+                if (badges != null) {
+                    badges()
+                    Spacer(modifier = Modifier.width(6.dp))
+                }
                 ItemStatusBadges((item as? SongItem)?.let(SongMetadataState::apply) ?: item, showExplicit = !isDesktop)
 
                 if (item is SongItem || item is AlbumItem) {

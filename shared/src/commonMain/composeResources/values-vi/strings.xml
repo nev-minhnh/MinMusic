@@ -2552,7 +2552,6 @@
     <string name="metroeq_crossfeed_jan_meier">Jan Meier (650 Hz, 9,5 dB)</string>
     <string name="metroeq_output_gain">Âm lượng đầu ra</string>
     <string name="metroeq_output_gain_summary">Mức tăng âm lượng cuối cùng, sau bộ chỉnh âm và preamp của hồ sơ</string>
-    <string name="download_format_value">%1$s %2$d kbit/giây</string>
     <string name="save_to_folder">Lưu vào thư mục</string>
     <string name="save_all_to_folder">Lưu bản tải xuống vào thư mục</string>
     <string name="save_to_folder_desc">Sao chép thành tệp âm thanh có thẻ thông tin</string>
