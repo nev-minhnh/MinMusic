@@ -379,7 +379,11 @@ private fun ProfilesPage(
     }
 
     Column(
-        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(vertical = 16.dp),
+        Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            // Keeps the last controls clear of the mini player on the settings page.
+            .padding(top = 16.dp, bottom = 16.dp + LocalSettingsPageBottomPadding.current),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         Surface(
