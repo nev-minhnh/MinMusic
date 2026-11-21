@@ -1,4 +1,4 @@
-package com.metrolist.android.source.nct
+package com.metrolist.shared.source.nct
 
 import com.metrolist.shared.model.AlbumItem
 import com.metrolist.shared.model.AlbumPage

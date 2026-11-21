@@ -1,4 +1,4 @@
-package com.metrolist.android.source.soundcloud
+package com.metrolist.shared.source.soundcloud
 
 /** One unencrypted transcoding offered for a track, as resolved by the extractor. */
 internal data class SoundCloudStreamCandidate(

@@ -1,4 +1,4 @@
-package com.metrolist.android.source.zing
+package com.metrolist.shared.source.zing
 
 import com.metrolist.shared.generated.resources.Res
 import com.metrolist.shared.generated.resources.charts

@@ -1,4 +1,4 @@
-package com.metrolist.android.source.soundcloud
+package com.metrolist.shared.source.soundcloud
 
 import com.metrolist.shared.network.sharedOkHttpClient
 import org.schabi.newpipe.extractor.NewPipe
