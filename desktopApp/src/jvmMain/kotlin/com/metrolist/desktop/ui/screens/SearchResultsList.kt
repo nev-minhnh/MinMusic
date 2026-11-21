@@ -97,6 +97,7 @@ fun SearchResultsList(
             onFilterSelected = { filter ->
                 SearchState.updateSearchFilter(filter)
             },
+            onSourceSelected = SearchState::selectSource,
             onRetryLoadMore = SearchState::retryLoadMoreFilteredResults,
             onLoadMore = {
                 SearchState.loadMoreFilteredResults()

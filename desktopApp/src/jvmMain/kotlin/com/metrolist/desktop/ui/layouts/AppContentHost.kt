@@ -63,6 +63,7 @@ import com.metrolist.desktop.ui.screens.LocalPlaylistScreen
 import com.metrolist.desktop.ui.screens.PlaylistScreen
 import com.metrolist.desktop.ui.screens.PodcastScreen
 import com.metrolist.desktop.ui.screens.SearchResultsList
+import com.metrolist.desktop.ui.screens.SourceChartsScreen
 import com.metrolist.desktop.ui.screens.StatsScreen
 import com.metrolist.shared.db.isHistoryPlaylistId
 import com.metrolist.shared.deviceconnect.DeviceConnectPairingHost
@@ -242,6 +243,10 @@ fun AppContentHost(
 
                     Screen.History -> {
                         HistoryScreen()
+                    }
+
+                    is Screen.SourceCharts -> {
+                        SourceChartsScreen(destination.sourceKey, destination.chartKey)
                     }
 
                     else -> {

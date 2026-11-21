@@ -16,6 +16,7 @@ import com.metrolist.innertubex.utils.YouTubeUrlParser
 import com.metrolist.shared.generated.resources.Res
 import com.metrolist.shared.generated.resources.search_history_removal_failed
 import com.metrolist.shared.model.SearchFilter
+import com.metrolist.shared.source.SourceId
 import com.metrolist.shared.ui.navigation.Screen
 import com.metrolist.shared.viewmodels.SearchViewModel
 import kotlinx.coroutines.launch
@@ -48,6 +49,9 @@ object SearchState {
     }
 
     fun onQueryChange(query: String) = controller.onQueryChange(query)
+
+    /** MinMusic source filter chips: null shows every source, a [SourceId] narrows results to that catalogue. */
+    fun selectSource(source: SourceId?) = controller.selectSource(source)
 
     fun removeSearchQuery(query: String) = controller.removeSearchHistoryItem(query)
 
