@@ -37,12 +37,16 @@ internal fun prepareStoredAudio(
     metadata: AudioExportMetadata,
     exportAac: (File, File, AudioExportMetadata) -> Boolean = ::exportAacM4a,
     export: (File, File, AudioExportMetadata) -> Boolean = ::exportWebmOpus,
+    tagMp3: (File, File, AudioExportMetadata) -> Boolean = ::exportTaggedMp3,
+    tagFlac: (File, File, AudioExportMetadata) -> Boolean = ::exportTaggedFlac,
 ): Pair<File, String?> {
     if (!publicStorage) return source to mimeType
     val (extension, storedMimeType, exporter) =
         when (mimeType?.substringBefore(';')?.trim()?.lowercase()) {
             "audio/webm" -> Triple("opus", "audio/ogg", export)
             "audio/mp4", "audio/x-m4a", "audio/aac", "audio/mp4a-latm" -> Triple("m4a", "audio/mp4", exportAac)
+            "audio/mpeg", "audio/mp3" -> Triple("mp3", "audio/mpeg", tagMp3)
+            "audio/flac", "audio/x-flac" -> Triple("flac", "audio/flac", tagFlac)
             else -> return source to mimeType
         }
     val target = File(source.parentFile, "${source.nameWithoutExtension}.$extension.tmp")
@@ -54,6 +58,26 @@ internal fun prepareStoredAudio(
     }
     source.delete()
     return target to storedMimeType
+}
+
+// MP3 and FLAC from other sources are only retagged; the audio frames are copied byte for byte.
+internal fun exportTaggedMp3(
+    source: File,
+    target: File,
+    metadata: AudioExportMetadata,
+): Boolean {
+    writeId3Tags(source, target, metadata, metadata.artwork?.data)
+    return true
+}
+
+internal fun exportTaggedFlac(
+    source: File,
+    target: File,
+    metadata: AudioExportMetadata,
+): Boolean {
+    val artwork = metadata.artwork
+    writeFlacTags(source, target, metadata, artwork?.data, artwork?.width ?: 0, artwork?.height ?: 0)
+    return true
 }
 
 internal fun exportWebmOpus(
