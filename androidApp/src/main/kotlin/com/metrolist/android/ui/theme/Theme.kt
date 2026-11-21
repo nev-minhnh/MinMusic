@@ -132,6 +132,18 @@ fun MetrolistTheme(
             }
         }
 
+    // The brand gradient follows an explicit accent choice (custom theme colour, wallpaper or song-artwork colours);
+    // the default brand seed keeps the MinMusic gradient.
+    val usesBrandAccent = !useSystemDynamicColor && themeColor == DefaultThemeColor
+    val brand =
+        remember(usesBrandAccent, darkTheme, colorScheme.primary, colorScheme.tertiary, colorScheme.onPrimary) {
+            if (usesBrandAccent) {
+                MinMusicBrand.of(darkTheme)
+            } else {
+                MinMusicBrand.seeded(darkTheme, colorScheme.primary, colorScheme.tertiary, colorScheme.onPrimary)
+            }
+        }
+
     val motionScheme = remember { MotionScheme.expressive() }
     val animatedColorScheme = animateColorScheme(colorScheme, motionScheme)
     val background = colorScheme.surface.toArgb()
@@ -146,7 +158,7 @@ fun MetrolistTheme(
         shapes = MetrolistShapes,
         motionScheme = motionScheme,
     ) {
-        CompositionLocalProvider(LocalIsTv provides isTv, LocalBrand provides MinMusicBrand.of(darkTheme)) {
+        CompositionLocalProvider(LocalIsTv provides isTv, LocalBrand provides brand) {
             MetrolistHapticsProvider {
                 FocusOutlineProvider(enabled = isTv, content = content)
             }

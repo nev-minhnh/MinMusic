@@ -104,6 +104,15 @@ fun MetrolistTheme(
             }
         }
 
+    val usesBrandAccent = seedColor == DefaultThemeColor
+    val brand =
+        remember(usesBrandAccent, darkTheme, colorScheme.primary, colorScheme.tertiary, colorScheme.onPrimary) {
+            if (usesBrandAccent) {
+                MinMusicBrand.of(darkTheme)
+            } else {
+                MinMusicBrand.seeded(darkTheme, colorScheme.primary, colorScheme.tertiary, colorScheme.onPrimary)
+            }
+        }
     val motionScheme = remember { MotionScheme.expressive() }
     val animatedColorScheme = animateColorScheme(colorScheme, motionScheme)
 
@@ -114,7 +123,7 @@ fun MetrolistTheme(
             shapes = MetrolistShapes,
             motionScheme = motionScheme,
             content = {
-                CompositionLocalProvider(LocalBrand provides MinMusicBrand.of(darkTheme)) {
+                CompositionLocalProvider(LocalBrand provides brand) {
                     MetrolistHapticsProvider(content)
                 }
             },
