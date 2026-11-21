@@ -15,8 +15,7 @@ import com.metrolist.shared.update.ReleaseVersion
 import com.metrolist.shared.update.checkNightly
 import com.metrolist.shared.update.followsNightlyUpdates
 import com.metrolist.shared.utils.OsUtil
-import com.sun.jna.platform.win32.Advapi32Util
-import com.sun.jna.platform.win32.WinReg
+import com.metrolist.shared.utils.XdgUtils
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
@@ -31,6 +30,7 @@ import kotlinx.serialization.json.Json
 import okhttp3.Call
 import okhttp3.Request
 import org.jetbrains.compose.resources.getString
+import java.io.File
 import java.io.InputStream
 import java.io.OutputStream
 import java.nio.file.Files
@@ -38,11 +38,15 @@ import java.nio.file.Path
 import java.nio.file.StandardCopyOption
 import java.security.MessageDigest
 
+/**
+ * MinMusic for Windows updates from nev-minhnh/MinMusic releases tagged `windows-vX.Y.Z`.
+ * Android releases (`vX.Y.Z`) live in the same repository and are always ignored here.
+ */
 object DesktopUpdateManager {
-    private const val API_BASE = "https://api.github.com/repos/MetrolistGroup/Metrolist"
+    private const val API_BASE = "https://api.github.com/repos/nev-minhnh/MinMusic"
     internal const val RELEASES_URL = "$API_BASE/releases?per_page=50"
-    private const val REGISTRY_PATH = "Software\\Metrolist\\Desktop"
-    private const val MAX_MANAGER_BYTES = 128L * 1024 * 1024
+    private const val CACHE_SOURCE = "desktop-github-releases-minmusic-windows-v1"
+    private const val MAX_INSTALLER_BYTES = 1024L * 1024 * 1024
 
     private val client = sharedOkHttpClient
     private val json = Json { ignoreUnknownKeys = true }
@@ -61,8 +65,7 @@ object DesktopUpdateManager {
         withContext(Dispatchers.IO) {
             runCatching {
                 val releasesJson = getReleaseJson(RELEASES_URL)
-                // A crash offers the nightly even on the stable channel, since it may already carry the fix.
-                (findUpdate(releasesJson, BuildConfig.APP_VERSION) ?: newNightly(parseReleases(releasesJson), confirm = false))
+                findUpdate(releasesJson, BuildConfig.APP_VERSION)
                     ?.let {
                         RecoveryRelease(
                             it.version,
@@ -88,23 +91,24 @@ object DesktopUpdateManager {
     suspend fun cachedReleases(): List<GitHubDesktopRelease> =
         withContext(Dispatchers.IO) {
             runCatching {
-                if (Settings.shared.updateCacheSource != "desktop-github-releases-metrolist-v1") {
+                if (Settings.shared.updateCacheSource != CACHE_SOURCE) {
                     Settings.shared.cachedUpdateReleasesJson = ""
                     Settings.shared.lastUpdateCheckTimestamp = 0L
                     Settings.shared.lastUpdateCheckAttemptTimestamp = 0L
-                    Settings.shared.updateCacheSource = "desktop-github-releases-metrolist-v1"
+                    Settings.shared.updateCacheSource = CACHE_SOURCE
                 }
                 parseReleases(Settings.shared.cachedUpdateReleasesJson)
             }.getOrDefault(emptyList())
         }
 
+    /** Only published Windows releases (`windows-vX.Y.Z`), newest first. */
     internal fun parseReleases(releasesJson: String): List<GitHubDesktopRelease> =
         json
             .decodeFromString<List<GitHubDesktopRelease>>(releasesJson)
-            .filter { !it.draft && (ReleaseVersion.parse(it.version) != null || it.isNightly) }
+            .filter { !it.draft && it.isWindowsRelease && ReleaseVersion.parse(it.version) != null }
             .sortedByDescending { ReleaseVersion.parse(it.version) }
 
-    /** The nightly when it differs from the installed package and this platform has a build. */
+    /** MinMusic publishes no desktop nightlies, so this only finds one if a nightly is ever listed. */
     internal fun newNightly(
         releases: List<GitHubDesktopRelease>,
         confirm: Boolean,
@@ -137,6 +141,7 @@ object DesktopUpdateManager {
         activeDownload?.cancel()
     }
 
+    /** Downloads the release's setup .exe, verifies its GitHub SHA-256 digest and starts it; the app then exits. */
     suspend fun downloadAndLaunch(
         version: String,
         onLaunched: suspend () -> Unit = {},
@@ -144,23 +149,24 @@ object DesktopUpdateManager {
         withContext(Dispatchers.IO) {
             mutableDownloadProgress.value = null
             runCatching {
-                val root = checkNotNull(installationRoot()) { "Metrolist installation was not found" }.root
-                val release = getRelease("$API_BASE/releases/tags/v$version")
+                checkNotNull(installationRoot()) { "MinMusic installation was not found" }
+                val tag = "$WINDOWS_TAG_PREFIX$version"
+                val release = getRelease("$API_BASE/releases/tags/$tag")
                 val errorMsg = getString(Res.string.update_not_published_stable)
-                check(release.tagName == "v$version" && release.canInstall(registeredInstallation = true)) { errorMsg }
-                val expectedName = "metrolist-installer-windows-x64-$version.exe"
+                check(release.tagName == tag && release.canInstall(registeredInstallation = true)) { errorMsg }
+                val expectedName = windowsInstallerAssetName(version)
                 val asset =
                     checkNotNull(release.installer) {
-                        "Release v$version does not contain $expectedName"
+                        "Release $tag does not contain $expectedName"
                     }
-                check(asset.state == "uploaded") { "The update manager is not ready" }
-                check(asset.size in 1..MAX_MANAGER_BYTES) { "The update manager has an invalid size" }
+                check(asset.state == "uploaded") { "The installer is not ready" }
+                check(asset.size in 1..MAX_INSTALLER_BYTES) { "The installer has an invalid size" }
                 val expectedDigest = parseGitHubSHA256(asset.digest)
 
-                val managerDirectory = root.resolve("manager")
-                Files.createDirectories(managerDirectory)
-                val partial = managerDirectory.resolve("MetrolistManager.new.exe")
-                val destination = managerDirectory.resolve("MetrolistManager.exe")
+                val updatesDirectory = File(XdgUtils.getXdgCacheHome(), "metrolist/updates").toPath()
+                Files.createDirectories(updatesDirectory)
+                val partial = updatesDirectory.resolve("$expectedName.part")
+                val destination = updatesDirectory.resolve(expectedName)
                 Files.deleteIfExists(partial)
                 try {
                     download(asset, partial, expectedDigest)
@@ -176,12 +182,8 @@ object DesktopUpdateManager {
 
                 currentCoroutineContext().ensureActive()
                 withContext(NonCancellable) {
-                    ProcessBuilder(
-                        destination.toString(),
-                        "update",
-                        "--pid",
-                        ProcessHandle.current().pid().toString(),
-                    ).directory(managerDirectory.toFile()).start()
+                    // The setup upgrades the installed copy in place (same upgrade code); MinMusic exits right after.
+                    ProcessBuilder(destination.toString()).directory(updatesDirectory.toFile()).start()
                     onLaunched()
                 }
                 Unit
@@ -198,7 +200,7 @@ object DesktopUpdateManager {
                 .url(url)
                 .header("Accept", "application/vnd.github+json")
                 .header("X-GitHub-Api-Version", "2026-03-10")
-                .header("User-Agent", "Metrolist-Desktop/${BuildConfig.APP_VERSION}")
+                .header("User-Agent", "MinMusic-Desktop/${BuildConfig.APP_VERSION}")
                 .build()
         return client.newCall(request).execute().use { response ->
             check(response.isSuccessful) { "GitHub returned ${response.code}" }
@@ -215,16 +217,16 @@ object DesktopUpdateManager {
             Request
                 .Builder()
                 .url(asset.downloadUrl)
-                .header("User-Agent", "Metrolist-Desktop/${BuildConfig.APP_VERSION}")
+                .header("User-Agent", "MinMusic-Desktop/${BuildConfig.APP_VERSION}")
                 .build()
         val call = client.newCall(request)
         activeDownload = call
         try {
             currentCoroutineContext().ensureActive()
             call.execute().use { response ->
-                check(response.isSuccessful) { "Manager download returned ${response.code}" }
+                check(response.isSuccessful) { "Installer download returned ${response.code}" }
                 val body = checkNotNull(response.body)
-                check(body.contentLength() < 0 || body.contentLength() == asset.size) { "Manager download size mismatch" }
+                check(body.contentLength() < 0 || body.contentLength() == asset.size) { "Installer download size mismatch" }
                 body.byteStream().buffered().use { input ->
                     Files.newOutputStream(destination).buffered().use { output ->
                         copyVerifiedUpdate(input, output, asset.size, expectedDigest) { mutableDownloadProgress.value = it }
@@ -236,51 +238,31 @@ object DesktopUpdateManager {
         }
     }
 
+    /**
+     * The installed copy that the setup .exe can upgrade: a packaged MinMusic.exe launcher that is not the
+     * portable ZIP (the portable ZIP carries install-manifest.json next to the launcher). Portable copies and
+     * development runs open the release page instead.
+     */
     private fun installationRoot(): DesktopInstallation? =
         runCatching {
             if (!OsUtil.isWindows) return null
-            if (!Advapi32Util.registryKeyExists(WinReg.HKEY_CURRENT_USER, REGISTRY_PATH)) return null
-            val root =
-                Path.of(
-                    Advapi32Util.registryGetStringValue(
-                        WinReg.HKEY_CURRENT_USER,
-                        REGISTRY_PATH,
-                        "InstallLocation",
-                    ),
-                )
-            val registeredVersion =
-                Advapi32Util.registryGetStringValue(
-                    WinReg.HKEY_CURRENT_USER,
-                    REGISTRY_PATH,
-                    "Version",
-                )
-            val marker = json.decodeFromString<DesktopInstallMarker>(Files.readString(root.resolve("manager/install.json")))
-            check(marker.schema == 1 && marker.appId == "com.metrolist.desktop" && marker.version == registeredVersion) {
-                "Metrolist installation metadata is invalid"
-            }
-            check(Files.isRegularFile(root.resolve("app/Metrolist.exe"))) { "Metrolist installation is incomplete" }
-            check(
-                isRunningRegisteredDesktop(
-                    root,
-                    ProcessHandle
-                        .current()
-                        .info()
-                        .command()
-                        .orElse(null),
-                ),
-            ) {
-                "The running application is not the registered installation"
-            }
-            DesktopInstallation(root, registeredVersion)
+            val launcher = System.getProperty("jpackage.app-path")?.takeIf(String::isNotBlank)?.let { Path.of(it) } ?: return null
+            if (!launcher.fileName.toString().equals(WINDOWS_LAUNCHER_NAME, ignoreCase = true)) return null
+            if (!Files.isRegularFile(launcher)) return null
+            val root = launcher.toAbsolutePath().parent ?: return null
+            if (Files.exists(root.resolve(PORTABLE_MARKER))) return null
+            DesktopInstallation(root, BuildConfig.APP_VERSION)
         }.getOrNull()
 }
 
-@Serializable
-private data class DesktopInstallMarker(
-    val schema: Int,
-    val appId: String,
-    val version: String,
-)
+internal const val WINDOWS_TAG_PREFIX = "windows-v"
+private const val WINDOWS_LAUNCHER_NAME = "MinMusic.exe"
+private const val PORTABLE_MARKER = "install-manifest.json"
+
+/** Release asset names; minmusic-windows-release.yml must publish exactly these. */
+internal fun windowsInstallerAssetName(version: String): String = "MinMusic-$version-windows-x64-setup.exe"
+
+internal fun windowsPortableAssetName(version: String): String = "MinMusic-$version-windows-x64-portable.zip"
 
 @Serializable
 data class GitHubDesktopRelease(
@@ -292,7 +274,8 @@ data class GitHubDesktopRelease(
     val assets: List<GitHubDesktopAsset>,
     @SerialName("target_commitish") val targetCommit: String? = null,
 ) {
-    val version: String get() = tagName.removePrefix("v")
+    val version: String get() = tagName.removePrefix(WINDOWS_TAG_PREFIX)
+    val isWindowsRelease: Boolean get() = tagName.startsWith(WINDOWS_TAG_PREFIX)
     val isNightly: Boolean get() = tagName == NIGHTLY_TAG
 
     /** Nightlies share one tag, so their package digest tells them apart. */
@@ -310,13 +293,16 @@ data class GitHubDesktopRelease(
                     }
             }
     val installer: GitHubDesktopAsset?
-        get() = assets.singleOrNull { it.name == "metrolist-installer-windows-x64-$version.exe" }
+        get() = assets.singleOrNull { it.name == windowsInstallerAssetName(version) }
+    val portable: GitHubDesktopAsset?
+        get() = assets.singleOrNull { it.name == windowsPortableAssetName(version) }
     val url: String get() =
         nightlyAsset?.takeIf { isNightly }?.downloadUrl
-            ?: "https://github.com/MetrolistGroup/Metrolist/releases/tag/$tagName"
+            ?: "https://github.com/nev-minhnh/MinMusic/releases/tag/$tagName"
 
     internal fun canInstall(registeredInstallation: Boolean): Boolean =
-        registeredInstallation && !draft && !prerelease && ReleaseVersion.parse(version)?.prerelease?.isEmpty() == true
+        registeredInstallation && isWindowsRelease && installer != null && !draft && !prerelease &&
+            ReleaseVersion.parse(version)?.prerelease?.isEmpty() == true
 }
 
 @Serializable
@@ -350,11 +336,6 @@ private data class DesktopInstallation(
     val version: String,
 )
 
-internal fun isRunningRegisteredDesktop(
-    root: Path,
-    command: String?,
-): Boolean = command != null && runCatching { Files.isSameFile(root.resolve("app/Metrolist.exe"), Path.of(command)) }.getOrDefault(false)
-
 internal suspend fun copyVerifiedUpdate(
     input: InputStream,
     output: OutputStream,
@@ -371,15 +352,15 @@ internal suspend fun copyVerifiedUpdate(
         currentCoroutineContext().ensureActive()
         val count = input.read(buffer)
         if (count < 0) break
-        check(downloaded + count <= expectedSize) { "Manager download exceeded its expected size" }
+        check(downloaded + count <= expectedSize) { "Installer download exceeded its expected size" }
         output.write(buffer, 0, count)
         digest.update(buffer, 0, count)
         downloaded += count
         onProgress(((downloaded * 100) / expectedSize).toInt())
     }
     currentCoroutineContext().ensureActive()
-    check(downloaded == expectedSize) { "Manager download was incomplete" }
-    check(MessageDigest.isEqual(digest.digest(), expectedDigest)) { "Manager SHA-256 verification failed" }
+    check(downloaded == expectedSize) { "Installer download was incomplete" }
+    check(MessageDigest.isEqual(digest.digest(), expectedDigest)) { "Installer SHA-256 verification failed" }
 }
 
 internal fun desktopUpdateCheckIsDue(
