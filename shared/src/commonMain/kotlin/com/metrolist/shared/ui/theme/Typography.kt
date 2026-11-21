@@ -7,15 +7,21 @@ package com.metrolist.shared.ui.theme
 
 import androidx.compose.material3.Typography
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalLocaleList
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.intl.LocaleList
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.sp
+import com.metrolist.shared.generated.resources.Res
+import com.metrolist.shared.generated.resources.be_vietnam_pro_regular
+import com.metrolist.shared.generated.resources.be_vietnam_pro_semibold
 import com.metrolist.shared.settings.Settings
 import com.metrolist.shared.settings.resolveAppLanguageTag
 import com.metrolist.shared.state.GlobalYouTube
+import org.jetbrains.compose.resources.Font
 
 @Composable
 fun currentAppLocaleList(): LocaleList = resolveAppLocaleList(Settings.shared.appLanguage, LocalLocaleList.current)
@@ -35,146 +41,87 @@ internal fun resolveAppLocaleList(
 @Composable
 expect fun localeAwareSystemFontFamily(languageTag: String): FontFamily
 
+/** Be Vietnam Pro (SIL OFL 1.1), bundled in 400 and 600 only; see composeResources/files/licenses/bevietnampro. */
 @Composable
-fun MetrolistTypography(localeList: LocaleList = currentAppLocaleList()): Typography {
-    val font = localeAwareSystemFontFamily(localeList[0].toLanguageTag())
+fun beVietnamProFontFamily(): FontFamily {
+    val regular = Font(Res.font.be_vietnam_pro_regular, FontWeight.Normal)
+    val semiBold = Font(Res.font.be_vietnam_pro_semibold, FontWeight.SemiBold)
+    return remember(regular, semiBold) { FontFamily(regular, semiBold) }
+}
 
+/**
+ * MinMusic type scale: four sizes and two weights (design-system section 3). Hierarchy beyond that comes from
+ * opacity, not extra weights or sizes.
+ */
+object MinType {
+    val Label = 12.sp
+    val LabelLineHeight = 18.sp
+    val Body = 14.sp
+    val BodyLineHeight = 20.sp
+    val Title = 20.sp
+    val TitleLineHeight = 28.sp
+    val Display = 28.sp
+    val DisplayLineHeight = 36.sp
+
+    /** Tracking for 600-weight overlines (section labels). */
+    val OverlineLetterSpacing = 0.2.sp
+
+    /** Tabular figures for durations, times, EQ values, file sizes and ranks. */
+    const val TabularFigures = "tnum"
+}
+
+/**
+ * The app typography. [fontFamily] defaults to Be Vietnam Pro; on platforms that need a locale-specific system
+ * family for the current language (CJK and similar on desktop/iOS) that family wins, and per-glyph fallback
+ * covers the rest.
+ */
+@Composable
+fun MetrolistTypography(
+    localeList: LocaleList = currentAppLocaleList(),
+    fontFamily: FontFamily? = null,
+): Typography {
+    val systemFont = localeAwareSystemFontFamily(localeList[0].toLanguageTag())
+    val brandFont = beVietnamProFontFamily()
+    val font = fontFamily ?: if (systemFont == FontFamily.Default) brandFont else systemFont
+
+    fun style(
+        size: TextUnit,
+        lineHeight: TextUnit,
+        weight: FontWeight,
+        letterSpacing: TextUnit = 0.sp,
+    ) = TextStyle(
+        fontFamily = font,
+        fontWeight = weight,
+        fontSize = size,
+        lineHeight = lineHeight,
+        letterSpacing = letterSpacing,
+        localeList = localeList,
+    )
+
+    val display = style(MinType.Display, MinType.DisplayLineHeight, FontWeight.SemiBold)
+    val title = style(MinType.Title, MinType.TitleLineHeight, FontWeight.SemiBold)
+    val bodyStrong = style(MinType.Body, MinType.BodyLineHeight, FontWeight.SemiBold)
+    val body = style(MinType.Body, MinType.BodyLineHeight, FontWeight.Normal)
+    val label = style(MinType.Label, MinType.LabelLineHeight, FontWeight.Normal)
+    val labelStrong = style(MinType.Label, MinType.LabelLineHeight, FontWeight.SemiBold)
+
+    // M3 slots collapse onto the four MinMusic sizes (label 12, body 14, title 20, display 28).
     return Typography(
         fontFamily = font,
-        displayLarge =
-            TextStyle(
-                fontFamily = font,
-                fontWeight = FontWeight.Bold,
-                localeList = localeList,
-                fontSize = 57.sp,
-                lineHeight = 64.sp,
-                letterSpacing = (-0.25).sp,
-            ),
-        displayMedium =
-            TextStyle(
-                fontFamily = font,
-                fontWeight = FontWeight.Bold,
-                fontSize = 45.sp,
-                localeList = localeList,
-                lineHeight = 52.sp,
-                letterSpacing = 0.sp,
-            ),
-        displaySmall =
-            TextStyle(
-                fontFamily = font,
-                fontWeight = FontWeight.Bold,
-                fontSize = 36.sp,
-                localeList = localeList,
-                lineHeight = 44.sp,
-                letterSpacing = 0.sp,
-            ),
-        headlineLarge =
-            TextStyle(
-                fontFamily = font,
-                fontWeight = FontWeight.Bold,
-                fontSize = 32.sp,
-                localeList = localeList,
-                lineHeight = 40.sp,
-                letterSpacing = 0.sp,
-            ),
-        headlineMedium =
-            TextStyle(
-                fontFamily = font,
-                fontWeight = FontWeight.Bold,
-                fontSize = 28.sp,
-                localeList = localeList,
-                lineHeight = 36.sp,
-                letterSpacing = 0.sp,
-            ),
-        headlineSmall =
-            TextStyle(
-                fontFamily = font,
-                fontWeight = FontWeight.Bold,
-                fontSize = 24.sp,
-                localeList = localeList,
-                lineHeight = 32.sp,
-                letterSpacing = 0.sp,
-            ),
-        titleLarge =
-            TextStyle(
-                fontFamily = font,
-                fontWeight = FontWeight.SemiBold,
-                localeList = localeList,
-                fontSize = 22.sp,
-                lineHeight = 28.sp,
-                letterSpacing = 0.sp,
-            ),
-        titleMedium =
-            TextStyle(
-                fontFamily = font,
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 16.sp,
-                localeList = localeList,
-                lineHeight = 24.sp,
-                letterSpacing = 0.15.sp,
-            ),
-        titleSmall =
-            TextStyle(
-                fontFamily = font,
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 14.sp,
-                localeList = localeList,
-                lineHeight = 20.sp,
-                letterSpacing = 0.1.sp,
-            ),
-        bodyLarge =
-            TextStyle(
-                fontFamily = font,
-                fontWeight = FontWeight.Normal,
-                fontSize = 16.sp,
-                localeList = localeList,
-                lineHeight = 24.sp,
-                letterSpacing = 0.5.sp,
-            ),
-        bodyMedium =
-            TextStyle(
-                fontFamily = font,
-                fontWeight = FontWeight.Normal,
-                fontSize = 14.sp,
-                localeList = localeList,
-                lineHeight = 20.sp,
-                letterSpacing = 0.25.sp,
-            ),
-        bodySmall =
-            TextStyle(
-                fontFamily = font,
-                fontWeight = FontWeight.Normal,
-                fontSize = 12.sp,
-                localeList = localeList,
-                lineHeight = 16.sp,
-                letterSpacing = 0.4.sp,
-            ),
-        labelLarge =
-            TextStyle(
-                fontFamily = font,
-                fontWeight = FontWeight.Medium,
-                fontSize = 14.sp,
-                localeList = localeList,
-                lineHeight = 20.sp,
-                letterSpacing = 0.1.sp,
-            ),
-        labelMedium =
-            TextStyle(
-                fontFamily = font,
-                fontWeight = FontWeight.Medium,
-                fontSize = 12.sp,
-                localeList = localeList,
-                lineHeight = 16.sp,
-                letterSpacing = 0.5.sp,
-            ),
-        labelSmall =
-            TextStyle(
-                fontFamily = font,
-                fontWeight = FontWeight.Medium,
-                fontSize = 11.sp,
-                localeList = localeList,
-                lineHeight = 16.sp,
-                letterSpacing = 0.5.sp,
-            ),
+        displayLarge = display,
+        displayMedium = display,
+        displaySmall = display,
+        headlineLarge = display,
+        headlineMedium = display,
+        headlineSmall = display,
+        titleLarge = title,
+        titleMedium = bodyStrong,
+        titleSmall = bodyStrong,
+        bodyLarge = body,
+        bodyMedium = body,
+        bodySmall = label,
+        labelLarge = bodyStrong,
+        labelMedium = labelStrong,
+        labelSmall = label,
     )
 }

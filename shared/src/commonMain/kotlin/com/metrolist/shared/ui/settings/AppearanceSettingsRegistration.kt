@@ -120,8 +120,8 @@ internal fun SettingsUiRegistryBuilder.registerAppearanceSettings(host: SharedSe
             val matugenActive = host.platform == SettingsPlatform.DESKTOP && settings.matugenTheme
             switch(
                 id = "materialYou",
-                title = stringResource(Res.string.material_you),
-                description = stringResource(Res.string.material_you_description),
+                title = stringResource(Res.string.wallpaper_colors),
+                description = stringResource(Res.string.wallpaper_colors_description),
                 checked = settings.materialYouEnabled,
                 enabled = !matugenActive,
             ) { settings.materialYouEnabled = it }

@@ -11,6 +11,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -31,7 +32,9 @@ import androidx.compose.ui.MotionDurationScale
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onPlaced
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
+import com.metrolist.shared.ui.theme.MinMotion
 
 @OptIn(ExperimentalSharedTransitionApi::class)
 val LocalNavSharedTransitionScope = staticCompositionLocalOf<SharedTransitionScope?> { null }
@@ -51,6 +54,7 @@ val LocalNavVisibilityScope = staticCompositionLocalOf<AnimatedVisibilityScope?>
 class NavigationMotion internal constructor(
     private val scheme: MotionScheme,
     val enabled: Boolean = true,
+    private val navSlidePx: Int = 0,
 ) {
     internal val effectsSpec = scheme.fastEffectsSpec<Float>()
     internal val spatialSpec = scheme.fastSpatialSpec<Float>()
@@ -65,22 +69,20 @@ class NavigationMotion internal constructor(
         isPop: Boolean = false,
         origin: TransformOrigin = TransformOrigin.Center,
     ): ContentTransform =
-        if (enabled) {
-            val spatial =
-                if (pattern ==
-                    NavigationPattern.Expressive
-                ) {
-                    MotionScheme.expressive().defaultSpatialSpec<Float>()
-                } else {
-                    spatialSpec
-                }
-            val enterScale = if (pattern == NavigationPattern.Expressive && !isPop) 0.8f else 0.96f
-            val exitScale = if (pattern == NavigationPattern.Expressive && isPop) 0.8f else 0.96f
-            val pivot = if (pattern == NavigationPattern.Expressive) origin else TransformOrigin.Center
-            (scaleIn(spatial, initialScale = enterScale, transformOrigin = pivot) + fadeIn(effectsSpec))
-                .togetherWith(scaleOut(spatial, targetScale = exitScale, transformOrigin = pivot) + fadeOut(effectsSpec))
-        } else {
+        if (!enabled) {
             EnterTransition.None togetherWith ExitTransition.None
+        } else if (pattern == NavigationPattern.Expressive) {
+            // Container transform from the tapped element; keeps the Expressive spatial spring.
+            val spatial = MotionScheme.expressive().defaultSpatialSpec<Float>()
+            val enterScale = if (!isPop) 0.8f else 0.96f
+            val exitScale = if (isPop) 0.8f else 0.96f
+            (scaleIn(spatial, initialScale = enterScale, transformOrigin = origin) + fadeIn(effectsSpec))
+                .togetherWith(scaleOut(spatial, targetScale = exitScale, transformOrigin = origin) + fadeOut(effectsSpec))
+        } else {
+            // MinMotion.nav: shared-axis X, the new screen slides 30 dp and fades in, the old one fades out fast.
+            val offset = if (isPop) -navSlidePx else navSlidePx
+            (slideInHorizontally(MinMotion.nav()) { offset } + fadeIn(MinMotion.nav()))
+                .togetherWith(fadeOut(MinMotion.navExitFade()))
         }
 
     fun predictiveBackTransition(
@@ -93,7 +95,8 @@ class NavigationMotion internal constructor(
 fun rememberNavigationMotion(): NavigationMotion {
     val scheme = MaterialTheme.motionScheme
     val scale = rememberCoroutineScope().coroutineContext[MotionDurationScale]?.scaleFactor ?: 1f
-    return remember(scheme, scale) { NavigationMotion(scheme, scale > 0f) }
+    val slidePx = with(LocalDensity.current) { MinMotion.NavSlideDistance.roundToPx() }
+    return remember(scheme, scale, slidePx) { NavigationMotion(scheme, scale > 0f, slidePx) }
 }
 
 @OptIn(ExperimentalSharedTransitionApi::class)

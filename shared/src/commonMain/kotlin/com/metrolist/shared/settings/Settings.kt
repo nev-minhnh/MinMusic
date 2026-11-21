@@ -325,7 +325,8 @@ class Settings(
     var knownUploadIdsJson by preference(KnownUploadIdsJsonKey, "")
     var hasNewUploads by preference(HasNewUploadsKey, false)
 
-    var materialYouEnabled by preference(true)
+    // MinMusic: brand colours by default; wallpaper (Material You) colours are opt-in.
+    var materialYouEnabled by preference(false)
     var uiEnhancements by preference(true)
     var dynamicTheme by preference(true)
     var themeMode by preference(ThemeMode.AUTO)

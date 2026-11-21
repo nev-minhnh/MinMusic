@@ -2572,4 +2572,10 @@
     <string name="source_zing_mp3">Zing MP3</string>
     <string name="source_nhaccuatui_experimental">NhacCuaTui (thử nghiệm)</string>
     <string name="source_coming_soon">Sắp ra mắt</string>
+    <!-- MinMusic redesign: theme foundation. -->
+    <string name="wallpaper_colors">Màu theo hình nền</string>
+    <string name="wallpaper_colors_description">Dùng màu nhấn từ hình nền thay cho màu MinMusic</string>
+    <string name="theme_color_minmusic">MinMusic</string>
+    <string name="app_font_reset_default_description">Dùng phông chữ mặc định (Be Vietnam Pro) và xóa phông chữ đã nhập</string>
+    <string name="app_font_reset_default_confirm">Xóa phông chữ đã nhập và dùng phông chữ mặc định?</string>
 </resources>

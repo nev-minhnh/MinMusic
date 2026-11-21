@@ -20,63 +20,47 @@ import com.metrolist.shared.ui.theme.MetrolistTypography
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
+/** App typography with the user's font override applied; with no override it stays Be Vietnam Pro. */
 @Composable
 fun getAppTypography(): Typography {
     val context = LocalContext.current
     val appFont = Settings.shared.appFont
     val customFontFile = Settings.shared.androidCustomFontFile
     val activeFontId = Settings.shared.androidActiveFontId
-    val font by produceState<FontFamily>(FontFamily.Default, appFont, customFontFile, activeFontId) {
+    val overrideFont by produceState<FontFamily?>(null, appFont, customFontFile, activeFontId) {
         value = withContext(Dispatchers.IO) { resolveFontFamily(context, appFont, customFontFile, activeFontId) }
     }
-    val typography = MetrolistTypography()
-
-    return Typography(
-        fontFamily = font,
-        displayLarge = typography.displayLarge.copy(fontFamily = font),
-        displayMedium = typography.displayMedium.copy(fontFamily = font),
-        displaySmall = typography.displaySmall.copy(fontFamily = font),
-        headlineLarge = typography.headlineLarge.copy(fontFamily = font),
-        headlineMedium = typography.headlineMedium.copy(fontFamily = font),
-        headlineSmall = typography.headlineSmall.copy(fontFamily = font),
-        titleLarge = typography.titleLarge.copy(fontFamily = font),
-        titleMedium = typography.titleMedium.copy(fontFamily = font),
-        titleSmall = typography.titleSmall.copy(fontFamily = font),
-        bodyLarge = typography.bodyLarge.copy(fontFamily = font),
-        bodyMedium = typography.bodyMedium.copy(fontFamily = font),
-        bodySmall = typography.bodySmall.copy(fontFamily = font),
-        labelLarge = typography.labelLarge.copy(fontFamily = font),
-        labelMedium = typography.labelMedium.copy(fontFamily = font),
-        labelSmall = typography.labelSmall.copy(fontFamily = font),
-    )
+    return MetrolistTypography(fontFamily = overrideFont)
 }
 
+/** Returns the user's chosen font family, or null to use the bundled MinMusic font. */
 private fun resolveFontFamily(
     context: Context,
     appFont: FontOption,
     customFontFile: String,
     activeFontId: String,
-): FontFamily {
+): FontFamily? {
     when (activeFontId) {
+        // "System"/reset means the app default, which is now the bundled Be Vietnam Pro.
         QuickFontManager.SYSTEM_ID -> {
-            return FontFamily.Default
+            return null
         }
 
         QuickFontManager.CUSTOM_ID -> {
-            return AppFontManager.loadFontFamily(context, customFontFile)
+            return AppFontManager.loadFontFamily(context, customFontFile).takeUnless { it == FontFamily.Default }
         }
 
         else -> {
             if (QuickFontManager.isSupportedId(activeFontId)) {
-                return QuickFontManager.loadFontFamily(context, activeFontId)
+                return QuickFontManager.loadFontFamily(context, activeFontId).takeUnless { it == FontFamily.Default }
             }
         }
     }
 
-    if (activeFontId.isNotEmpty()) return FontFamily.Default
+    if (activeFontId.isNotEmpty()) return null
 
     if (appFont == FontOption.GOOGLE_SANS) {
-        return QuickFontManager.loadFontFamily(context, QuickFontManager.GOOGLE_SANS_ID)
+        return QuickFontManager.loadFontFamily(context, QuickFontManager.GOOGLE_SANS_ID).takeUnless { it == FontFamily.Default }
     }
 
     if (customFontFile.isNotBlank()) {
@@ -84,5 +68,5 @@ private fun resolveFontFamily(
         if (customFont != FontFamily.Default) return customFont
     }
 
-    return FontFamily.Default
+    return null
 }
