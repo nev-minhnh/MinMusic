@@ -56,11 +56,11 @@ import com.metrolist.android.ui.screens.settings.BackupRestoreScreen
 import com.metrolist.android.ui.screens.settings.DevtoolsSettingsScreen
 import com.metrolist.android.ui.screens.settings.NctLoginSheet
 import com.metrolist.android.ui.screens.settings.PlaybackBenchmarkSettingsScreen
+import com.metrolist.android.ui.screens.settings.SourcesSettingsScreen
 import com.metrolist.android.ui.screens.settings.StorageSettingsScreen
 import com.metrolist.android.ui.screens.settings.UpdateDetailsScreen
 import com.metrolist.android.ui.screens.settings.UpdatesScreen
 import com.metrolist.android.ui.screens.settings.ZingLoginScreen
-import com.metrolist.android.ui.screens.settings.rememberSourceSettingsUi
 import com.metrolist.android.update.AppUpdateManager
 import com.metrolist.android.update.AppUpdateState
 import com.metrolist.android.utils.AppFontManager
@@ -278,7 +278,6 @@ fun SettingsScreen(
         }
     var showZingLogin by remember { mutableStateOf(false) }
     var showNctLogin by remember { mutableStateOf(false) }
-    val sourceSettings = rememberSourceSettingsUi(onZingLogin = { showZingLogin = true }, onNctLogin = { showNctLogin = true })
     var totalCacheSize by remember { mutableLongStateOf(0L) }
     var freeStorageSize by remember { mutableLongStateOf(0L) }
     var isCalculatingCacheSize by remember { mutableStateOf(true) }
@@ -342,6 +341,7 @@ fun SettingsScreen(
                 add(SettingsPageId.PLAYBACK_BENCHMARK)
             }
             add(SettingsPageId.ANDROID_AUTO)
+            add(SettingsPageId.SOURCES)
         }
 
     fun openSupportedLinks() {
@@ -471,8 +471,6 @@ fun SettingsScreen(
                     fontPrimaryActions = fontPrimaryActions,
                     fontDownloadActions = fontDownloadActions,
                     onClearSearchHistory = searchViewModel.shared::clearSearchHistory,
-                    sourceStatuses = sourceSettings.statuses,
-                    sourceAccountActions = sourceSettings.accountActions,
                     onOpenPage = { page ->
                         if (page == SettingsPageId.SUPPORTED_LINKS) openSupportedLinks()
                     },
@@ -483,6 +481,14 @@ fun SettingsScreen(
                             when (page) {
                                 SettingsPageId.ANDROID_AUTO -> {
                                     AndroidAutoScreen(onNavigateBack = onBack)
+                                }
+
+                                SettingsPageId.SOURCES -> {
+                                    SourcesSettingsScreen(
+                                        onNavigateBack = onBack,
+                                        onZingLogin = { showZingLogin = true },
+                                        onNctLogin = { showNctLogin = true },
+                                    )
                                 }
 
                                 SettingsPageId.STORAGE -> {

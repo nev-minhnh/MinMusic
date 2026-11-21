@@ -25,7 +25,6 @@ import com.metrolist.shared.generated.resources.*
 import com.metrolist.shared.settings.AiSlopBlocklist
 import com.metrolist.shared.settings.BlockedContent
 import com.metrolist.shared.settings.Settings
-import com.metrolist.shared.source.SourceId
 import com.metrolist.shared.ui.icons.MetrolistIcons
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
@@ -288,48 +287,6 @@ internal fun SettingsUiRegistryBuilder.registerContentSettings(host: SharedSetti
                 }
             }
         }
-        if (host.sourceStatuses.isNotEmpty()) {
-            group(
-                id = "sources",
-                title = stringResource(Res.string.settings_sources),
-                description = stringResource(Res.string.settings_sources_description),
-            ) {
-                switch(
-                    id = "soundCloudSource",
-                    title = stringResource(Res.string.source_soundcloud),
-                    description = host.sourceStatuses[SourceId.SC],
-                    checked = settings.soundCloudSourceEnabled,
-                ) { settings.soundCloudSourceEnabled = it }
-                switch(
-                    id = "zingSource",
-                    title = stringResource(Res.string.source_zing_mp3),
-                    description = host.sourceStatuses[SourceId.ZING],
-                    checked = settings.zingSourceEnabled,
-                ) { settings.zingSourceEnabled = it }
-                switch(
-                    id = "nctSource",
-                    title = stringResource(Res.string.source_nhaccuatui_experimental),
-                    description = host.sourceStatuses[SourceId.NCT],
-                    checked = settings.nctSourceEnabled,
-                ) { settings.nctSourceEnabled = it }
-                host.sourceAccountActions.forEach { item ->
-                    action(
-                        id = item.id,
-                        title = item.title,
-                        description = item.description,
-                        valueLabel = item.valueLabel,
-                        confirmationMessage = item.confirmationMessage,
-                        enabled = item.enabled,
-                        onClick = item.onClick,
-                    )
-                }
-                switch(
-                    id = "autoBestSource",
-                    title = stringResource(Res.string.source_auto_best_quality),
-                    description = stringResource(Res.string.source_auto_best_quality_desc),
-                    checked = settings.autoBestSource,
-                ) { settings.autoBestSource = it }
-            }
-        }
+        // Sources moved to their own page (SettingsPageId.SOURCES), which the Android host draws.
     }
 }

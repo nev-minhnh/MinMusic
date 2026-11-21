@@ -65,6 +65,7 @@ enum class SettingsPageId {
     DEVICE_CONNECT,
     LISTEN_TOGETHER,
     EQUALIZER,
+    SOURCES,
 }
 
 enum class SettingsChangeEffect {

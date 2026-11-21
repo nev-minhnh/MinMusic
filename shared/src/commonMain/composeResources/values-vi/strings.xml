@@ -2608,4 +2608,18 @@
     <string name="theme_color_minmusic">MinMusic</string>
     <string name="app_font_reset_default_description">Dùng phông chữ mặc định (Be Vietnam Pro) và xóa phông chữ đã nhập</string>
     <string name="app_font_reset_default_confirm">Xóa phông chữ đã nhập và dùng phông chữ mặc định?</string>
+    <string name="settings_sources_overview">Zing MP3, NhacCuaTui, SoundCloud và tài khoản</string>
+    <string name="source_badge_default">Mặc định</string>
+    <string name="source_badge_free">Miễn phí</string>
+    <string name="source_badge_paused">Tạm dừng</string>
+    <string name="source_status_youtube_signed_in">Đã đăng nhập Google</string>
+    <string name="source_status_youtube_guest">Chưa đăng nhập</string>
+    <string name="source_quality_up_to">tới %1$s</string>
+    <string name="source_sign_in_vip">Đăng nhập VIP</string>
+    <string name="source_multi_source_header">Khi một bài có trên nhiều nguồn</string>
+    <string name="source_nct_login_error">Không đăng nhập được NhacCuaTui. Hãy thử lại sau.</string>
+    <string name="source_show_password">Hiện mật khẩu</string>
+    <string name="source_hide_password">Ẩn mật khẩu</string>
+    <string name="source_zing_official_site">trang chính thức</string>
+    <string name="source_zing_login_auto_close">Đăng nhập xong, cửa sổ sẽ tự đóng và kiểm tra VIP.</string>
 </resources>
