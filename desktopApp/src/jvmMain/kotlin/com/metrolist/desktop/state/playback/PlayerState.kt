@@ -419,7 +419,7 @@ internal fun deviceConnectCanReusePlayback(
     return localQueue.withoutAccountTokens() == incomingQueue.withoutAccountTokens()
 }
 
-internal fun canResolveDeviceConnectTrack(song: SongItem): Boolean = !song.isLocal && !song.id.startsWith("local_")
+internal fun canResolveDeviceConnectTrack(song: SongItem): Boolean = song.isYouTube
 
 internal fun MusicPlayer.setPlaying(playing: Boolean) {
     if (playing) resume() else pause()
@@ -900,7 +900,7 @@ object PlayerState {
     fun requestVideoMode() {
         if (deviceConnect.isFollowing || !Settings.shared.musicVideoPlaybackEnabled) return
         val song = currentTrack ?: return
-        if (song.id.startsWith("local_")) return
+        if (!song.isYouTube) return
         if (
             !shouldRefreshVideoForManualRequest(
                 isVideoAvailable = isVideoAvailable,

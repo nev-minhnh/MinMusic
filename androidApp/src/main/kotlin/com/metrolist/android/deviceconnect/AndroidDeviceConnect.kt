@@ -83,4 +83,4 @@ internal fun canUseDeviceConnectTrack(
     song: SongItem,
     isFollowing: Boolean,
     requiresReload: Boolean,
-): Boolean = !(song.isLocal || song.id.startsWith("local_")) || (!isFollowing && !requiresReload)
+): Boolean = song.isYouTube || (!isFollowing && !requiresReload)

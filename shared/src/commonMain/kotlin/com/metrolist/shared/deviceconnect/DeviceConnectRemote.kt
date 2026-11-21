@@ -158,7 +158,7 @@ class DeviceConnectRemote(
             (
                 command.action !in setOf(DcPlaybackAction.PLAY, DcPlaybackAction.SELECT, DcPlaybackAction.REPLACE_QUEUE) ||
                     availableDefaultDevice() == null ||
-                    command.songs.any { it.isLocal || it.id.startsWith("local_") } ||
+                    command.songs.any { !it.isYouTube } ||
                     (
                         command.action != DcPlaybackAction.REPLACE_QUEUE && expectedQueue != null &&
                             !DcLocalPlaybackState(queue = expectedQueue).isShareableDeviceConnectState()

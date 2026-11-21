@@ -87,6 +87,7 @@ import com.metrolist.shared.model.toSongItem
 import com.metrolist.shared.playlist.LibraryDeletionTracker
 import com.metrolist.shared.playlist.PlaylistChanges
 import com.metrolist.shared.settings.BlockedContent
+import com.metrolist.shared.source.isYouTubeId
 import com.metrolist.shared.state.SongLikeState
 import com.metrolist.shared.utils.Logger
 import com.metrolist.shared.viewmodels.LIBRARY_REFRESH_TTL_MILLIS
@@ -2328,7 +2329,13 @@ class YouTubeRepository(
         notifyChange: Boolean = true,
     ): Result<Unit> =
         try {
-            playlistEdits.addToPlaylist(playlistId, videoId, allowDuplicate).also {
+            val result =
+                if (isYouTubeId(videoId)) {
+                    playlistEdits.addToPlaylist(playlistId, videoId, allowDuplicate)
+                } else {
+                    Result.failure(IllegalArgumentException("Only YouTube songs can be added to a YouTube playlist"))
+                }
+            result.also {
                 if (it.isFailure && it.exceptionOrNull() !is PlaylistSongAlreadyPresentException) {
                     playlistMembership.invalidate(innerTube.sessionSnapshot(), playlistId)
                 }
@@ -2436,6 +2443,7 @@ class YouTubeRepository(
         playlistId: String = "RDAMVM$videoId",
         params: String? = null,
     ): RadioQueuePage {
+        if (!isYouTubeId(videoId)) return RadioQueuePage(songs = emptyList(), chips = emptyList())
         val page = parseRadioQueueResponse(nextResponse(videoId, playlistId, params))
         return page.copy(songs = BlockedContent.filterSongs(page.songs))
     }

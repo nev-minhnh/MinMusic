@@ -406,7 +406,7 @@ class IosAudioDownloadManager(
                                 ?.duration
                                 ?.takeIf { it > 0 }
                                 ?.toLong(),
-                    allowPlaybackTrackingFallback = !song.isLocal && !song.isUploaded && !song.isPodcast && !song.id.startsWith("local_"),
+                    allowPlaybackTrackingFallback = song.isYouTube && !song.isUploaded && !song.isPodcast,
                 ).withCachedFormat(format)
             }
         }

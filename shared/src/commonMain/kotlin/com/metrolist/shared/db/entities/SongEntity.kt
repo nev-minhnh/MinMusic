@@ -9,6 +9,7 @@ import androidx.room3.ColumnInfo
 import androidx.room3.Entity
 import androidx.room3.Index
 import androidx.room3.PrimaryKey
+import com.metrolist.shared.source.sourceOf
 import kotlinx.datetime.LocalDateTime
 
 @Entity(
@@ -18,6 +19,7 @@ import kotlinx.datetime.LocalDateTime
         Index(
             value = ["albumId"],
         ),
+        Index(value = ["source"]),
     ],
 )
 data class SongEntity(
@@ -67,4 +69,6 @@ data class SongEntity(
     val explicitness: Boolean? = null,
     @ColumnInfo(defaultValue = "0")
     val isUnavailable: Boolean = false,
+    @ColumnInfo(defaultValue = "'yt'")
+    val source: String = sourceOf(id).key,
 )

@@ -287,5 +287,30 @@ internal fun SettingsUiRegistryBuilder.registerContentSettings(host: SharedSetti
                 }
             }
         }
+        // Other catalogues are not wired up yet, so their switches stay off and locked.
+        group("sources", stringResource(Res.string.settings_sources)) {
+            val comingSoon = stringResource(Res.string.source_coming_soon)
+            switch(
+                id = "soundCloudSource",
+                title = stringResource(Res.string.source_soundcloud),
+                description = comingSoon,
+                checked = settings.soundCloudSourceEnabled,
+                enabled = false,
+            ) { settings.soundCloudSourceEnabled = it }
+            switch(
+                id = "zingSource",
+                title = stringResource(Res.string.source_zing_mp3),
+                description = comingSoon,
+                checked = settings.zingSourceEnabled,
+                enabled = false,
+            ) { settings.zingSourceEnabled = it }
+            switch(
+                id = "nctSource",
+                title = stringResource(Res.string.source_nhaccuatui_experimental),
+                description = comingSoon,
+                checked = settings.nctSourceEnabled,
+                enabled = false,
+            ) { settings.nctSourceEnabled = it }
+        }
     }
 }

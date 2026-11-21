@@ -1167,7 +1167,7 @@ internal fun shouldShowVideoButton(): Boolean {
     if (PlayerState.isListenTogetherGuest()) return false
     if (Settings.shared.hideVideoSongs || !Settings.shared.musicVideoPlaybackEnabled) return false
     if (track == null) return false
-    if (track.id.startsWith("local_")) return false
+    if (!track.isYouTube) return false
     return true
 }
 

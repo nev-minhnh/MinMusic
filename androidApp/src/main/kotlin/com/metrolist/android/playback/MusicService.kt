@@ -1683,7 +1683,7 @@ class MusicService :
                 isVideoSong = request.song.isVideoSong,
                 isVideoModeActive = Settings.shared.videoViewerVisible,
                 videoPlaybackEnabled = Settings.shared.musicVideoPlaybackEnabled,
-                isLocal = request.song.isLocal || request.song.id.startsWith("local_"),
+                isLocal = !request.song.isYouTube,
                 isPodcast = request.song.isPodcast,
             )
         PlaybackEventLog.info(

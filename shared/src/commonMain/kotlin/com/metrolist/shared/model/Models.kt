@@ -2,6 +2,7 @@ package com.metrolist.shared.model
 
 import com.metrolist.shared.api.PlaylistPage
 import com.metrolist.shared.settings.Settings
+import com.metrolist.shared.source.isYouTubeId
 import com.metrolist.shared.state.SongMetadataState
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.Transient
@@ -54,7 +55,11 @@ data class SongItem(
     val playbackProgressPercent: Int? = null,
     override val isUnavailable: Boolean = false,
     val downloadedAt: Long? = null,
-) : YTItem()
+) : YTItem() {
+    /** False for local files and songs from other sources, which YouTube-only features skip. */
+    val isYouTube: Boolean
+        get() = !isLocal && isYouTubeId(id)
+}
 
 val SongItem.artworkExplicitness: Boolean?
     get() = if (isExplicit) true else explicitness
@@ -434,8 +439,7 @@ val SongItem.canSwitchToMusicVideo: Boolean
         !isVideoSong &&
             !isUploaded &&
             !isUploadedType(musicVideoType) &&
-            !isLocal &&
-            !id.startsWith("local_") &&
+            isYouTube &&
             !isPodcast
 
 val SongItem.canSwitchToAudioTrack: Boolean
@@ -443,8 +447,7 @@ val SongItem.canSwitchToAudioTrack: Boolean
         isVideoSong &&
             !isUploaded &&
             !isUploadedType(musicVideoType) &&
-            !isLocal &&
-            !id.startsWith("local_") &&
+            isYouTube &&
             !isPodcast
 
 val SongItem.previewThumbnailUrl: String?

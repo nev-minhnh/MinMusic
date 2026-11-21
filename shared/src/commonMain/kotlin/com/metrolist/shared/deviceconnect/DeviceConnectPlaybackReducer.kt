@@ -61,8 +61,8 @@ internal fun validDcSong(song: SongItem): Boolean =
     song.id.isNotBlank() && (song.duration == null || song.duration in 0L..Long.MAX_VALUE / 1_000L)
 
 internal fun DcLocalPlaybackState.isShareableDeviceConnectState(): Boolean =
-    queue.displayedItems.none { it.isLocal || it.id.startsWith("local_") } &&
-        queue.originalItems.none { it.isLocal || it.id.startsWith("local_") }
+    queue.displayedItems.all { it.isYouTube } &&
+        queue.originalItems.all { it.isYouTube }
 
 internal fun MusicQueueSnapshot.forDeviceConnect(): MusicQueueSnapshot =
     copy(

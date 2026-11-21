@@ -40,10 +40,22 @@ import com.metrolist.shared.db.entities.SongArtistMap
 import com.metrolist.shared.db.entities.SongEntity
 import com.metrolist.shared.db.entities.SortedSongAlbumMap
 import com.metrolist.shared.db.entities.SortedSongArtistMap
+import com.metrolist.shared.db.entities.SourceAccountEntity
 import com.metrolist.shared.db.entities.SpeedDialItem
 import com.metrolist.shared.scrobble.PendingScrobble
 
-const val DATABASE_VERSION = 68
+const val DATABASE_VERSION = 69
+
+internal const val BACKFILL_LOCAL_SONG_SOURCE_SQL = "UPDATE song SET source = 'local' WHERE substr(id, 1, 6) = 'local_'"
+
+internal val MIGRATION_68_69_SQL =
+    listOf(
+        "ALTER TABLE song ADD COLUMN source TEXT NOT NULL DEFAULT 'yt'",
+        "CREATE INDEX IF NOT EXISTS index_song_source ON song (source)",
+        BACKFILL_LOCAL_SONG_SOURCE_SQL,
+        "CREATE TABLE IF NOT EXISTS source_account " +
+            "(source TEXT NOT NULL, displayName TEXT, entitlement TEXT NOT NULL, updatedAt INTEGER NOT NULL, PRIMARY KEY(source))",
+    )
 
 internal val MIGRATION_67_68_SQL =
     listOf("ALTER TABLE playlist ADD COLUMN isUserAlbum INTEGER NOT NULL DEFAULT 0")
@@ -265,6 +277,7 @@ internal val MIGRATION_53_54_SQL =
         PodcastEntity::class,
         CachedAudioEntity::class,
         PendingScrobble::class,
+        SourceAccountEntity::class,
     ],
     views = [
         SortedSongArtistMap::class,
