@@ -27,6 +27,7 @@ import com.metrolist.shared.db.MusicDatabase
 import com.metrolist.shared.db.entities.CachedAudioEntity
 import com.metrolist.shared.db.entities.KIND_CACHE
 import com.metrolist.shared.db.entities.KIND_DOWNLOAD
+import com.metrolist.shared.db.entities.LyricsEntity
 import com.metrolist.shared.db.upsertHistorySong
 import com.metrolist.shared.db.withDatabaseTransaction
 import com.metrolist.shared.generated.resources.Res
@@ -620,11 +621,12 @@ class AudioCacheManager(
                                 "audio/webm",
                                 publicStorage = true,
                                 metadata =
-                                    AudioExportMetadata(
+                                    exportMetadata(
+                                        candidate.songId,
                                         candidate.title,
                                         candidate.artist,
                                         candidate.album,
-                                        downloadedArtwork.exportArtwork(candidate.thumbnailUrl),
+                                        candidate.thumbnailUrl,
                                     ),
                                 export = export,
                             )
@@ -801,13 +803,11 @@ class AudioCacheManager(
                                 entry.mimeType,
                                 publicStorage = targetShared || targetCustom,
                                 metadata =
-                                    AudioExportMetadata(
-                                        entry.title,
-                                        entry.artist,
-                                        entry.album,
-                                        artwork =
-                                            if (targetShared || targetCustom) downloadedArtwork.exportArtwork(entry.thumbnailUrl) else null,
-                                    ),
+                                    if (targetShared || targetCustom) {
+                                        exportMetadata(entry.songId, entry.title, entry.artist, entry.album, entry.thumbnailUrl)
+                                    } else {
+                                        AudioExportMetadata(entry.title, entry.artist, entry.album)
+                                    },
                             )
 
                         val extension = extensionForMimeType(mimeType)
@@ -982,12 +982,18 @@ class AudioCacheManager(
                     mimeType,
                     publicStorage = isShared(kind) || isCustom(kind),
                     metadata =
-                        AudioExportMetadata(
-                            song.title,
-                            song.artists.joinToString(", ") { it.name },
-                            song.album?.name,
-                            artwork = if (isShared(kind) || isCustom(kind)) downloadedArtwork.exportArtwork(song.thumbnail) else null,
-                        ),
+                        if (isShared(kind) || isCustom(kind)) {
+                            exportMetadata(
+                                song.id,
+                                song.title,
+                                song.artists.joinToString(", ") { it.name },
+                                song.album?.name,
+                                song.thumbnail,
+                                song = song,
+                            )
+                        } else {
+                            AudioExportMetadata(song.title, song.artists.joinToString(", ") { it.name }, song.album?.name)
+                        },
                 )
 
             currentCoroutineContext().ensureActive()
@@ -1085,6 +1091,40 @@ class AudioCacheManager(
                 activeAudioFiles.removeAll(temporaryFiles.toSet())
             }
         }
+    }
+
+    // Tags come from the stored song, album and lyrics rows.
+    private suspend fun exportMetadata(
+        songId: String,
+        title: String,
+        artist: String,
+        album: String?,
+        thumbnailUrl: String?,
+        song: SongItem? = null,
+    ): AudioExportMetadata {
+        val dao = database.dao()
+        val stored = dao.getSongById(songId)
+        val lyrics =
+            dao.cachedLyrics(songId)?.let { entry ->
+                entry.userLyrics ?: entry.lyrics.takeIf { entry.provider != LyricsEntity.LYRICS_NOT_FOUND }
+            }?.takeIf { it.isNotBlank() && it != LyricsEntity.LYRICS_NOT_FOUND }
+        val albumId = stored?.album?.id ?: stored?.song?.albumId ?: song?.album?.id
+        val storedAlbum = albumId?.let { dao.album(it).first() }
+        val trackNumber =
+            song?.trackNumber ?: albumId?.let { id ->
+                dao.albumSongMaps(id).firstOrNull { it.songId == songId }?.index?.plus(1)
+            }
+        return AudioExportMetadata(
+            title,
+            artist,
+            album ?: storedAlbum?.album?.title,
+            artwork = downloadedArtwork.exportArtwork(thumbnailUrl),
+            albumArtist = storedAlbum?.artists?.joinToString(", ") { it.name }?.takeIf(String::isNotBlank),
+            year = stored?.song?.year ?: storedAlbum?.album?.year ?: song?.year,
+            trackNumber = trackNumber,
+            trackTotal = song?.totalTrackCount ?: storedAlbum?.album?.songCount?.takeIf { trackNumber != null && it >= trackNumber },
+            lyrics = lyrics,
+        )
     }
 
     private suspend fun publishStoredAudio(
