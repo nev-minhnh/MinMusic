@@ -5558,4 +5558,14 @@
     <string name="metroeq_output_usb">USB audio</string>
     <string name="metroeq_output_other">External output</string>
     <string name="metroeq_device_no_profile">%1$s has no EQ profile yet</string>
+    <string name="metroeq_tone_spatial">Tone and spatial</string>
+    <string name="metroeq_bass">Bass</string>
+    <string name="metroeq_treble">Treble</string>
+    <string name="metroeq_stereo_width">Stereo width</string>
+    <string name="metroeq_percent_value" translatable="false">%1$s%2$s</string>
+    <string name="metroeq_crossfeed">Crossfeed</string>
+    <string name="metroeq_crossfeed_summary">Blends some of each channel into the other so headphones sound closer to speakers</string>
+    <string name="metroeq_crossfeed_default">Default (700 Hz, 4.5 dB)</string>
+    <string name="metroeq_crossfeed_chu_moy">Chu Moy (700 Hz, 6 dB)</string>
+    <string name="metroeq_crossfeed_jan_meier">Jan Meier (650 Hz, 9.5 dB)</string>
 </resources>

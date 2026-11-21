@@ -2541,4 +2541,13 @@
     <string name="metroeq_output_usb">Âm thanh USB</string>
     <string name="metroeq_output_other">Đầu ra ngoài</string>
     <string name="metroeq_device_no_profile">%1$s chưa có hồ sơ EQ</string>
+    <string name="metroeq_tone_spatial">Âm sắc và không gian</string>
+    <string name="metroeq_bass">Âm trầm</string>
+    <string name="metroeq_treble">Âm cao</string>
+    <string name="metroeq_stereo_width">Độ rộng stereo</string>
+    <string name="metroeq_crossfeed">Trộn kênh chéo</string>
+    <string name="metroeq_crossfeed_summary">Trộn một phần mỗi kênh sang kênh kia để tai nghe nghe gần giống loa hơn</string>
+    <string name="metroeq_crossfeed_default">Mặc định (700 Hz, 4,5 dB)</string>
+    <string name="metroeq_crossfeed_chu_moy">Chu Moy (700 Hz, 6 dB)</string>
+    <string name="metroeq_crossfeed_jan_meier">Jan Meier (650 Hz, 9,5 dB)</string>
 </resources>

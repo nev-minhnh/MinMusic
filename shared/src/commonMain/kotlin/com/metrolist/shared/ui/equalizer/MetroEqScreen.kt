@@ -86,6 +86,7 @@ import com.metrolist.shared.equalizer.AudioSpectrumMeter
 import com.metrolist.shared.equalizer.AutoEqCatalog
 import com.metrolist.shared.equalizer.AutoEqEntry
 import com.metrolist.shared.equalizer.AutoEqModel
+import com.metrolist.shared.equalizer.CrossfeedPreset
 import com.metrolist.shared.equalizer.EqualizerOutputDevice
 import com.metrolist.shared.equalizer.EqualizerOutputKind
 import com.metrolist.shared.equalizer.EqualizerPreset
@@ -97,6 +98,8 @@ import com.metrolist.shared.equalizer.MAX_EQUALIZER_BANDS
 import com.metrolist.shared.equalizer.MAX_EQUALIZER_BAND_GAIN_DB
 import com.metrolist.shared.equalizer.MAX_EQUALIZER_FREQUENCY
 import com.metrolist.shared.equalizer.MAX_PROFILE_PREAMP_DB
+import com.metrolist.shared.equalizer.MAX_STEREO_WIDTH
+import com.metrolist.shared.equalizer.MAX_TONE_DB
 import com.metrolist.shared.equalizer.MIN_AUDIO_PREAMP_DB
 import com.metrolist.shared.equalizer.MIN_EQUALIZER_BAND_GAIN_DB
 import com.metrolist.shared.equalizer.MIN_EQUALIZER_FREQUENCY
@@ -151,9 +154,16 @@ import com.metrolist.shared.generated.resources.metroeq_output_speaker
 import com.metrolist.shared.generated.resources.metroeq_output_usb
 import com.metrolist.shared.generated.resources.metroeq_output_wired
 import com.metrolist.shared.generated.resources.metroeq_auto_preamp
+import com.metrolist.shared.generated.resources.metroeq_bass
+import com.metrolist.shared.generated.resources.metroeq_crossfeed
+import com.metrolist.shared.generated.resources.metroeq_crossfeed_chu_moy
+import com.metrolist.shared.generated.resources.metroeq_crossfeed_default
+import com.metrolist.shared.generated.resources.metroeq_crossfeed_jan_meier
+import com.metrolist.shared.generated.resources.metroeq_crossfeed_summary
 import com.metrolist.shared.generated.resources.metroeq_limiter
 import com.metrolist.shared.generated.resources.metroeq_limiter_summary
 import com.metrolist.shared.generated.resources.metroeq_peak_reduction
+import com.metrolist.shared.generated.resources.metroeq_percent_value
 import com.metrolist.shared.generated.resources.metroeq_profile_preamp
 import com.metrolist.shared.generated.resources.metroeq_preset_bass
 import com.metrolist.shared.generated.resources.metroeq_preset_flat
@@ -166,11 +176,15 @@ import com.metrolist.shared.generated.resources.metroeq_profile_name
 import com.metrolist.shared.generated.resources.metroeq_profiles
 import com.metrolist.shared.generated.resources.metroeq_q_value
 import com.metrolist.shared.generated.resources.metroeq_save_as
+import com.metrolist.shared.generated.resources.metroeq_stereo_width
+import com.metrolist.shared.generated.resources.metroeq_tone_spatial
+import com.metrolist.shared.generated.resources.metroeq_treble
 import com.metrolist.shared.generated.resources.metroeq_unsaved_changes
 import com.metrolist.shared.generated.resources.metroeq_use_for_device
 import com.metrolist.shared.generated.resources.metroeq_value_range
 import com.metrolist.shared.generated.resources.redo
 import com.metrolist.shared.generated.resources.more_options
+import com.metrolist.shared.generated.resources.percent_symbol
 import com.metrolist.shared.generated.resources.remove
 import com.metrolist.shared.generated.resources.rename
 import com.metrolist.shared.generated.resources.reset
@@ -478,6 +492,7 @@ private fun ProfilesPage(
         }
         EqualizerGraph(activeProfile, meter.sampleRate, meter.levels)
         PreampControl(activeProfile, meter.gainReductionDb)
+        activeProfile?.let { ToneControls(it) }
         Surface(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
             shape = RoundedCornerShape(20.dp),
@@ -1367,6 +1382,109 @@ private fun VerticalBandFader(
         drawCircle(background, if (selected) 8.dp.toPx() else 6.dp.toPx(), Offset(x, gainY))
         drawCircle(color, if (selected) 8.dp.toPx() else 6.dp.toPx(), Offset(x, gainY), style = Stroke(2.dp.toPx()))
     }
+}
+
+@Composable
+private fun ToneControls(profile: EqualizerProfile) {
+    Surface(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+        shape = RoundedCornerShape(20.dp),
+        color = MaterialTheme.colorScheme.surfaceContainer,
+    ) {
+        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(stringResource(Res.string.metroeq_tone_spatial), style = MaterialTheme.typography.titleMedium)
+            LabeledSlider(
+                label = stringResource(Res.string.metroeq_bass),
+                valueText = stringResource(Res.string.loudness_value, profile.bassDb.toDecimalString(1)),
+                value = profile.bassDb.toFloat(),
+                range = -MAX_TONE_DB.toFloat()..MAX_TONE_DB.toFloat(),
+            ) { value -> EqualizerProfiles.editTone { it.copy(bassDb = value.toDouble()) } }
+            LabeledSlider(
+                label = stringResource(Res.string.metroeq_treble),
+                valueText = stringResource(Res.string.loudness_value, profile.trebleDb.toDecimalString(1)),
+                value = profile.trebleDb.toFloat(),
+                range = -MAX_TONE_DB.toFloat()..MAX_TONE_DB.toFloat(),
+            ) { value -> EqualizerProfiles.editTone { it.copy(trebleDb = value.toDouble()) } }
+            LabeledSlider(
+                label = stringResource(Res.string.metroeq_stereo_width),
+                valueText =
+                    stringResource(
+                        Res.string.metroeq_percent_value,
+                        (profile.stereoWidth * 100).roundToInt().toString(),
+                        stringResource(Res.string.percent_symbol),
+                    ),
+                value = profile.stereoWidth.toFloat(),
+                range = 0f..MAX_STEREO_WIDTH.toFloat(),
+            ) { value -> EqualizerProfiles.editTone { it.copy(stereoWidth = value.toDouble()) } }
+            Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f).padding(end = 12.dp)) {
+                    Text(stringResource(Res.string.metroeq_crossfeed), style = MaterialTheme.typography.titleSmall)
+                    Text(
+                        stringResource(Res.string.metroeq_crossfeed_summary),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                ExpressiveSwitch(
+                    checked = profile.crossfeedEnabled,
+                    onCheckedChange = { enabled -> EqualizerProfiles.editTone { it.copy(crossfeedEnabled = enabled) } },
+                )
+            }
+            if (profile.crossfeedEnabled) {
+                Box {
+                    var choosingPreset by remember { mutableStateOf(false) }
+                    TextButton(onClick = { choosingPreset = true }, shapes = ButtonDefaults.shapes()) {
+                        Text(crossfeedPresetName(profile.crossfeedPreset))
+                    }
+                    DropdownMenu(expanded = choosingPreset, onDismissRequest = { choosingPreset = false }) {
+                        CrossfeedPreset.entries.forEach { preset ->
+                            DropdownMenuItem(
+                                text = { Text(crossfeedPresetName(preset)) },
+                                onClick = {
+                                    choosingPreset = false
+                                    EqualizerProfiles.editTone { it.copy(crossfeedPreset = preset) }
+                                },
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun crossfeedPresetName(preset: CrossfeedPreset): String =
+    stringResource(
+        when (preset) {
+            CrossfeedPreset.DEFAULT -> Res.string.metroeq_crossfeed_default
+            CrossfeedPreset.CHU_MOY -> Res.string.metroeq_crossfeed_chu_moy
+            CrossfeedPreset.JAN_MEIER -> Res.string.metroeq_crossfeed_jan_meier
+        },
+    )
+
+@Composable
+private fun LabeledSlider(
+    label: String,
+    valueText: String,
+    value: Float,
+    range: ClosedFloatingPointRange<Float>,
+    onValueChange: (Float) -> Unit,
+) {
+    val sliderState = rememberSliderState(value = value, trackRange = range)
+    sliderState.value = value
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Text(label, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f).padding(end = 12.dp))
+        Text(valueText, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
+    }
+    Slider(
+        state = sliderState,
+        onValueChange = {
+            sliderState.value = it
+            onValueChange(it)
+        },
+        modifier = Modifier.retainPlaybackKeyFocus(),
+    )
 }
 
 @Composable

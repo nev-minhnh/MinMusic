@@ -43,6 +43,18 @@ class ParametricEqualizer(
     private var state = emptyArray<DoubleArray>()
     private var preampGain = 1.0
 
+    // Stereo stage (two channels only): mid/side width, then bs2b crossfeed.
+    private var stereoWidth = 1.0
+    private var crossfeed = false
+    private var crossfeedPreset: CrossfeedPreset? = null
+    private var crossfeedLowA0 = 0.0
+    private var crossfeedLowB1 = 0.0
+    private var crossfeedHighA0 = 0.0
+    private var crossfeedHighA1 = 0.0
+    private var crossfeedHighB1 = 0.0
+    private var crossfeedGain = 1.0
+    private val crossfeedState = DoubleArray(6)
+
     // Lookahead limiter; while it runs, the output is delayed by lookaheadFrames - 1 frames.
     private val lookaheadFrames = maxOf(1, (sampleRate * LIMITER_LOOKAHEAD_SECONDS).roundToInt())
     private val delayFrames = lookaheadFrames - 1
@@ -67,7 +79,7 @@ class ParametricEqualizer(
         if (profile !== this.profile) {
             this.profile = profile
             val bands =
-                profile?.bands.orEmpty().filter {
+                (profile?.toneBands.orEmpty() + profile?.bands.orEmpty()).filter {
                     it.enabled && it.frequency > 0.0 && it.frequency < sampleRate / 2.0 &&
                         it.gain.isFinite() && it.q.isFinite() && it.q > 0.0
                 }
@@ -96,6 +108,7 @@ class ParametricEqualizer(
             appliedBands = bands
             val preampDb = profile?.preamp?.takeIf { it.isFinite() } ?: 0.0
             preampGain = 10.0.pow(preampDb.coerceIn(MIN_PROFILE_PREAMP_DB, MAX_PROFILE_PREAMP_DB) / 20.0)
+            configureStereo(profile)
         }
         return profile != null
     }
@@ -174,7 +187,7 @@ class ParametricEqualizer(
 
     // Without filters or gain the output must stay bit-identical to the input, so neither the limiter nor its delay runs.
     private fun isBypassed(outputGain: Double): Boolean {
-        if (activeFilters.isNotEmpty() || preampGain != 1.0 || outputGain != 1.0) return false
+        if (activeFilters.isNotEmpty() || preampGain != 1.0 || outputGain != 1.0 || stereoActive) return false
         limiterActive = false
         gainReductionDb = 0.0
         return true
@@ -186,6 +199,7 @@ class ParametricEqualizer(
         limiter: Boolean,
     ) {
         filterBuffer(count)
+        if (stereoActive) processStereo(count)
         if (limiter) {
             if (!limiterActive) resetLimiter()
             limiterActive = true
@@ -293,6 +307,61 @@ class ParametricEqualizer(
         gainReductionDb = -20.0 * log10(minimumGain)
     }
 
+    private val stereoActive: Boolean
+        get() = channelCount == 2 && (crossfeed || stereoWidth != 1.0)
+
+    private fun configureStereo(profile: EqualizerProfile?) {
+        stereoWidth = profile?.stereoWidth?.takeIf { it.isFinite() }?.coerceIn(0.0, MAX_STEREO_WIDTH) ?: 1.0
+        val preset = profile?.crossfeedPreset?.takeIf { profile.crossfeedEnabled }
+        if (preset != null && (preset != crossfeedPreset || !crossfeed)) crossfeedState.fill(0.0)
+        crossfeed = preset != null
+        if (preset == null || preset == crossfeedPreset) return
+        crossfeedPreset = preset
+        // libbs2b: the crossfed signal is low-passed, the direct one gets a matching high-frequency boost.
+        val lowGainDb = preset.feedDb * -5.0 / 6.0 - 3.0
+        val highGainDb = preset.feedDb / 6.0 - 3.0
+        val lowGain = 10.0.pow(lowGainDb / 20.0)
+        val highGain = 1.0 - 10.0.pow(highGainDb / 20.0)
+        val highCutoff = preset.cutoffHz * 2.0.pow((lowGainDb - 20.0 * log10(highGain)) / 12.0)
+        val lowPole = exp(-2.0 * PI * preset.cutoffHz / sampleRate)
+        crossfeedLowB1 = lowPole
+        crossfeedLowA0 = lowGain * (1.0 - lowPole)
+        val highPole = exp(-2.0 * PI * highCutoff / sampleRate)
+        crossfeedHighB1 = highPole
+        crossfeedHighA0 = 1.0 - highGain * (1.0 - highPole)
+        crossfeedHighA1 = -highPole
+        crossfeedGain = 1.0 / (1.0 - highGain + lowGain)
+    }
+
+    private fun processStereo(count: Int) {
+        val s = crossfeedState
+        var i = 0
+        while (i + 1 < count) {
+            var left = processingBuffer[i]
+            var right = processingBuffer[i + 1]
+            if (stereoWidth != 1.0) {
+                val mid = (left + right) * 0.5
+                val side = (left - right) * 0.5 * stereoWidth
+                left = mid + side
+                right = mid - side
+            }
+            if (crossfeed) {
+                // s: low-passed left/right, high-shelved left/right, previous left/right input.
+                s[0] = crossfeedLowA0 * left + crossfeedLowB1 * s[0]
+                s[1] = crossfeedLowA0 * right + crossfeedLowB1 * s[1]
+                s[2] = crossfeedHighA0 * left + crossfeedHighA1 * s[4] + crossfeedHighB1 * s[2]
+                s[3] = crossfeedHighA0 * right + crossfeedHighA1 * s[5] + crossfeedHighB1 * s[3]
+                s[4] = left
+                s[5] = right
+                left = (s[2] + s[1]) * crossfeedGain
+                right = (s[3] + s[0]) * crossfeedGain
+            }
+            processingBuffer[i] = left
+            processingBuffer[i + 1] = right
+            i += 2
+        }
+    }
+
     private fun resetLimiter() {
         delayLine.fill(0.0)
         delayPosition = 0
@@ -307,6 +376,7 @@ class ParametricEqualizer(
 
     fun reset() {
         state.forEach { it.fill(0.0) }
+        crossfeedState.fill(0.0)
         resetLimiter()
         gainReductionDb = 0.0
     }

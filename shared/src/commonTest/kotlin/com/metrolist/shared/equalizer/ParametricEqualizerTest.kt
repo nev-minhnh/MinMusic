@@ -104,4 +104,19 @@ Filter 3: OFF PK Fc 2000 Hz Gain -4 dB Q 2",
         assertEquals(6.0, equalizer.responseDb(50.0), 1.0)
         assertEquals(0.0, equalizer.responseDb(2_000.0), 0.5)
     }
+
+    @Test
+    fun crossfeedKeepsMonoLevelAndZeroWidthCollapsesStereo() {
+        val crossfed = ParametricEqualizer(48_000, 2)
+        crossfed.update(EqualizerProfile("cf", "cf", emptyList(), crossfeedEnabled = true))
+        val mono = ShortArray(9_600) { 16_000 }
+        crossfed.processPcm16(mono, limiter = false)
+        assertEquals(16_000.0, mono.last().toDouble(), 2.0)
+
+        val narrowed = ParametricEqualizer(48_000, 2)
+        narrowed.update(EqualizerProfile("width", "width", emptyList(), stereoWidth = 0.0))
+        val stereo = ShortArray(960) { if (it % 2 == 0) 12_000 else -4_000 }
+        narrowed.processPcm16(stereo, limiter = false)
+        assertTrue(stereo.all { it.toInt() == 4_000 })
+    }
 }

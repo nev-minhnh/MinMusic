@@ -59,7 +59,34 @@ data class EqualizerProfile(
     val rig: String = "unknown",
     val addedTimestamp: Long = 0L,
     val outputGainDb: Double? = null,
+    val bassDb: Double = 0.0,
+    val trebleDb: Double = 0.0,
+    val crossfeedEnabled: Boolean = false,
+    val crossfeedPreset: CrossfeedPreset = CrossfeedPreset.DEFAULT,
+    val stereoWidth: Double = 1.0,
 )
+
+/** bs2b crossfeed levels: low-pass cut frequency of the fed signal and its feed level. */
+@Serializable
+enum class CrossfeedPreset(
+    val cutoffHz: Double,
+    val feedDb: Double,
+) {
+    DEFAULT(700.0, 4.5),
+    CHU_MOY(700.0, 6.0),
+    JAN_MEIER(650.0, 9.5),
+}
+
+// Fixed tone controls run before the parametric bands.
+internal val EqualizerProfile.toneBands: List<ParametricEqBand>
+    get() =
+        listOf(
+            ParametricEqBand(BASS_FREQUENCY, bassDb.coerceIn(-MAX_TONE_DB, MAX_TONE_DB), TONE_Q, FilterType.LSC),
+            ParametricEqBand(TREBLE_FREQUENCY, trebleDb.coerceIn(-MAX_TONE_DB, MAX_TONE_DB), TONE_Q, FilterType.HSC),
+        )
+
+internal val EqualizerProfile.hasStereoProcessing: Boolean
+    get() = crossfeedEnabled || stereoWidth != 1.0
 
 // Keep storage indices stable for per-band reset and the DSP filter history.
 internal val EqualizerProfile.bandsByFrequency: List<IndexedValue<ParametricEqBand>>
@@ -111,7 +138,15 @@ data class EqualizerConfiguration(
     val limiterEnabled: Boolean = true,
 ) {
     val isIdentity: Boolean
-        get() = preampDb == 0.0 && (profile == null || (profile.preamp == 0.0 && profile.bands.all { it.isIdentity() }))
+        get() =
+            preampDb == 0.0 &&
+                (
+                    profile == null ||
+                        (
+                            profile.preamp == 0.0 && profile.bands.all { it.isIdentity() } &&
+                                profile.toneBands.all { it.isIdentity() } && !profile.hasStereoProcessing
+                        )
+                )
 }
 
 enum class EqualizerOutputKind { SPEAKER, WIRED, BLUETOOTH, USB, OTHER }
@@ -363,6 +398,19 @@ object EqualizerProfiles {
         type: FilterType,
     ) = updateBand(index) { band -> band.copy(filterType = type, gain = if (type.supportsGain) band.gain else 0.0) }
 
+    fun editTone(transform: (EqualizerProfile) -> EqualizerProfile) {
+        val current = activeProfile ?: return
+        val updated =
+            transform(current).let {
+                it.copy(
+                    bassDb = (round(it.bassDb * 2) / 2).coerceIn(-MAX_TONE_DB, MAX_TONE_DB),
+                    trebleDb = (round(it.trebleDb * 2) / 2).coerceIn(-MAX_TONE_DB, MAX_TONE_DB),
+                    stereoWidth = (round(it.stereoWidth * 100) / 100).coerceIn(0.0, MAX_STEREO_WIDTH),
+                )
+            }
+        if (updated != current) editCurrent(updated)
+    }
+
     fun setProfilePreamp(db: Double) {
         val current = activeProfile ?: return
         if (db.isNaN()) return
@@ -600,7 +648,8 @@ fun parseGraphicEq(content: String): Pair<Double, List<ParametricEqBand>>? {
 fun EqualizerProfile.toParametricEqText(): String =
     buildString {
         append("Preamp: ").append(preamp.toDecimalString(1)).append(" dB\n")
-        bands.forEachIndexed { index, band ->
+        // Tone controls are written as the shelves they apply; crossfeed and width have no APO filter equivalent.
+        (toneBands.filterNot { it.isIdentity() } + bands).forEachIndexed { index, band ->
             append("Filter ").append(index + 1).append(": ").append(if (band.enabled) "ON " else "OFF ")
             append(
                 when (band.filterType) {
@@ -632,6 +681,11 @@ internal fun Double.toDecimalString(decimals: Int): String {
 }
 
 const val MAX_EQUALIZER_BANDS = 32
+const val MAX_TONE_DB = 12.0
+const val MAX_STEREO_WIDTH = 2.0
+private const val BASS_FREQUENCY = 100.0
+private const val TREBLE_FREQUENCY = 10_000.0
+private const val TONE_Q = 0.707
 const val MIN_EQUALIZER_BAND_GAIN_DB = -30.0
 const val MAX_EQUALIZER_BAND_GAIN_DB = 30.0
 const val MIN_EQUALIZER_FREQUENCY = 20.0
