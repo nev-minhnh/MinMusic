@@ -107,6 +107,7 @@ fun SupportPrompt() {
                                 verticalArrangement = Arrangement.spacedBy(8.dp),
                             ) {
                                 AsyncImage(
+                                    artworkEdge = false,
                                     url = developer.avatarUrl,
                                     modifier = Modifier.size(56.dp).clip(shape),
                                     shape = shape,

@@ -238,6 +238,7 @@ fun MusicVideoSurface(
     ) {
         if (videoAlpha < 1f) {
             AsyncImage(
+                artworkEdge = false,
                 url = artworkUrl,
                 contentDescription = null,
                 contentScale = if (fillContainer) ContentScale.Crop else ContentScale.Fit,

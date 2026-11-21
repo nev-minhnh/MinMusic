@@ -264,6 +264,7 @@ fun MiniPlayer(
                     )
                 } else {
                     AsyncImage(
+                        artworkEdge = false,
                         url = song.previewThumbnailUrl,
                         contentDescription = null,
                         modifier = Modifier.fillMaxSize().artworkBlur(24.dp, backgroundColor),

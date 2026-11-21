@@ -182,6 +182,7 @@ import com.metrolist.shared.state.SongLikeState
 import com.metrolist.shared.ui.LocalIsTv
 import com.metrolist.shared.ui.components.AlertDialog
 import com.metrolist.shared.ui.components.HistoryEntryGroupPosition
+import com.metrolist.shared.ui.components.minmusic.mmArtworkEdge
 import com.metrolist.shared.ui.components.sliders.rememberWavePhase
 import com.metrolist.shared.ui.icons.MetrolistIcons
 import com.metrolist.shared.ui.navigation.LocalContentObscured
@@ -613,7 +614,7 @@ private fun RecognitionHistoryRow(
                 modifier =
                     Modifier
                         .size(56.dp)
-                        .clip(ComponentShapes.SmallThumbnailShape)
+                        .mmArtworkEdge(ComponentShapes.SmallThumbnailShape)
                         .background(MaterialTheme.colorScheme.surfaceContainerHighest),
             )
             Spacer(Modifier.width(12.dp))
@@ -1099,7 +1100,7 @@ private fun RecognitionSuccessState(
             AsyncImage(
                 model = result.coverArtHqUrl ?: result.coverArtUrl,
                 contentDescription = null,
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier.fillMaxSize().mmArtworkEdge(),
                 contentScale = ContentScale.Crop,
             )
         }

@@ -742,6 +742,7 @@ internal fun MiniPlayerCard(
                     )
                 } else {
                     AsyncImage(
+                        artworkEdge = false,
                         url = artworkUrl,
                         contentDescription = null,
                         modifier =

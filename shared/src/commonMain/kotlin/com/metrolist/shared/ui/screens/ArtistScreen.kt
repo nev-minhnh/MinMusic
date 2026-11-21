@@ -929,6 +929,7 @@ private fun ArtistHeaderImage(
                     .then(if (square) Modifier else Modifier.bannerEdgeMask()),
         ) {
             AsyncImage(
+                artworkEdge = false,
                 url = currentUrl,
                 previewUrl = previousUrl,
                 modifier = Modifier.fillMaxSize(),

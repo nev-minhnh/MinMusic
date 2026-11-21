@@ -32,6 +32,7 @@ import coil3.compose.rememberConstraintsSizeResolver
 import coil3.decode.DataSource
 import coil3.request.ImageRequest
 import coil3.size.Scale
+import com.metrolist.shared.ui.components.minmusic.mmArtworkEdge
 import com.metrolist.shared.ui.icons.MetrolistIcons
 import com.metrolist.shared.ui.player.LocalPlayerTrackArtwork
 import com.metrolist.shared.ui.player.ShareMiniPlayerArtwork
@@ -45,9 +46,11 @@ fun CrossfadeArtwork(
     contentScale: ContentScale,
     modifier: Modifier,
     animate: Boolean = true,
+    artworkEdge: Boolean = true,
 ) {
     val crossfadeProgress = { if (nextUrl == null) 0f else progress().coerceIn(0f, 1f) }
-    Box(modifier, contentAlignment = Alignment.Center) {
+    // MinMusic: soft edge (zoom + fade) over both crossfading layers; the caller's clip keeps the corners.
+    Box(if (artworkEdge) modifier.mmArtworkEdge() else modifier, contentAlignment = Alignment.Center) {
         LoadingArtwork(
             url = currentUrl,
             shareMiniPlayerArtwork = true,

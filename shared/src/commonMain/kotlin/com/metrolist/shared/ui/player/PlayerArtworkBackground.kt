@@ -436,6 +436,7 @@ internal fun FullscreenThumbnailBackground(
                 }
             } else {
                 AsyncImage(
+                    artworkEdge = false,
                     url = currentUrl,
                     contentDescription = null,
                     modifier =
@@ -700,6 +701,7 @@ private fun LandscapeFullscreenThumbnailBackground(
                     val videoReady = (canvasContent != null && canvasReady) || (animatedCoverUrl != null && coverReady)
                     if (!videoReady) {
                         AsyncImage(
+                            artworkEdge = false,
                             url = currentUrl,
                             contentDescription = null,
                             modifier =
@@ -715,6 +717,7 @@ private fun LandscapeFullscreenThumbnailBackground(
                     }
                 } else {
                     AsyncImage(
+                        artworkEdge = false,
                         url = currentUrl,
                         contentDescription = null,
                         modifier =

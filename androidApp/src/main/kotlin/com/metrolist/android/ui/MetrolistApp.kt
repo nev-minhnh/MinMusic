@@ -2160,6 +2160,7 @@ fun MetrolistApp(
                                 )
                             } else {
                                 AsyncImage(
+                                    artworkEdge = false,
                                     url = currentSong?.thumbnail,
                                     contentDescription = currentSong?.title,
                                     contentScale = ContentScale.Crop,
