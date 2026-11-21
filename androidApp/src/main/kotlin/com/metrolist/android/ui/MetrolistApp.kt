@@ -205,6 +205,7 @@ import com.metrolist.android.ui.screens.ArtistScreenHost
 import com.metrolist.android.ui.screens.AutoPlaylistScreen
 import com.metrolist.android.ui.screens.BrowseScreen
 import com.metrolist.android.ui.screens.DownloadsScreen
+import com.metrolist.android.ui.screens.EqualizerScreen
 import com.metrolist.android.ui.screens.HistoryScreen
 import com.metrolist.android.ui.screens.HomeScreen
 import com.metrolist.android.ui.screens.HomeSectionScreen
@@ -697,9 +698,18 @@ fun MetrolistApp(
                 listenTogetherManager = AndroidListenTogetherManager.initialize(context, playerConnection)
             }
         }
+        // Set once the player sheet exists below, so opening the equalizer can collapse an expanded player first.
+        val collapseExpandedPlayer = remember { mutableStateOf<() -> Unit>({}) }
+        val openEqualizer: (String?) -> Unit =
+            remember(navigator) {
+                { autoEqQuery: String? ->
+                    collapseExpandedPlayer.value()
+                    navigator.navigate(Screen.Equalizer(autoEqQuery))
+                }
+            }
         val playerPlatform =
             remember(context, playerConnection, listenTogetherManager) {
-                AndroidPlayerPlatform(context.findActivity(), playerConnection, listenTogetherManager)
+                AndroidPlayerPlatform(context.findActivity(), playerConnection, listenTogetherManager) { openEqualizer(null) }
             }
         val playerViewModel: PlayerViewModel = koinInject()
         val downloadManager: SongDownloadManager = koinInject()
@@ -714,7 +724,7 @@ fun MetrolistApp(
         HiddenHomeItemsSnackbar(snackbarHostState)
         UnavailableSongSnackbar(snackbarHostState)
         YouTubeSyncSnackbar(snackbarHostState)
-        EqualizerDeviceSuggestion(snackbarHostState)
+        EqualizerDeviceSuggestion(snackbarHostState) { productName -> openEqualizer(productName) }
         LyricsTranslationSnackbar(snackbarHostState, playerViewModel.lyricsTranslationFailures)
         listenTogetherManager?.let { manager ->
             ListenTogetherGlobalEvents(manager) { snackbarHostState.showSnackbar(it) }
@@ -1095,6 +1105,11 @@ fun MetrolistApp(
                             expandedBound = maxHeight,
                             initialAnchor = DISMISSED_ANCHOR,
                         )
+                    SideEffect {
+                        collapseExpandedPlayer.value = {
+                            if (playerBottomSheetState.progress > 0f) playerBottomSheetState.collapseSoft()
+                        }
+                    }
                     ContentUndoHintsSnackbar(snackbarHostState) { page ->
                         coroutineScope.launch {
                             if (hasMedia) playerBottomSheetState.collapseSoft()
@@ -2791,6 +2806,10 @@ fun getEntryProvider(
             AndroidAutoScreen(onNavigateBack = { navigator.goBack() })
         }
 
+        entry<Screen.Equalizer>(metadata = navTabMetadata) { route ->
+            EqualizerScreen(onNavigateBack = { navigator.goBack() }, autoEqQuery = route.autoEqQuery)
+        }
+
         entry<Screen.Settings>(metadata = navTabMetadata) {
             SettingsScreen(
                 onNavigateBack = {
@@ -2801,6 +2820,7 @@ fun getEntryProvider(
                 },
                 onNavigateToDownloads = { navigator.navigate(Screen.AutoPlaylist("downloaded")) },
                 onNavigateToArtist = { artistId -> navigator.navigate(Screen.Artist(artistId)) },
+                onNavigateToEqualizer = { navigator.navigate(Screen.Equalizer()) },
             )
         }
 
@@ -2815,6 +2835,7 @@ fun getEntryProvider(
                 },
                 onNavigateToDownloads = { navigator.navigate(Screen.AutoPlaylist("downloaded")) },
                 onNavigateToArtist = { navigator.navigate(Screen.Artist(it)) },
+                onNavigateToEqualizer = { navigator.navigate(Screen.Equalizer()) },
             )
         }
 

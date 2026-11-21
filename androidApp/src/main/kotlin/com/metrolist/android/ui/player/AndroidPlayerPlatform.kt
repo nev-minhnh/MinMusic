@@ -90,6 +90,8 @@ class AndroidPlayerPlatform(
     private val activity: Activity?,
     private val playerConnection: PlayerConnection,
     private val listenTogetherManager: ListenTogetherManager?,
+    // Opens the full-screen equalizer route (collapsing the player first).
+    private val onOpenEqualizer: () -> Unit = {},
 ) : PlayerPlatform {
     override val supportsPictureInPicture = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
     override val supportsVideoPlayback = true
@@ -315,6 +317,7 @@ class AndroidPlayerPlatform(
             onNavigateToArtist = onNavigateToArtist,
             onNavigateToListenTogether = onNavigateToListenTogether,
             onShowSongDetails = onShowSongDetails,
+            onOpenEqualizer = onOpenEqualizer,
             extraActions = extraActions,
         )
     }
