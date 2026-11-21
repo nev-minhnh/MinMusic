@@ -54,6 +54,9 @@ jobs:
           submodules: recursive
           persist-credentials: false
 
+      - name: Check for ad and tracking SDKs
+        run: bash scripts/check_no_ads.sh
+
       - name: Check tag matches appVersion
         shell: bash
         run: |
