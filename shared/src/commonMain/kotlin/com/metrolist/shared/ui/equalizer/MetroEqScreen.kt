@@ -62,6 +62,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -102,6 +103,7 @@ import com.metrolist.shared.equalizer.ParametricEqualizer
 import com.metrolist.shared.equalizer.bandsByFrequency
 import com.metrolist.shared.equalizer.searchAutoEqModels
 import com.metrolist.shared.equalizer.toDecimalString
+import com.metrolist.shared.equalizer.toParametricEqText
 import com.metrolist.shared.equalizer.supportsGain
 import com.metrolist.shared.equalizer.withAdjustedBand
 import com.metrolist.shared.equalizer.withAdjustedGain
@@ -123,10 +125,13 @@ import com.metrolist.shared.generated.resources.equalizer_invalid_profile
 import com.metrolist.shared.generated.resources.equalizer_profile_count
 import com.metrolist.shared.generated.resources.equalizer_stream_unavailable
 import com.metrolist.shared.generated.resources.equalizer_usage_warning
+import com.metrolist.shared.generated.resources.export_saved
 import com.metrolist.shared.generated.resources.import_from_file
 import com.metrolist.shared.generated.resources.loudness_value
 import com.metrolist.shared.generated.resources.metroeq_custom_profile
 import com.metrolist.shared.generated.resources.metroeq_delete_profile_confirm
+import com.metrolist.shared.generated.resources.metroeq_export_failed
+import com.metrolist.shared.generated.resources.metroeq_export_file
 import com.metrolist.shared.generated.resources.metroeq_filter_band_pass
 import com.metrolist.shared.generated.resources.metroeq_filter_high_pass
 import com.metrolist.shared.generated.resources.metroeq_filter_high_shelf
@@ -165,6 +170,7 @@ import com.metrolist.shared.generated.resources.sample_rate_value
 import com.metrolist.shared.generated.resources.save
 import com.metrolist.shared.generated.resources.saved
 import com.metrolist.shared.generated.resources.search
+import com.metrolist.shared.generated.resources.share
 import com.metrolist.shared.generated.resources.settings_filter_q_summary
 import com.metrolist.shared.generated.resources.undo
 import com.metrolist.shared.generated.resources.wizard_multiple_variants
@@ -197,6 +203,18 @@ import kotlin.math.exp
 import kotlin.math.ln
 import kotlin.math.round
 import kotlin.math.roundToInt
+
+/** Platform actions for exported Equalizer APO text; absent where the platform offers none. */
+class MetroEqExportActions(
+    val save: (fileName: String, content: String, onResult: (saved: Boolean) -> Unit) -> Unit,
+    val share: (fileName: String, content: String) -> Unit,
+)
+
+val LocalMetroEqExportActions = staticCompositionLocalOf<MetroEqExportActions?> { null }
+
+private val unsafeFileNameCharacters = Regex("""[\\/:*?"<>|]""")
+
+private fun exportFileName(profileName: String) = profileName.replace(unsafeFileNameCharacters, "_").trim() + " ParametricEQ.txt"
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -285,6 +303,8 @@ private fun ProfilesPage(
     var saveAs by remember { mutableStateOf(false) }
     var profileName by remember(activeId, currentTitle) { mutableStateOf(currentTitle ?: customProfileName) }
     var pendingProfileChange by remember { mutableStateOf<(() -> Unit)?>(null) }
+    var exportMessage by remember { mutableStateOf<StringResource?>(null) }
+    val exportActions = LocalMetroEqExportActions.current
     val hasUnsavedChanges = EqualizerProfiles.hasUnsavedChanges
     val history = remember { EqualizerEditHistory() }
     LaunchedEffect(activeProfile) {
@@ -401,6 +421,14 @@ private fun ProfilesPage(
                 modifier = Modifier.padding(horizontal = 16.dp),
             )
         }
+        exportMessage?.let {
+            Text(
+                stringResource(it),
+                color = if (it == Res.string.export_saved) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.padding(horizontal = 16.dp),
+            )
+        }
         EqualizerGraph(activeProfile, meter.sampleRate, meter.levels)
         PreampControl(activeProfile, meter.gainReductionDb)
         Surface(
@@ -487,6 +515,25 @@ private fun ProfilesPage(
                                 onClick = {
                                     actionsExpanded = false
                                     changeProfile { import() }
+                                },
+                            )
+                        }
+                        if (activeProfile != null && exportActions != null) {
+                            val fileName = exportFileName(currentTitle ?: activeProfile.name)
+                            DropdownMenuItem(
+                                text = { Text(stringResource(Res.string.metroeq_export_file)) },
+                                onClick = {
+                                    actionsExpanded = false
+                                    exportActions.save(fileName, activeProfile.toParametricEqText()) { saved ->
+                                        exportMessage = if (saved) Res.string.export_saved else Res.string.metroeq_export_failed
+                                    }
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = { Text(stringResource(Res.string.share)) },
+                                onClick = {
+                                    actionsExpanded = false
+                                    exportActions.share(fileName, activeProfile.toParametricEqText())
                                 },
                             )
                         }

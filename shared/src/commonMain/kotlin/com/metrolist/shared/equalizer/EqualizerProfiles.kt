@@ -10,6 +10,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlin.concurrent.Volatile
 import kotlin.math.abs
+import kotlin.math.ln
 import kotlin.math.pow
 import kotlin.math.round
 import kotlin.math.sqrt
@@ -394,8 +395,13 @@ object EqualizerProfiles {
         fileName: String,
         content: String,
     ): EqualizerProfile {
-        val (preamp, bands) = parseParametricEq(content) ?: throw InvalidEqualizerProfileException()
-        val name = fileName.substringBeforeLast('.').removeSuffix(" ParametricEQ").ifBlank { fileName }
+        val (preamp, bands) = parseEqualizerText(content) ?: throw InvalidEqualizerProfileException()
+        val name =
+            fileName
+                .substringBeforeLast('.')
+                .removeSuffix(" ParametricEQ")
+                .removeSuffix(" GraphicEQ")
+                .ifBlank { fileName }
         val profile = EqualizerProfile("custom_${Uuid.random()}", name, bands, preamp = preamp, outputGainDb = 0.0)
         add(profile)
         return checkNotNull(activeProfile)
@@ -487,6 +493,79 @@ fun parseParametricEq(content: String): Pair<Double, List<ParametricEqBand>>? {
             }
     return if (valid) preamp.coerceIn(MIN_PROFILE_PREAMP_DB, MAX_PROFILE_PREAMP_DB) to bands else null
 }
+
+/** Parses Equalizer APO ParametricEQ text, falling back to an AutoEq GraphicEQ curve. */
+fun parseEqualizerText(content: String): Pair<Double, List<ParametricEqBand>>? = parseParametricEq(content) ?: parseGraphicEq(content)
+
+/**
+ * Converts an AutoEq "GraphicEQ: f g; f g; ..." curve to log-spaced peaking bands, one per third of an octave
+ * from 20 Hz to 20 kHz. Each band starts at the curve's gain at its centre (linear interpolation over log
+ * frequency), then the gains are corrected a few times by the difference between the curve and the summed
+ * response at every centre, which removes most of the overlap between neighbouring bands.
+ */
+fun parseGraphicEq(content: String): Pair<Double, List<ParametricEqBand>>? {
+    val line = content.lineSequence().map { it.trim() }.firstOrNull { it.startsWith("GraphicEQ:", ignoreCase = true) } ?: return null
+    val points =
+        line
+            .substringAfter(':')
+            .split(';')
+            .mapNotNull { pair ->
+                val values = pair.trim().split(Regex("\\s+"))
+                val frequency = values.getOrNull(0)?.toDoubleOrNull() ?: return@mapNotNull null
+                val gain = values.getOrNull(1)?.toDoubleOrNull() ?: return@mapNotNull null
+                (frequency to gain).takeIf { frequency > 0.0 && frequency.isFinite() && gain.isFinite() }
+            }.sortedBy { it.first }
+    if (points.size < 2) return null
+
+    fun curve(frequency: Double): Double {
+        if (frequency <= points.first().first) return points.first().second
+        if (frequency >= points.last().first) return points.last().second
+        val upper = points.indexOfFirst { it.first >= frequency }
+        val (f0, g0) = points[upper - 1]
+        val (f1, g1) = points[upper]
+        return if (f1 == f0) g1 else g0 + (g1 - g0) * ln(frequency / f0) / ln(f1 / f0)
+    }
+
+    val template = createEqualizerBands(GRAPHIC_EQ_BANDS)
+    val targets = template.map { curve(it.frequency) }
+    val gains = targets.toDoubleArray()
+    val analyzer = ParametricEqualizer(GRAPHIC_EQ_SAMPLE_RATE, 1)
+    repeat(GRAPHIC_EQ_ITERATIONS) {
+        analyzer.update(EqualizerProfile("graphic", "graphic", template.mapIndexed { index, band -> band.copy(gain = gains[index]) }))
+        val responses = template.map { analyzer.responseDb(it.frequency) }
+        for (index in gains.indices) {
+            gains[index] = (gains[index] + targets[index] - responses[index]).coerceIn(MIN_EQUALIZER_BAND_GAIN_DB, MAX_EQUALIZER_BAND_GAIN_DB)
+        }
+    }
+    return 0.0 to template.mapIndexed { index, band -> band.copy(gain = round(gains[index] * 10) / 10) }
+}
+
+/** Equalizer APO ParametricEQ text; disabled bands are written as OFF filters. */
+fun EqualizerProfile.toParametricEqText(): String =
+    buildString {
+        append("Preamp: ").append(preamp.toDecimalString(1)).append(" dB\n")
+        bands.forEachIndexed { index, band ->
+            append("Filter ").append(index + 1).append(": ").append(if (band.enabled) "ON " else "OFF ")
+            append(
+                when (band.filterType) {
+                    FilterType.PK -> "PK"
+                    FilterType.LSC -> "LSC"
+                    FilterType.HSC -> "HSC"
+                    FilterType.LPQ -> "LPQ"
+                    FilterType.HPQ -> "HPQ"
+                    FilterType.BP -> "BP"
+                    FilterType.NO -> "NO"
+                },
+            )
+            append(" Fc ").append(band.frequency.toDecimalString(1)).append(" Hz")
+            if (band.supportsGain) append(" Gain ").append(band.gain.toDecimalString(2)).append(" dB")
+            append(" Q ").append(band.q.toDecimalString(3)).append('\n')
+        }
+    }
+
+private const val GRAPHIC_EQ_BANDS = 30
+private const val GRAPHIC_EQ_ITERATIONS = 12
+private const val GRAPHIC_EQ_SAMPLE_RATE = 48_000
 
 /** Locale-independent fixed-point text, as Equalizer APO files and numeric entry expect. */
 internal fun Double.toDecimalString(decimals: Int): String {

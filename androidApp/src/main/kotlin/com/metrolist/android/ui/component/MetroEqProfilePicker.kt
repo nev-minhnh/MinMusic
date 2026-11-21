@@ -6,14 +6,17 @@
 package com.metrolist.android.ui.component
 
 import android.content.ContentResolver
+import android.content.Intent
 import android.net.Uri
 import android.provider.OpenableColumns
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalContext
 import com.metrolist.android.utils.readBoundedText
+import com.metrolist.shared.ui.equalizer.MetroEqExportActions
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -32,6 +35,44 @@ internal fun rememberMetroEqProfilePicker(onPicked: (fileName: String, content: 
             }
         }
     return { launcher.launch(arrayOf("text/*")) }
+}
+
+@Composable
+internal fun rememberMetroEqExportActions(): MetroEqExportActions {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val pending = remember { arrayOfNulls<Pair<String, (Boolean) -> Unit>>(1) }
+    val launcher =
+        rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/plain")) { uri ->
+            val (content, onResult) = pending[0] ?: return@rememberLauncherForActivityResult
+            pending[0] = null
+            if (uri == null) return@rememberLauncherForActivityResult
+            scope.launch {
+                val saved =
+                    withContext(Dispatchers.IO) {
+                        readDocumentPart {
+                            context.contentResolver.openOutputStream(uri, "wt")?.use { it.write(content.toByteArray()) } != null
+                        } == true
+                    }
+                onResult(saved)
+            }
+        }
+    return remember(context, launcher) {
+        MetroEqExportActions(
+            save = { fileName, content, onResult ->
+                pending[0] = content to onResult
+                launcher.launch(fileName)
+            },
+            share = { fileName, content ->
+                val send =
+                    Intent(Intent.ACTION_SEND)
+                        .setType("text/plain")
+                        .putExtra(Intent.EXTRA_SUBJECT, fileName)
+                        .putExtra(Intent.EXTRA_TEXT, content)
+                context.startActivity(Intent.createChooser(send, fileName))
+            },
+        )
+    }
 }
 
 internal fun readMetroEqProfile(

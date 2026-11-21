@@ -2531,4 +2531,6 @@
     <string name="metroeq_frequency">Tần số</string>
     <string name="metroeq_gain">Độ lợi</string>
     <string name="metroeq_value_range">Nhập giá trị từ %1$s đến %2$s</string>
+    <string name="metroeq_export_file">Xuất ra tệp</string>
+    <string name="metroeq_export_failed">Không thể xuất hồ sơ</string>
 </resources>

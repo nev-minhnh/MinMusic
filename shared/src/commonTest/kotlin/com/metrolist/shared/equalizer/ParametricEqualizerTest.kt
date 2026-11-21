@@ -2,6 +2,7 @@ package com.metrolist.shared.equalizer
 
 import kotlin.math.PI
 import kotlin.math.abs
+import kotlin.math.pow
 import kotlin.math.roundToInt
 import kotlin.math.sin
 import kotlin.test.Test
@@ -70,5 +71,37 @@ Filter 3: OFF PK Fc 2000 Hz Gain -4 dB Q 2",
         assertEquals(listOf(FilterType.BP, FilterType.NO, FilterType.PK), bands.map { it.filterType })
         assertEquals(listOf(true, true, false), bands.map { it.enabled })
         assertEquals(-4.0, bands[2].gain)
+    }
+
+    @Test
+    fun exportedParametricEqImportsBackUnchanged() {
+        val profile =
+            EqualizerProfile(
+                "export",
+                "export",
+                listOf(
+                    ParametricEqBand(31.5, 4.25, 0.707, FilterType.LSC),
+                    ParametricEqBand(1_000.0, -3.5, 2.0),
+                    ParametricEqBand(60.0, 0.0, 12.0, FilterType.NO, enabled = false),
+                    ParametricEqBand(18_000.0, 0.0, 0.707, FilterType.LPQ),
+                ),
+                preamp = -4.5,
+            )
+        val (preamp, bands) = assertNotNull(parseParametricEq(profile.toParametricEqText()))
+        assertEquals(profile.preamp, preamp)
+        assertEquals(profile.bands, bands)
+    }
+
+    @Test
+    fun graphicEqCurveIsFittedWithPeakingBands() {
+        val curve = (0..120).joinToString("; ") { step ->
+            val frequency = 20.0 * 1000.0.pow(step / 120.0)
+            "${frequency.toDecimalString(1)} ${if (frequency < 200.0) "6.0" else "0.0"}"
+        }
+        val (preamp, bands) = assertNotNull(parseEqualizerText("GraphicEQ: $curve"))
+        assertEquals(0.0, preamp)
+        val equalizer = ParametricEqualizer(48_000, 1).apply { update(EqualizerProfile("graphic", "graphic", bands)) }
+        assertEquals(6.0, equalizer.responseDb(50.0), 1.0)
+        assertEquals(0.0, equalizer.responseDb(2_000.0), 0.5)
     }
 }
