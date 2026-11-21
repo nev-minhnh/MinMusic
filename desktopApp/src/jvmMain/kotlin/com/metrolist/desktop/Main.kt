@@ -1361,6 +1361,8 @@ private fun runDesktopApp(args: Array<String>) {
             DisposableEffect(window) {
                 UiState.isWindowFocused = window.isFocused
                 var preMinimizePlacement: WindowPlacement? = null
+                // MinMusic: the mini-player opened by minimizing closes again when the window comes back.
+                var miniplayerOpenedByMinimize = false
 
                 val listener =
                     object : WindowAdapter() {
@@ -1375,10 +1377,20 @@ private fun runDesktopApp(args: Array<String>) {
                         override fun windowIconified(e: WindowEvent?) {
                             preMinimizePlacement = windowState.placement
                             ComposeTrayManager.setWindowVisible(false)
+                            if (PlayerState.miniplayerAvailable && Settings.shared.desktopMiniPlayerOnMinimize &&
+                                PlayerState.currentTrack != null && !PlayerState.showMiniplayer
+                            ) {
+                                miniplayerOpenedByMinimize = true
+                                PlayerState.showMiniplayer = true
+                            }
                         }
 
                         override fun windowDeiconified(e: WindowEvent?) {
                             ComposeTrayManager.setWindowVisible(true)
+                            if (miniplayerOpenedByMinimize) {
+                                miniplayerOpenedByMinimize = false
+                                PlayerState.showMiniplayer = false
+                            }
                             preMinimizePlacement?.let { targetPlacement ->
                                 SwingUtilities.invokeLater {
                                     windowState.placement = targetPlacement

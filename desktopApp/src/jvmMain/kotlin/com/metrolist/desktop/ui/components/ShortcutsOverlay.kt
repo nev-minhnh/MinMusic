@@ -94,6 +94,7 @@ import com.metrolist.shared.generated.resources.shortcut_toggle_device_connect
 import com.metrolist.shared.generated.resources.shortcut_toggle_expanded
 import com.metrolist.shared.generated.resources.shortcut_toggle_fullscreen_video
 import com.metrolist.shared.generated.resources.shortcut_toggle_lyrics
+import com.metrolist.shared.generated.resources.shortcut_toggle_mini_player
 import com.metrolist.shared.generated.resources.shortcut_toggle_queue
 import com.metrolist.shared.generated.resources.shortcut_toggle_shortcuts
 import com.metrolist.shared.generated.resources.shortcut_toggle_shuffle
@@ -449,6 +450,10 @@ private fun shortcutCategories(
                     ShortcutItem(stringResource(Res.string.shortcut_toggle_queue), listOf(listOf("Q"))),
                     ShortcutItem(stringResource(Res.string.shortcut_toggle_device_connect), listOf(listOf("D"))),
                     ShortcutItem(stringResource(Res.string.shortcut_open_settings), listOf(listOf(modKey, ","))),
+                    ShortcutItem(
+                        stringResource(Res.string.shortcut_toggle_mini_player),
+                        listOf(if (OsUtil.isMac) listOf(modKey, shiftKey, "M") else listOf(modKey, "M")),
+                    ),
                     ShortcutItem(stringResource(Res.string.shortcut_toggle_shortcuts), listOf(listOf(modKey, "`"))),
                     ShortcutItem(stringResource(Res.string.shortcut_developer_log), listOf(listOf(modKey, shiftKey, "L"))),
                     ShortcutItem(stringResource(Res.string.shortcut_dismiss_dialogs), listOf(listOf("Esc"))),

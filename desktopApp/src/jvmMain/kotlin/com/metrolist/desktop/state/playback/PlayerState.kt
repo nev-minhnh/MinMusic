@@ -2469,6 +2469,15 @@ object PlayerState {
     var showMiniplayer by Settings.shared::showMiniplayer
     var miniplayerFocusMode by Settings.shared::miniplayerFocusMode
 
+    // MinMusic: Settings can turn the mini-player window off; every entry point then disappears.
+    val miniplayerAvailable: Boolean get() = Settings.shared.desktopMiniPlayerWindow
+
+    fun toggleMiniplayer() {
+        showMiniplayer = miniplayerAvailable && !showMiniplayer
+    }
+
+    val miniplayerToggleAction: (() -> Unit)? get() = if (miniplayerAvailable) ::toggleMiniplayer else null
+
     fun toggleShuffle() {
         if (deviceConnect.intercept(DcPlaybackCommand(DcPlaybackAction.SHUFFLE, enabled = !shuffleEnabled))) return
         if (isListenTogetherGuest()) return

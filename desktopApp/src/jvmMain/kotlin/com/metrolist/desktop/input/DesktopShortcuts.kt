@@ -355,6 +355,14 @@ internal fun handleShortcut(
         return true
     }
 
+    // MinMusic: Ctrl+M opens or closes the always-on-top mini-player (macOS keeps Cmd+Shift+M in its menu bar).
+    if (!OsUtil.isMac && primary && !shift && !alt && keyCodeMatches(keyCode, Key.M, AwtKeyEvent.VK_M) &&
+        PlayerState.miniplayerAvailable
+    ) {
+        PlayerState.toggleMiniplayer()
+        return true
+    }
+
     if (primary &&
         (keyCodeMatches(keyCode, Key.Grave, AwtKeyEvent.VK_BACK_QUOTE) || (keyCode is Int && keyCode == AwtKeyEvent.VK_DEAD_GRAVE))
     ) {

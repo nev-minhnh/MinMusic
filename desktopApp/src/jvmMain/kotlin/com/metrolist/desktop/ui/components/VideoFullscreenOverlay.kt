@@ -895,10 +895,15 @@ private fun FullscreenVideoControls(
                             onUserInteract()
                             PlayerState.setVolumeLevel(it)
                         },
-                        onMiniplayerClick = {
-                            onUserInteract()
-                            PlayerState.showMiniplayer = !PlayerState.showMiniplayer
-                        },
+                        onMiniplayerClick =
+                            if (PlayerState.miniplayerAvailable) {
+                                {
+                                    onUserInteract()
+                                    PlayerState.toggleMiniplayer()
+                                }
+                            } else {
+                                null
+                            },
                         showMiniplayer = PlayerState.showMiniplayer,
                         onFullscreenClick = {
                             onUserInteract()

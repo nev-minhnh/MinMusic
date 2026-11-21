@@ -705,7 +705,7 @@ fun FrameWindowScope.DesktopMenuBar(
             Item(
                 text = stringResource(Res.string.menu_miniplayer),
                 icon = menuIcon(miniplayerPainter),
-                onClick = { PlayerState.showMiniplayer = !PlayerState.showMiniplayer },
+                onClick = { PlayerState.toggleMiniplayer() },
                 shortcut = KeyShortcut(Key.M, meta = true, shift = true),
             )
         }

@@ -14,6 +14,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -45,6 +46,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -58,17 +60,30 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
@@ -86,6 +101,7 @@ import com.metrolist.desktop.utils.ComposeTrayManager
 import com.metrolist.desktop.utils.WindowDragHandle
 import com.metrolist.desktop.window.WindowVisibility
 import com.metrolist.desktop.window.WindowsMiniPlayerWindowFrame
+import com.metrolist.desktop.window.restoreWindowPosition
 import com.metrolist.shared.generated.resources.Res
 import com.metrolist.shared.generated.resources.cd_playback_position
 import com.metrolist.shared.generated.resources.close_miniplayer
@@ -98,34 +114,60 @@ import com.metrolist.shared.generated.resources.no_track_playing
 import com.metrolist.shared.generated.resources.pause
 import com.metrolist.shared.generated.resources.play
 import com.metrolist.shared.generated.resources.previous
+import com.metrolist.shared.generated.resources.tray_open_app
 import com.metrolist.shared.model.isLive
 import com.metrolist.shared.model.previewThumbnailUrl
 import com.metrolist.shared.settings.PlayerBackgroundStyle
 import com.metrolist.shared.settings.Settings
+import com.metrolist.shared.settings.displayName
 import com.metrolist.shared.ui.components.ArtistSubtitle
 import com.metrolist.shared.ui.components.MetadataLink
 import com.metrolist.shared.ui.components.playbackMarquee
 import com.metrolist.shared.ui.icons.MetrolistIcons
+import com.metrolist.shared.ui.theme.LocalBrand
+import com.metrolist.shared.ui.theme.MinMotion
+import com.metrolist.shared.ui.theme.MinMusicBrand
 import com.metrolist.shared.ui.utils.ArtworkBlurStyle
 import com.metrolist.shared.utils.OsUtil
 import kotlinx.coroutines.delay
 import org.jetbrains.compose.resources.stringResource
+import java.awt.GraphicsEnvironment
 import kotlin.math.abs
 import kotlin.time.Duration.Companion.milliseconds
 
 @Composable
 fun MiniplayerWindow() {
-    if (!PlayerState.showMiniplayer) return
+    if (!PlayerState.showMiniplayer || !PlayerState.miniplayerAvailable) return
 
     val isFocusMode = PlayerState.miniplayerFocusMode
-    val windowSize = if (isFocusMode) DpSize(300.dp, 300.dp) else DpSize(420.dp, 160.dp)
+    // MinMusic (Windows): a 320×88 strip, or the 320×320 square artwork mode.
+    val windowSize =
+        when {
+            OsUtil.isWindows && isFocusMode -> DpSize(320.dp, 320.dp)
+            OsUtil.isWindows -> DpSize(320.dp, 88.dp)
+            isFocusMode -> DpSize(300.dp, 300.dp)
+            else -> DpSize(420.dp, 160.dp)
+        }
     val windowState =
         remember {
+            val savedPosition =
+                restoreWindowPosition(
+                    Settings.shared.desktopMiniPlayerPosition,
+                    GraphicsEnvironment.getLocalGraphicsEnvironment().screenDevices.map { it.defaultConfiguration.bounds },
+                )
             WindowState(
-                position = WindowPosition.Aligned(Alignment.BottomEnd),
+                position = savedPosition?.let { WindowPosition(it.x.dp, it.y.dp) } ?: WindowPosition.Aligned(Alignment.BottomEnd),
                 size = windowSize,
             )
         }
+    // Remember where the user dragged the mini-player; disposal also runs when the app quits.
+    DisposableEffect(windowState) {
+        onDispose {
+            (windowState.position as? WindowPosition.Absolute)?.let {
+                Settings.shared.desktopMiniPlayerPosition = "${it.x.value.toInt()},${it.y.value.toInt()}"
+            }
+        }
+    }
 
     val isNightMode = Settings.shared.isPureBlackTheme()
     // Linux backends can consume the render loop without drawing transparent undecorated windows.
@@ -140,6 +182,15 @@ fun MiniplayerWindow() {
         transparent = transparentWindow,
         state = windowState,
         alwaysOnTop = true,
+        onKeyEvent = { event ->
+            // Esc returns to the main window (desktop spec §5.6).
+            if (event.type == KeyEventType.KeyDown && event.key == Key.Escape) {
+                returnToMainWindow()
+                true
+            } else {
+                false
+            }
+        },
     ) {
         val windowDensity = LocalDensity.current.density
         MetrolistTheme {
@@ -160,7 +211,7 @@ fun MiniplayerWindow() {
                                     if (isFocusMode) {
                                         FocusModeMiniplayer(colorScheme, isNightMode, transparentWindow)
                                     } else {
-                                        StandardMiniplayer(colorScheme, isNightMode, transparentWindow)
+                                        MinMusicMiniStrip(colorScheme, isNightMode)
                                     }
                                 }
                             },
@@ -377,6 +428,254 @@ private fun StandardMiniplayer(
             }
         }
     }
+}
+
+private fun returnToMainWindow() {
+    ComposeTrayManager.showWindow()
+    PlayerState.showMiniplayer = false
+}
+
+// Detects a double click without consuming the presses, so WindowDraggableArea can still move the window.
+private fun Modifier.onDoubleClickPassive(onDoubleClick: () -> Unit): Modifier =
+    pointerInput(onDoubleClick) {
+        awaitPointerEventScope {
+            var lastPressMillis = 0L
+            while (true) {
+                val event = awaitPointerEvent(PointerEventPass.Initial)
+                if (event.type != PointerEventType.Press) continue
+                val pressMillis = event.changes.firstOrNull()?.uptimeMillis ?: continue
+                if (lastPressMillis != 0L && pressMillis - lastPressMillis <= viewConfiguration.doubleTapTimeoutMillis) {
+                    lastPressMillis = 0L
+                    onDoubleClick()
+                } else {
+                    lastPressMillis = pressMillis
+                }
+            }
+        }
+    }
+
+/**
+ * MinMusic mini-player strip (desktop spec §5.6): 320×88, artwork 64, title and artist, previous / play / next,
+ * a 2 dp brand-gradient progress line on the bottom edge. Hovering shows square-art, open-app and close buttons.
+ * Drag anywhere outside the buttons to move it; double-click or Esc returns to the main window.
+ */
+@Composable
+private fun MinMusicMiniStrip(
+    colorScheme: ColorScheme,
+    isNightMode: Boolean,
+) {
+    val isListenTogetherGuest = ListenTogetherState.isListenTogetherGuest()
+    val brand = LocalBrand.current
+    val hoverSource = remember { MutableInteractionSource() }
+    val isHovered by hoverSource.collectIsHoveredAsState()
+    val track = PlayerState.currentTrack
+    val title = track?.title?.takeIf { it.isNotBlank() } ?: stringResource(Res.string.no_track_playing)
+    val artists = track?.artists.orEmpty().joinToString { it.displayName }
+    val surface = if (isNightMode) Color.Black else colorScheme.surfaceContainer
+
+    Box(
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .background(surface)
+                .hoverable(hoverSource),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxSize().padding(start = 12.dp, end = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Row(
+                modifier = Modifier.weight(1f).onDoubleClickPassive(::returnToMainWindow),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                AsyncImage(
+                    url = PlayerState.currentArtworkUrl ?: "",
+                    artworkPreview = PlayerState.artworkPreview,
+                    modifier = Modifier.size(64.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    contentScale = if (Settings.shared.cropAlbumArt) ContentScale.Crop else ContentScale.Fit,
+                )
+                Spacer(Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.SemiBold,
+                        color = colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    if (artists.isNotBlank()) {
+                        Text(
+                            text = artists,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
+            }
+
+            if (!isListenTogetherGuest) {
+                Spacer(Modifier.width(8.dp))
+                MiniStripIconButton(
+                    icon = MetrolistIcons.Rounded.SkipPrevious,
+                    contentDescription = stringResource(Res.string.previous),
+                    enabled = PlayerState.canSkipPrevious,
+                    tint = colorScheme.onSurface,
+                    buttonSize = 32.dp,
+                    iconSize = 20.dp,
+                    onClick = { PlayerState.skipPrevious() },
+                )
+                MiniStripPlayButton(brand)
+                MiniStripIconButton(
+                    icon = MetrolistIcons.Rounded.SkipNext,
+                    contentDescription = stringResource(Res.string.next),
+                    enabled = true,
+                    tint = colorScheme.onSurface,
+                    buttonSize = 32.dp,
+                    iconSize = 20.dp,
+                    onClick = { PlayerState.skipNext() },
+                )
+            }
+        }
+
+        AnimatedVisibility(
+            visible = isHovered,
+            enter = fadeIn(animationSpec = MinMotion.fast()),
+            exit = fadeOut(animationSpec = MinMotion.fast()),
+            modifier = Modifier.align(Alignment.TopEnd).padding(top = 2.dp, end = 4.dp),
+        ) {
+            Row(
+                modifier = Modifier.clip(RoundedCornerShape(8.dp)).background(surface.copy(alpha = 0.92f)),
+            ) {
+                MiniStripIconButton(
+                    icon = MetrolistIcons.Outlined.Fullscreen,
+                    contentDescription = stringResource(Res.string.enter_focus_mode),
+                    enabled = true,
+                    tint = colorScheme.onSurfaceVariant,
+                    buttonSize = 22.dp,
+                    iconSize = 14.dp,
+                    onClick = { Settings.shared.miniplayerFocusMode = true },
+                )
+                MiniStripIconButton(
+                    icon = MetrolistIcons.AutoMirrored.Filled.OpenInNew,
+                    contentDescription = stringResource(Res.string.tray_open_app),
+                    enabled = true,
+                    tint = colorScheme.onSurfaceVariant,
+                    buttonSize = 22.dp,
+                    iconSize = 14.dp,
+                    onClick = { ComposeTrayManager.showWindow() },
+                )
+                MiniStripIconButton(
+                    icon = MetrolistIcons.Outlined.Close,
+                    contentDescription = stringResource(Res.string.close_miniplayer),
+                    enabled = true,
+                    tint = colorScheme.onSurfaceVariant,
+                    buttonSize = 22.dp,
+                    iconSize = 14.dp,
+                    onClick = { PlayerState.showMiniplayer = false },
+                )
+            }
+        }
+
+        MiniStripProgressLine(
+            gradient = brand.gradient,
+            trackColor = colorScheme.onSurface.copy(alpha = 0.12f),
+            modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(2.dp),
+        )
+    }
+}
+
+@Composable
+private fun MiniStripIconButton(
+    icon: ImageVector,
+    contentDescription: String,
+    enabled: Boolean,
+    tint: Color,
+    buttonSize: Dp,
+    iconSize: Dp,
+    onClick: () -> Unit,
+) {
+    IconButton(
+        onClick = onClick,
+        enabled = enabled,
+        modifier = Modifier.size(buttonSize),
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = contentDescription,
+            modifier = Modifier.size(iconSize),
+            tint = if (enabled) tint else tint.copy(alpha = 0.38f),
+        )
+    }
+}
+
+@Composable
+private fun MiniStripPlayButton(brand: MinMusicBrand) {
+    val isLoading = PlayerState.isPlaybackLoading
+    val isPlaying = PlayerState.isPlaying
+    val description =
+        stringResource(
+            when {
+                isLoading -> Res.string.loading
+                isPlaying -> Res.string.pause
+                else -> Res.string.play
+            },
+        )
+    Box(
+        modifier =
+            Modifier
+                .padding(horizontal = 4.dp)
+                .size(40.dp)
+                .clip(CircleShape)
+                .background(brand.gradient)
+                .clickable(role = Role.Button) { PlayerState.togglePlay() }
+                .semantics { contentDescription = description },
+        contentAlignment = Alignment.Center,
+    ) {
+        if (isLoading) {
+            LoadingIndicator(modifier = Modifier.size(20.dp), color = brand.onGradient)
+        } else {
+            Icon(
+                imageVector = if (isPlaying) MetrolistIcons.Rounded.Pause else MetrolistIcons.Rounded.PlayArrow,
+                contentDescription = null,
+                modifier = Modifier.size(24.dp),
+                tint = brand.onGradient,
+            )
+        }
+    }
+}
+
+// Thin progress line: the position is read in the draw phase only, so playback ticks never recompose the strip.
+@Composable
+private fun MiniStripProgressLine(
+    gradient: Brush,
+    trackColor: Color,
+    modifier: Modifier = Modifier,
+) {
+    val isLive = playerIsLiveStream()
+    val playerDuration by PlayerState.playbackDuration.collectAsState()
+    var lineWidthPx by remember { mutableIntStateOf(0) }
+    val position = rememberPlayerProgressPosition(playerDuration, lineWidthPx, isLive)
+    Box(
+        modifier =
+            modifier
+                .onSizeChanged { lineWidthPx = it.width }
+                .drawBehind {
+                    drawRect(color = trackColor)
+                    val fraction =
+                        when {
+                            isLive -> 1f
+                            playerDuration > 0L -> (position.longValue.toFloat() / playerDuration).coerceIn(0f, 1f)
+                            else -> 0f
+                        }
+                    if (fraction > 0f) {
+                        drawRect(brush = gradient, size = Size(size.width * fraction, size.height))
+                    }
+                },
+    )
 }
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)

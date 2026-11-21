@@ -1158,7 +1158,7 @@ fun StandardBottomPlayer(
                             compact = true,
                             volume = PlayerState.volume,
                             onVolumeChange = { PlayerState.setVolumeLevel(it) },
-                            onMiniplayerClick = { PlayerState.showMiniplayer = !PlayerState.showMiniplayer },
+                            onMiniplayerClick = PlayerState.miniplayerToggleAction,
                             showMiniplayer = PlayerState.showMiniplayer,
                             onFullscreenClick = toggleWindowFullscreen,
                             isFullscreen = PlayerState.isFullscreen,
