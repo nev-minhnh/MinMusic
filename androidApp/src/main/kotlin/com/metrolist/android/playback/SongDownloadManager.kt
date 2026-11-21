@@ -19,6 +19,7 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import com.metrolist.android.MainActivity
 import com.metrolist.android.R
+import com.metrolist.innertubex.extraction.AudioQuality
 import com.metrolist.innertubex.extraction.ContentHints
 import com.metrolist.innertubex.extraction.StreamResolveException
 import com.metrolist.innertubex.sabr.SabrProtocolException
@@ -450,8 +451,7 @@ class SongDownloadManager(
     ): PlaybackResource? {
         val resolver = GlobalYouTubeRepository.streamResolver ?: return null
         val hints = song.toContentHints().forAudioDownload(preferSabr = refresh)
-        val quality = playbackAudioQuality()
-        return resolver.resolveRemote(song.id, hints, quality, sourceSong = song, refresh = refresh)
+        return resolver.resolveRemote(song.id, hints, DOWNLOAD_AUDIO_QUALITY, sourceSong = song, refresh = refresh)
     }
 
     internal fun aggregateNotification(): Notification {
@@ -599,6 +599,10 @@ class SongDownloadManager(
         private var lastNotificationAt = 0L
     }
 }
+
+// AUTO prefers the best WebM Opus stream (itag 251 without Premium) and falls back to the best AAC stream.
+// HIGH ranks by declared bitrate alone and can pick AAC 140 over Opus 251, so downloads ignore the playback setting.
+internal val DOWNLOAD_AUDIO_QUALITY = AudioQuality.AUTO
 
 internal fun ContentHints.forAudioDownload(preferSabr: Boolean = false): ContentHints =
     copy(wantVideo = false, playbackClientOverrideId = null, sabrFirst = preferSabr)
