@@ -1,7 +1,7 @@
 package com.metrolist.android.source.soundcloud
 
 import com.metrolist.shared.generated.resources.Res
-import com.metrolist.shared.generated.resources.charts
+import com.metrolist.shared.generated.resources.mm_chart_sc_trending
 import com.metrolist.shared.model.AlbumItem
 import com.metrolist.shared.model.AlbumPage
 import com.metrolist.shared.model.AlbumTiny
@@ -96,13 +96,28 @@ class SoundCloudSource(
         return SourcePlaylist(SoundCloudItems.playlist(playlist.summary), playlist.tracks.map(SoundCloudItems::song))
     }
 
+    /** The global trending chart (SoundCloud has no regional charts); later pages through [chartPage]. */
     override suspend fun charts(): List<SourceChartSection> {
-        val tracks = client.charts().items.map(SoundCloudItems::song)
-        return listOf(SourceChartSection(getString(Res.string.charts), tracks))
+        val page = client.charts()
+        val tracks = page.items.map(SoundCloudItems::song)
+        return listOf(
+            SourceChartSection(getString(Res.string.mm_chart_sc_trending), tracks, id = TRENDING_CHART, continuation = page.nextPageToken),
+        )
+    }
+
+    /** [continuation] is the api-v2 next_href of the previous page. */
+    override suspend fun chartPage(
+        chartId: String,
+        continuation: String,
+    ): SourcePage<YTItem> {
+        if (chartId != TRENDING_CHART) return SourcePage(emptyList())
+        val page = client.charts(continuation)
+        return SourcePage(page.items.map(SoundCloudItems::song), continuation = page.nextPageToken)
     }
 
     private companion object {
         const val PAGE_SIZE = 20
+        const val TRENDING_CHART = "trending"
     }
 }
 

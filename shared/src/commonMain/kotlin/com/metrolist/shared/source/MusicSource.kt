@@ -39,9 +39,15 @@ data class SourcePlaylist(
     val songs: List<SongItem>,
 )
 
+/**
+ * One chart. [items] may be only the start of it (or empty, for charts loaded on demand): a non-null [continuation]
+ * means [MusicSource.chartPage] with [id] returns more.
+ */
 data class SourceChartSection(
     val title: String,
     val items: List<YTItem>,
+    val id: String? = null,
+    val continuation: String? = null,
 )
 
 /** Login state of a source account; credentials never leave the source's encrypted store. */
@@ -75,6 +81,15 @@ interface MusicSource {
     suspend fun playlist(id: String): SourcePlaylist?
 
     suspend fun charts(): List<SourceChartSection>
+
+    /**
+     * More of the chart [chartId] ([SourceChartSection.id]) after [continuation]. Items may repeat ones already shown
+     * (some adapters return the whole chart), so callers de-duplicate by id.
+     */
+    suspend fun chartPage(
+        chartId: String,
+        continuation: String,
+    ): SourcePage<YTItem> = SourcePage(emptyList())
 
     suspend fun lyrics(id: String): String? = null
 

@@ -84,11 +84,24 @@ class NctSource(
         return SourcePlaylist(NctItems.playlist(playlist), playlist.songs.map(NctItems::song))
     }
 
-    /** The first [CHART_LIMIT] charts with their songs, titled as NhacCuaTui names them. */
+    /**
+     * Every NhacCuaTui chart, titled as NhacCuaTui names them. Only the first [EAGER_CHARTS] come with their songs (Home
+     * shows those); the rest load on demand through [chartPage], so opening Home does not cost a request per chart.
+     */
     override suspend fun charts(): List<SourceChartSection> =
-        client.charts().take(CHART_LIMIT).map { chart ->
-            SourceChartSection(chart.title, client.chart(chart.id).songs.map(NctItems::song))
+        client.charts().mapIndexed { index, chart ->
+            if (index < EAGER_CHARTS) {
+                SourceChartSection(chart.title, client.chart(chart.id).songs.map(NctItems::song), id = chart.id)
+            } else {
+                SourceChartSection(chart.title, emptyList(), id = chart.id, continuation = FULL_CHART)
+            }
         }
+
+    /** The whole chart [chartId] (NhacCuaTui serves each chart in one response). */
+    override suspend fun chartPage(
+        chartId: String,
+        continuation: String,
+    ): SourcePage<YTItem> = SourcePage(client.chart(chartId).songs.map(NctItems::song))
 
     /** Synced LRC when NhacCuaTui has it, otherwise plain text. */
     override suspend fun lyrics(id: String): String? = client.lyrics(id)?.let { it.synced ?: it.plain }
@@ -104,7 +117,8 @@ class NctSource(
     }
 
     private companion object {
-        const val CHART_LIMIT = 3
+        const val EAGER_CHARTS = 2
+        const val FULL_CHART = "full"
     }
 }
 
