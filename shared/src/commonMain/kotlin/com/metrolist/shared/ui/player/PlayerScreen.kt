@@ -205,6 +205,7 @@ import com.metrolist.shared.ui.components.PlayerMenuAction
 import com.metrolist.shared.ui.components.PlayerPrimaryControls
 import com.metrolist.shared.ui.components.PopupVisibility
 import com.metrolist.shared.ui.components.SleepTimerDialog
+import com.metrolist.shared.ui.components.SourceQualityBadges
 import com.metrolist.shared.ui.components.VintageAudioVideoModeSwitcher
 import com.metrolist.shared.ui.components.VintageClassicActionButtons
 import com.metrolist.shared.ui.components.VintageClassicBottomBar
@@ -2006,6 +2007,7 @@ fun PlayerScreen(
                                                                     },
                                                                 ),
                                                     )
+                                                    SourceQualityBadges(songId = displayedSong?.id)
                                                 }
                                             }
                                         }

@@ -80,6 +80,7 @@ import com.metrolist.shared.model.AlbumItem
 import com.metrolist.shared.model.SearchFilter
 import com.metrolist.shared.model.SongItem
 import com.metrolist.shared.model.YTItem
+import com.metrolist.shared.source.SourceId
 import com.metrolist.shared.ui.LocalIsTv
 import com.metrolist.shared.ui.icons.MetrolistIcons
 import com.metrolist.shared.ui.tv.tvFocusHighlight
@@ -129,6 +130,7 @@ fun SearchScreen(
     showSearchBar: Boolean = true,
     searchBarEndPadding: Dp = 0.dp,
     onAlbumPlay: ((AlbumItem) -> Unit)? = null,
+    onSourceSelected: (SourceId?) -> Unit = {},
 ) {
     val query = uiState.query
     val isQuerySubmitted = uiState.isQuerySubmitted
@@ -211,6 +213,7 @@ fun SearchScreen(
                     contentPadding = contentPadding,
                     modifier = Modifier.weight(1f),
                     onAlbumPlay = onAlbumPlay,
+                    onSourceSelected = onSourceSelected,
                 )
             }
         }

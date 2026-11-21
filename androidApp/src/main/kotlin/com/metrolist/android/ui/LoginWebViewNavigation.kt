@@ -15,7 +15,7 @@ internal fun isTrustedLoginUrl(
     if (url.protocol.name != "https" || url.port != 443 || url.user != null || url.password != null) return false
     val provider = runCatching { Url(loginUrl).host.lowercase() }.getOrNull() ?: return false
     val host = url.host.lowercase()
-    val providerRoots = listOf("youtube.com", "spotify.com", "deezer.com", "tidal.com", "apple.com")
+    val providerRoots = listOf("youtube.com", "spotify.com", "deezer.com", "tidal.com", "apple.com", "zingmp3.vn")
     val root =
         providerRoots.firstOrNull { provider == it || provider.endsWith(".$it") }
             ?: AmazonMusicPlaylistImporter.marketplaceHosts.firstOrNull { it == provider }?.removePrefix("music.")
@@ -29,6 +29,12 @@ internal fun isTrustedLoginUrl(
 
         "spotify.com", "deezer.com", "tidal.com" -> {
             host in setOf("accounts.google.com", "appleid.apple.com", "account.apple.com", "www.facebook.com", "m.facebook.com")
+        }
+
+        // Zing MP3 accounts sign in through Zalo ID, or Google and Facebook.
+        "zingmp3.vn" -> {
+            host == "zalo.me" || host.endsWith(".zalo.me") ||
+                host in setOf("accounts.google.com", "www.facebook.com", "m.facebook.com")
         }
 
         else -> {

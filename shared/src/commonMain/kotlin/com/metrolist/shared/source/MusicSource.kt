@@ -56,6 +56,7 @@ interface MusicSource {
     val id: SourceId
     val capabilities: Set<SourceCapability>
 
+    /** [page] is zero-based; adapters translate it to their API's convention. */
     suspend fun search(
         query: String,
         filter: SearchFilter,

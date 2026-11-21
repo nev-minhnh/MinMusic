@@ -16,8 +16,8 @@ import org.koin.dsl.module
 /** Clients and [MusicSource] adapters; the shared SourceRegistry collects every definition bound to MusicSource. */
 val sourceModule =
     module {
-        single { ZingCookieStore(androidContext()) }
-        single { AndroidNctTokenStore(androidContext()) }
+        single { ZingCookieStore() }
+        single { AndroidNctTokenStore() }
 
         single { SoundCloudClient() }
         single { ZingClient.create(credentials = get<ZingCookieStore>()) }

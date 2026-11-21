@@ -21,6 +21,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.metrolist.shared.source.SourceId
 
 enum class SettingsPlatform {
     ANDROID,
@@ -130,6 +131,9 @@ data class SharedSettingsHost(
     val privacyDiagnosticActions: List<SettingsHostAction> = emptyList(),
     val onClearSearchHistory: (() -> Unit)? = null,
     val onSwitchYouTubeChannel: (() -> Unit)? = null,
+    // Hosts that can play other catalogues pass a status line per source; without it the Sources group stays hidden.
+    val sourceStatuses: Map<SourceId, String> = emptyMap(),
+    val sourceAccountActions: List<SettingsHostAction> = emptyList(),
     val customPageIcons: Map<SettingsPageId, @Composable (Color) -> Unit> = emptyMap(),
     val pageContent: @Composable (SettingsPageId, onBack: () -> Unit, onNavigate: (SettingsPageId) -> Unit) -> Unit = { _, _, _ -> },
     val rememberMetroEqProfilePicker: (@Composable (onPicked: (fileName: String, content: String) -> Unit) -> () -> Unit)? = null,
