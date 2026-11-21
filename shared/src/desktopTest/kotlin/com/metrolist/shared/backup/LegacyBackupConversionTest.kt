@@ -125,6 +125,8 @@ class LegacyBackupConversionTest {
                     }
                     JdbcSQLiteDriver().open(legacy.path).use { connection ->
                         if (version < 58) connection.execSQL("DROP TABLE pending_scrobble")
+                        // Tables newer than the declared version cannot exist in a real backup of that version.
+                        connection.execSQL("DROP TABLE IF EXISTS source_account")
                         connection.execSQL("PRAGMA user_version = $version")
                     }
                     JdbcSQLiteDriver().open(current.path).use { connection ->

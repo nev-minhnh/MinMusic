@@ -155,7 +155,8 @@ class ZingContractTest {
             val session = ZingSession(http)
             val api = ZingApi(http, ZingKeyProvider(http), session)
             val lyrics = assertNotNull(ZingClient(api, http, session).lyrics("zing:d7qtCrRV89zn"))
-            assertEquals(fixture("lyric.lrc").trim(), lyrics)
+            // Fixtures may be checked out with CRLF on Windows; compare LRC text independent of line endings.
+            assertEquals(fixture("lyric.lrc").replace("\r\n", "\n").trim(), lyrics.replace("\r\n", "\n"))
             assertTrue(lyrics.contains("[00:22.91]Em là ai từ đâu bước đến nơi đây"))
             assertEquals(2, lyricCalls)
         }

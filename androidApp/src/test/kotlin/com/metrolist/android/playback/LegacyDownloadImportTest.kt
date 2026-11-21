@@ -330,6 +330,8 @@ class LegacyDownloadImportTest {
     @Test
     fun clearingCacheKeepsUnplayedSpansReadableUntilThePlayerCloses() =
         withLegacyCaches { downloads, player, _, database, manager ->
+            // Deleting a file that is still open only succeeds on POSIX hosts (and Android), not on Windows.
+            org.junit.Assume.assumeTrue(!System.getProperty("os.name").startsWith("Windows"))
             database.dao().insert(SongEntity("playing", "Playing"))
             write(player, "playing", 0, 4096)
             write(player, "playing", 4096, 4096)
