@@ -40,6 +40,36 @@ class PlaylistMigrationTest {
         }
 
     @Test
+    fun userAlbumMigrationKeepsExistingPlaylistsAsPlaylists() =
+        runBlocking<Unit> {
+            val connection = JdbcSQLiteDriver().open(":memory:")
+            try {
+                connection.prepare("CREATE TABLE playlist (id TEXT NOT NULL PRIMARY KEY, name TEXT NOT NULL, isLocal INTEGER NOT NULL)").use {
+                    assertFalse(it.step())
+                }
+                connection.prepare("INSERT INTO playlist VALUES ('LPlocal001', 'Road trip', 1)").use { assertFalse(it.step()) }
+
+                MIGRATION_67_68.migrate(connection)
+
+                connection.prepare("SELECT name, isLocal, isUserAlbum FROM playlist WHERE id = 'LPlocal001'").use {
+                    assertTrue(it.step())
+                    assertEquals("Road trip", it.getText(0))
+                    assertEquals(1L, it.getLong(1))
+                    assertEquals(0L, it.getLong(2))
+                }
+                connection.prepare("INSERT INTO playlist (id, name, isLocal) VALUES ('LPalbum001', 'Mixtape', 1)").use {
+                    assertFalse(it.step())
+                }
+                connection.prepare("SELECT isUserAlbum FROM playlist WHERE id = 'LPalbum001'").use {
+                    assertTrue(it.step())
+                    assertEquals(0L, it.getLong(0))
+                }
+            } finally {
+                connection.close()
+            }
+        }
+
+    @Test
     fun migrationRemovesOnlyCorruptedLocalPlaylistPlaceholders() =
         runBlocking<Unit> {
             val path = Files.createTempFile("metrolist-playlist-migration", ".db")

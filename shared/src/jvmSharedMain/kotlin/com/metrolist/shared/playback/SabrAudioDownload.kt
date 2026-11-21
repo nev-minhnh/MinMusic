@@ -23,9 +23,9 @@ suspend fun downloadSabrAudio(
     awaitReady: suspend () -> Unit = {},
     onProgress: (Long, Long?) -> Unit = { _, _ -> },
     maxBytes: Long = 512L * 1024 * 1024,
+    quality: AudioQuality = runCatching { AudioQuality.valueOf(Settings.shared.audioQuality) }.getOrDefault(AudioQuality.AUTO),
 ) {
     val bootstrap = requireNotNull(resource.sabrBootstrap)
-    val quality = runCatching { AudioQuality.valueOf(Settings.shared.audioQuality) }.getOrDefault(AudioQuality.AUTO)
     val chunks =
         renewingSabrDownload(
             resource,

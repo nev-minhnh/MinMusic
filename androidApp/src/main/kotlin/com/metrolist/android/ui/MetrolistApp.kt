@@ -163,6 +163,7 @@ import com.metrolist.android.LocalMiniPlayerBottomInset
 import com.metrolist.android.LocalPlayerExpanded
 import com.metrolist.android.LocalPlayerExpandedOrExpanding
 import com.metrolist.android.LocalPlaylistAdder
+import com.metrolist.android.LocalSaveToFolder
 import com.metrolist.android.LocalStartupPresentation
 import com.metrolist.android.MainActivity
 import com.metrolist.android.deviceconnect.AndroidDeviceConnect
@@ -194,6 +195,7 @@ import com.metrolist.android.ui.components.calculateMiniPlayerInsets
 import com.metrolist.android.ui.components.calculateNavigationContentInset
 import com.metrolist.android.ui.components.shouldUseDesktopCaption
 import com.metrolist.android.ui.components.shouldUseDesktopMiniPlayer
+import com.metrolist.android.ui.menu.rememberSaveToFolder
 import com.metrolist.android.ui.player.AndroidPlayerPlatform
 import com.metrolist.android.ui.player.MusicVideoSurface
 import com.metrolist.android.ui.player.PictureInPictureHelper
@@ -728,6 +730,7 @@ fun MetrolistApp(
                     ),
                 )
             }
+        val saveToFolder = rememberSaveToFolder()
         val downloadRequests by downloadManager.requests.collectAsState()
 
         val currentSong by playerConnection.currentSong.collectAsState(initial = null)
@@ -958,6 +961,7 @@ fun MetrolistApp(
             LocalContextMenuAnchor provides menuAnchor,
             LocalMouseScrollFactors provides rememberMouseScrollFactors(),
             LocalPlaylistAdder provides addToPlaylist,
+            LocalSaveToFolder provides saveToFolder,
         ) {
             val appAccountButton: @Composable (Modifier) -> Unit = { buttonModifier ->
                 val accountName = authManager.accountName

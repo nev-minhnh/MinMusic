@@ -11,7 +11,17 @@ class M4aMetadataTest {
     @Test
     fun tagsPreserveMediaOffsetsAndMoviePayloadForFrontAndTrailingMovieBoxes() {
         val file = Files.createTempFile("m4a-tags", ".m4a").toFile()
-        val metadata = AudioExportMetadata("夜の歌 🎵", "Björk", "Álbum")
+        val metadata =
+            AudioExportMetadata(
+                "夜の歌 🎵",
+                "Björk",
+                "Álbum",
+                albumArtist = "Björk & Friends",
+                year = 1997,
+                trackNumber = 3,
+                trackTotal = 12,
+                lyrics = "[00:01.00]Ánh trăng\n[00:05.50]夜の歌",
+            )
         val moviePayload =
             box(
                 "trak",
@@ -40,7 +50,18 @@ class M4aMetadataTest {
                     assertEquals(1, top.count { it.first == "moov" })
                     val tagged = top.single { it.first == "moov" }.second
                     assertArrayEquals(moviePayload, tagged.copyOfRange(0, moviePayload.size))
-                    assertEquals(mapOf("©nam" to metadata.title, "©ART" to metadata.artist, "©alb" to metadata.album), tags(tagged))
+                    assertEquals(
+                        mapOf(
+                            "©nam" to metadata.title,
+                            "©ART" to metadata.artist,
+                            "©alb" to metadata.album,
+                            "aART" to metadata.albumArtist,
+                            "©day" to "1997",
+                            "trkn" to "3/12",
+                            "©lyr" to metadata.lyrics,
+                        ),
+                        tags(tagged),
+                    )
                     if (front || extended) assertEquals(1, top.count { it.first == "free" })
                 }
             }
@@ -106,8 +127,15 @@ class M4aMetadataTest {
             val data = boxes(payload).single()
             assertEquals("data", data.first)
             val buffer = ByteBuffer.wrap(data.second)
-            assertEquals(1, buffer.int)
+            val dataType = buffer.int
             assertEquals(0, buffer.int)
+            if (type == "trkn") {
+                assertEquals(0, dataType)
+                assertEquals(8, buffer.remaining())
+                buffer.short
+                return@associate type to "${buffer.short}/${buffer.short}"
+            }
+            assertEquals(1, dataType)
             type to ByteArray(buffer.remaining()).also(buffer::get).decodeToString()
         }
     }

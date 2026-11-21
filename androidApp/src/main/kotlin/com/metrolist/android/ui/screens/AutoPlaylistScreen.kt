@@ -48,6 +48,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -81,6 +82,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.metrolist.android.LocalMiniPlayerBottomInset
 import com.metrolist.android.LocalPlaylistAdder
+import com.metrolist.android.LocalSaveToFolder
 import com.metrolist.android.playback.AudioCacheManager
 import com.metrolist.android.playback.LocalPlayerConnection
 import com.metrolist.android.playback.SongDownloadManager
@@ -91,6 +93,7 @@ import com.metrolist.android.ui.components.SongMetadataRow
 import com.metrolist.android.ui.download.rememberDownloadPermissionGate
 import com.metrolist.android.ui.menu.CollectionExportDialog
 import com.metrolist.android.ui.menu.PlaylistMenu
+import com.metrolist.android.ui.menu.SaveToFolderBatch
 import com.metrolist.android.ui.menu.SongMenu
 import com.metrolist.android.viewmodels.AutoPlaylistPresentationInput
 import com.metrolist.android.viewmodels.prepareAutoPlaylistSongs
@@ -98,16 +101,22 @@ import com.metrolist.android.viewmodels.withSongSorting
 import com.metrolist.shared.db.MusicDatabase
 import com.metrolist.shared.db.collectionPlayCounts
 import com.metrolist.shared.db.entities.CachedAudioEntity
+import com.metrolist.shared.db.entities.FormatEntity
 import com.metrolist.shared.db.entities.KIND_CACHE
 import com.metrolist.shared.db.entities.KIND_DOWNLOAD
 import com.metrolist.shared.db.entities.toSongItem
 import com.metrolist.shared.db.refreshUploadedSongs
 import com.metrolist.shared.db.synchronizeUploadedSongs
 import com.metrolist.shared.generated.resources.Res
+import com.metrolist.shared.generated.resources.album_created
+import com.metrolist.shared.generated.resources.album_name
 import com.metrolist.shared.generated.resources.back
 import com.metrolist.shared.generated.resources.cached_playlist
 import com.metrolist.shared.generated.resources.cancel
+import com.metrolist.shared.generated.resources.create_album
+import com.metrolist.shared.generated.resources.create_album_desc
 import com.metrolist.shared.generated.resources.delete
+import com.metrolist.shared.generated.resources.download_format_value
 import com.metrolist.shared.generated.resources.edit_playlist_cover
 import com.metrolist.shared.generated.resources.episodes_for_later
 import com.metrolist.shared.generated.resources.error_unknown
@@ -121,6 +130,8 @@ import com.metrolist.shared.generated.resources.remove
 import com.metrolist.shared.generated.resources.remove_all
 import com.metrolist.shared.generated.resources.remove_from_device
 import com.metrolist.shared.generated.resources.remove_selected_count
+import com.metrolist.shared.generated.resources.save_all_to_folder
+import com.metrolist.shared.generated.resources.save_to_folder_desc
 import com.metrolist.shared.generated.resources.search_no_results
 import com.metrolist.shared.generated.resources.songs
 import com.metrolist.shared.generated.resources.stored_clear_cache_title
@@ -145,6 +156,7 @@ import com.metrolist.shared.model.defaultDirection
 import com.metrolist.shared.model.indexOfPlaylistOccurrence
 import com.metrolist.shared.model.isReordering
 import com.metrolist.shared.model.toSongItem
+import com.metrolist.shared.playlist.createUserAlbum
 import com.metrolist.shared.settings.BlockedContent
 import com.metrolist.shared.settings.HiddenLibraryItem
 import com.metrolist.shared.settings.HiddenLibraryItemType
@@ -160,6 +172,7 @@ import com.metrolist.shared.ui.components.AlertDialog
 import com.metrolist.shared.ui.components.CollectionFilterBar
 import com.metrolist.shared.ui.components.CollectionFilterBarText
 import com.metrolist.shared.ui.components.ContainedLoadingIndicator
+import com.metrolist.shared.ui.components.PlayerMenuAction
 import com.metrolist.shared.ui.components.PlaylistOrderControls
 import com.metrolist.shared.ui.components.PopupContent
 import com.metrolist.shared.ui.components.PopupVisibility
@@ -249,6 +262,7 @@ fun AutoPlaylistScreen(
     var showCollectionMenu by remember { mutableStateOf(false) }
     var showExportDialog by remember { mutableStateOf(false) }
     var collectionEntries by remember { mutableStateOf<List<CachedAudioEntity>>(emptyList()) }
+    var downloadFormats by remember { mutableStateOf<Map<String, FormatEntity>>(emptyMap()) }
     var collectionQuery by remember { mutableStateOf("") }
     var collectionDirection by remember(currentType) {
         mutableStateOf(
@@ -313,12 +327,14 @@ fun AutoPlaylistScreen(
     var topDirection by remember { mutableStateOf(SortDirection.DESCENDING) }
     val likedReorderMode = playlistSort.isReordering(Settings.shared.playlistEditLock, currentType == "liked")
     val addToPlaylist = LocalPlaylistAdder.current
+    val saveToFolder = LocalSaveToFolder.current
     val selection = rememberSelectionState(currentType)
     val downloadFilter = rememberDownloadPlaylistFilter(database)
     val downloadFilterState by downloadFilter.state.collectAsState()
     LaunchedEffect(currentType) { downloadFilter.select(null) }
     LaunchedEffect(downloadFilterState) { selection.exit() }
     var pendingRemovalIds by remember(currentType) { mutableStateOf<Set<String>?>(null) }
+    var albumSongs by remember(currentType) { mutableStateOf<List<SongItem>?>(null) }
     var selectedMenuSong by remember { mutableStateOf<SongItem?>(null) }
     val downloadedSongIds by remember(
         database,
@@ -475,6 +491,7 @@ fun AutoPlaylistScreen(
                             database.dao().getSongsByIds(downloadedSongs.map { it.songId }).associateBy { it.id }
                         }
                     collectionEntries = downloadedSongs
+                    downloadFormats = storedSongs.mapNotNull { (id, song) -> song.format?.let { id to it } }.toMap()
                     songs =
                         withContext(Dispatchers.Default) {
                             BlockedContent.filterSongs(
@@ -614,6 +631,28 @@ fun AutoPlaylistScreen(
                     stringResource(Res.string.remove_selected_count, selectedSongs.size)
                 } else {
                     null
+                },
+            additionalActions =
+                if (currentType == "downloaded") {
+                    listOf(
+                        PlayerMenuAction(
+                            MetrolistIcons.Outlined.Storage,
+                            stringResource(Res.string.save_all_to_folder),
+                            stringResource(Res.string.save_to_folder_desc),
+                        ) {
+                            val ids = selectedSongs.map { it.id }
+                            saveToFolder { SaveToFolderBatch(ids) }
+                        },
+                        PlayerMenuAction(
+                            MetrolistIcons.Outlined.Album,
+                            stringResource(Res.string.create_album),
+                            stringResource(Res.string.create_album_desc),
+                        ) {
+                            albumSongs = selectedSongs
+                        },
+                    )
+                } else {
+                    emptyList()
                 },
         )
     }
@@ -784,6 +823,19 @@ fun AutoPlaylistScreen(
                     },
                     trackTrailingContent = { song, _ ->
                         Row(verticalAlignment = Alignment.CenterVertically) {
+                            if (currentType == "downloaded") {
+                                downloadFormats[song.id]?.let { format ->
+                                    val codec = format.codecDisplayName()
+                                    if (codec != null && format.bitrate > 0) {
+                                        Text(
+                                            stringResource(Res.string.download_format_value, codec, format.bitrate / 1000),
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            maxLines = 1,
+                                        )
+                                    }
+                                }
+                            }
                             if (selection.active) {
                                 Checkbox(checked = selection.isSelected(song.id), onCheckedChange = { selection.toggle(song.id) })
                             } else {
@@ -1026,6 +1078,48 @@ fun AutoPlaylistScreen(
         )
     }
 
+    PopupContent(albumSongs) { songsForAlbum ->
+        var albumName by remember { mutableStateOf("") }
+        AlertDialog(
+            onDismissRequest = { albumSongs = null },
+            title = { Text(stringResource(Res.string.create_album)) },
+            text = {
+                OutlinedTextField(
+                    value = albumName,
+                    onValueChange = { albumName = it },
+                    label = { Text(stringResource(Res.string.album_name)) },
+                    singleLine = true,
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = albumName.isNotBlank(),
+                    onClick = {
+                        val name = albumName
+                        albumSongs = null
+                        scope.launch {
+                            val created = createUserAlbum(database, name, songsForAlbum)
+                            Toast
+                                .makeText(
+                                    context,
+                                    getString(if (created.isSuccess) Res.string.album_created else Res.string.error_unknown),
+                                    Toast.LENGTH_SHORT,
+                                ).show()
+                            if (created.isSuccess) selection.exit()
+                        }
+                    },
+                    shapes = ButtonDefaults.shapes(),
+                ) { Text(stringResource(Res.string.create_album)) }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { albumSongs = null },
+                    shapes = ButtonDefaults.shapes(),
+                ) { Text(stringResource(Res.string.cancel)) }
+            },
+        )
+    }
+
     PopupContent(pendingRemovalIds) { removalIds ->
         AlertDialog(
             onDismissRequest = { pendingRemovalIds = null },
@@ -1062,6 +1156,17 @@ fun AutoPlaylistScreen(
                 ) { Text(stringResource(Res.string.cancel)) }
             },
         )
+    }
+}
+
+// Codec identifiers are technical names, not translatable text.
+private fun FormatEntity.codecDisplayName(): String? {
+    val codec = codecs.substringBefore('.').trim().lowercase()
+    return when {
+        codec == "opus" -> "Opus"
+        codec == "mp4a" -> "AAC"
+        codec.isNotBlank() -> codec.uppercase()
+        else -> null
     }
 }
 

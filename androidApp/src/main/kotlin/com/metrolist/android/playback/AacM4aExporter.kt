@@ -133,10 +133,37 @@ private fun m4aMetadataBox(metadata: AudioExportMetadata): ByteArray {
         value: String,
     ): ByteArray = mp4Box(type, mp4Box("data", byteArrayOf(0, 0, 0, 1, 0, 0, 0, 0) + value.encodeToByteArray()))
 
+    // trkn holds reserved(2), track(2), total(2), reserved(2) as implicit binary data.
+    fun trackTag(
+        track: Int,
+        total: Int?,
+    ): ByteArray =
+        mp4Box(
+            "trkn",
+            mp4Box(
+                "data",
+                ByteArray(8) +
+                    ByteBuffer
+                        .allocate(8)
+                        .putShort(2, track.coerceAtMost(0xffff).toShort())
+                        .putShort(4, (total ?: 0).coerceIn(0, 0xffff).toShort())
+                        .array(),
+            ),
+        )
+
+    // covr data type 13 is JPEG and 14 is PNG.
+    val coverType = (if (metadata.artwork?.mimeType == "image/png") 14 else 13).toByte()
     val items =
         textTag("©nam", metadata.title) + textTag("©ART", metadata.artist) +
             (metadata.album?.takeIf(String::isNotBlank)?.let { textTag("©alb", it) } ?: byteArrayOf()) +
-            (metadata.artwork?.let { mp4Box("covr", mp4Box("data", byteArrayOf(0, 0, 0, 14, 0, 0, 0, 0) + it.png)) } ?: byteArrayOf())
+            (metadata.albumArtist?.takeIf(String::isNotBlank)?.let { textTag("aART", it) } ?: byteArrayOf()) +
+            (metadata.year?.takeIf { it > 0 }?.let { textTag("©day", it.toString()) } ?: byteArrayOf()) +
+            (metadata.trackNumber?.takeIf { it > 0 }?.let { trackTag(it, metadata.trackTotal) } ?: byteArrayOf()) +
+            (metadata.lyrics?.takeIf(String::isNotBlank)?.let { textTag("©lyr", it) } ?: byteArrayOf()) +
+            (
+                metadata.artwork?.let { mp4Box("covr", mp4Box("data", byteArrayOf(0, 0, 0, coverType, 0, 0, 0, 0) + it.data)) }
+                    ?: byteArrayOf()
+            )
     val handler = mp4Box("hdlr", ByteArray(8) + "mdir".encodeToByteArray() + ByteArray(13))
     return mp4Box("udta", mp4Box("meta", ByteArray(4) + handler + mp4Box("ilst", items)))
 }
