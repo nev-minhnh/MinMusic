@@ -134,6 +134,7 @@ fun HomeScreen(
     onNavigateToBrowse: (String, String?, String) -> Unit = { _, _, _ -> },
     onNavigateToVideoBrowse: (String, String?, String) -> Unit = onNavigateToBrowse,
     onNavigateToHomeSection: (HomeShelf) -> Unit = {},
+    onNavigateToCharts: (sourceKey: String?, chartKey: String?) -> Unit = { _, _ -> },
     onNavigateToLibrary: (LibraryFilterType?) -> Unit = {},
     floatingActionsBottomInset: State<Dp>,
     scrollToTopEvents: Flow<Long> = emptyFlow(),
@@ -204,7 +205,7 @@ fun HomeScreen(
         }
 
     val selectedChip = uiState.selectedChip
-    // VN charts shelf: only when Zing / NCT are enabled and answered; never placeholder data.
+    // Charts shelf: only when Zing / NCT / SoundCloud are enabled and answered; never placeholder data.
     val vnCharts by rememberMmVnCharts()
 
     val miniPlayerInset = LocalMiniPlayerBottomInset.current
@@ -283,6 +284,7 @@ fun HomeScreen(
                                 onPlayAll = { songs -> playerConnection?.playQueue(songs, queueTitle = sharedText.charts) },
                                 currentSongId = chartCurrentSongId,
                                 isPlaying = isPlaying,
+                                onSeeAll = { tab -> onNavigateToCharts(tab.source.key, tab.key) },
                             )
                         }
                     }
