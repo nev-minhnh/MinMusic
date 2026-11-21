@@ -118,6 +118,7 @@ import com.metrolist.shared.generated.resources.lyrics_curated_by
 import com.metrolist.shared.generated.resources.lyrics_share_limit
 import com.metrolist.shared.generated.resources.lyrics_share_selected_count
 import com.metrolist.shared.generated.resources.lyrics_written_by
+import com.metrolist.shared.generated.resources.mm_lyrics_unsynced_hint
 import com.metrolist.shared.generated.resources.share
 import com.metrolist.shared.model.AgentInfo
 import com.metrolist.shared.model.LyricsEntry
@@ -1197,6 +1198,16 @@ fun LyricsView(
                                 modifier = Modifier.fillMaxSize(),
                                 contentPadding = PaddingValues(top = fadeTop, bottom = fadeBottom),
                             ) {
+                                // Plain text cannot follow playback; say so instead of looking broken.
+                                item(key = "unsynced_hint", contentType = "unsynced_hint") {
+                                    Text(
+                                        text = stringResource(Res.string.mm_lyrics_unsynced_hint),
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = secondaryTextColor,
+                                        modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+                                        textAlign = providerTextAlign,
+                                    )
+                                }
                                 itemsIndexed(lyrics, key = { index, _ -> index }) { index, entry ->
                                     Text(
                                         text = entry.text,

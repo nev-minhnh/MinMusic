@@ -5782,4 +5782,6 @@
     <string name="mm_player_queue_open">Open queue</string>
     <!-- Player type / mini player type choice for the MinMusic design (default). -->
     <string name="mm_player_type_minmusic">MinMusic</string>
+    <!-- Shown with lyrics that have no timing, so they cannot follow playback. -->
+    <string name="mm_lyrics_unsynced_hint">Lyrics not synced</string>
 </resources>

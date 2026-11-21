@@ -2653,4 +2653,5 @@
     </plurals>
     <string name="mm_player_queue_open">Mở danh sách phát</string>
     <string name="mm_player_type_minmusic">MinMusic</string>
+    <string name="mm_lyrics_unsynced_hint">Lời chưa đồng bộ</string>
 </resources>
