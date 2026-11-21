@@ -81,6 +81,7 @@ internal class WindowsTaskbarController(
     private var closed = false
     private var ready = false
     private var registered = false
+    private var enabled = true
     private var buttons = emptyList<ThumbnailToolbarButton>()
 
     fun taskbarCreated() =
@@ -95,12 +96,26 @@ internal class WindowsTaskbarController(
             render()
         }
 
+    // MinMusic: Settings → "Taskbar control buttons". Turning it off removes the buttons from the thumbnail.
+    fun setEnabled(enabled: Boolean) =
+        execute {
+            this.enabled = enabled
+            render()
+        }
+
     private fun render() {
-        if (!ready || buttons.isEmpty() || closed || !isWindow()) return
+        if (!ready || closed || !isWindow()) return
+        if (!enabled) {
+            if (registered) unregister()
+            registered = false
+            return
+        }
+        if (buttons.isEmpty()) return
         if (registered) {
             update(buttons)
         } else {
-            registered = register(buttons)
+            // A window accepts ThumbBarAddButtons once; after an unregister the toolbar may only accept updates.
+            registered = register(buttons) || update(buttons)
         }
     }
 

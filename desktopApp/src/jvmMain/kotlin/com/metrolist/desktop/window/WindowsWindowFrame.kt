@@ -83,6 +83,7 @@ import com.metrolist.shared.generated.resources.play
 import com.metrolist.shared.generated.resources.previous
 import com.metrolist.shared.generated.resources.window_maximize
 import com.metrolist.shared.generated.resources.window_restore
+import com.metrolist.shared.settings.Settings
 import com.sun.jna.Pointer
 import com.sun.jna.platform.win32.User32
 import com.sun.jna.platform.win32.WinDef
@@ -444,6 +445,12 @@ fun FrameWindowScope.WindowsWindowFrame(
                 },
             )
         }
+
+    // MinMusic: queued before the first taskbarCreated(), so a disabled toolbar is never registered.
+    val taskbarButtonsEnabled = Settings.shared.desktopTaskbarButtons
+    LaunchedEffect(taskbar, taskbarButtonsEnabled) {
+        taskbar.setEnabled(taskbarButtonsEnabled)
+    }
 
     LaunchedEffect(procedure.taskbarGeneration) {
         if (procedure.taskbarGeneration > 0) taskbar.taskbarCreated()
