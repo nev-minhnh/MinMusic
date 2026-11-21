@@ -131,7 +131,7 @@ object DesktopSourceLogins {
                                     SourceAccount(
                                         source = SourceId.ZING,
                                         displayName = it.displayName,
-                                        entitlement = if (it.entitlement == ZingEntitlement.VIP) SourceEntitlement.VIP else SourceEntitlement.FREE,
+                                        entitlement = entitlement(it.entitlement == ZingEntitlement.VIP),
                                     )
                                 }
                             }
@@ -143,7 +143,7 @@ object DesktopSourceLogins {
                                     SourceAccount(
                                         source = SourceId.NCT,
                                         displayName = it.displayName,
-                                        entitlement = if (it.entitlement == NctEntitlement.VIP) SourceEntitlement.VIP else SourceEntitlement.FREE,
+                                        entitlement = entitlement(it.entitlement == NctEntitlement.VIP),
                                     )
                                 }
                             }
@@ -158,6 +158,8 @@ object DesktopSourceLogins {
         }
 
     fun health(source: SourceId): SourceHealth = registry?.health(source) ?: SourceHealth.HEALTHY
+
+    private fun entitlement(vip: Boolean): SourceEntitlement = if (vip) SourceEntitlement.VIP else SourceEntitlement.FREE
 
     // Prefer the instances the app registered so cookie, key and token caches are shared with playback.
     private val registry: SourceRegistry?
