@@ -84,8 +84,12 @@ jobs:
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-37.1" "ndk;$ndk" > /dev/null
 
-      - name: Run unit tests
-        run: ./gradlew --stacktrace --continue :androidApp:testDebugUnitTest :shared:desktopTest
+      - name: Run shared desktop tests
+        run: ./gradlew --stacktrace --no-parallel :shared:desktopTest
+
+      - name: Run Android unit tests
+        if: success() || failure()
+        run: ./gradlew --stacktrace --no-parallel :androidApp:testDebugUnitTest
 
       - name: Upload test reports
         if: failure()
