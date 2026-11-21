@@ -286,6 +286,7 @@ import com.metrolist.shared.generated.resources.offline_mode
 import com.metrolist.shared.generated.resources.play
 import com.metrolist.shared.generated.resources.profile
 import com.metrolist.shared.generated.resources.search
+import com.metrolist.shared.generated.resources.settings
 import com.metrolist.shared.generated.resources.update_pending
 import com.metrolist.shared.generated.resources.updates_action
 import com.metrolist.shared.generated.resources.updates_available_message
@@ -326,6 +327,7 @@ import com.metrolist.shared.ui.components.PopupVisibility
 import com.metrolist.shared.ui.components.UnavailableSongSnackbar
 import com.metrolist.shared.ui.components.images.AsyncImage
 import com.metrolist.shared.ui.components.lyrics.LyricsTranslationSnackbar
+import com.metrolist.shared.ui.components.minmusic.MmGreetingTitle
 import com.metrolist.shared.ui.components.rememberBottomSheetState
 import com.metrolist.shared.ui.design.expressive.components.ExpressiveMiniPlayerHeight
 import com.metrolist.shared.ui.haptics.HapticEvent
@@ -1498,27 +1500,32 @@ fun MetrolistApp(
                                         topBar = {
                                             if (shouldShowTopBar) {
                                                 val topBarTitle: @Composable () -> Unit = {
-                                                    AppTitleWithUpdateWarning(
-                                                        title =
-                                                            when (navigationState.topLevelRoute) {
-                                                                Screen.Home -> {
-                                                                    stringResource(Res.string.home)
-                                                                }
+                                                    if (navigationState.topLevelRoute == Screen.Home && !hasPendingUpdate) {
+                                                        // MinMusic Home header: 32 dp logo tile + time-of-day greeting.
+                                                        MmGreetingTitle()
+                                                    } else {
+                                                        AppTitleWithUpdateWarning(
+                                                            title =
+                                                                when (navigationState.topLevelRoute) {
+                                                                    Screen.Home -> {
+                                                                        stringResource(Res.string.home)
+                                                                    }
 
-                                                                Screen.Library -> {
-                                                                    stringResource(Res.string.filter_library)
-                                                                }
+                                                                    Screen.Library -> {
+                                                                        stringResource(Res.string.filter_library)
+                                                                    }
 
-                                                                Screen.EasterEgg -> {
-                                                                    stringResource(Res.string.mysterious_fourth_tab)
-                                                                }
+                                                                    Screen.EasterEgg -> {
+                                                                        stringResource(Res.string.mysterious_fourth_tab)
+                                                                    }
 
-                                                                else -> {
-                                                                    ""
-                                                                }
-                                                            },
-                                                        showWarning = hasPendingUpdate && navigationState.topLevelRoute == Screen.Home,
-                                                    )
+                                                                    else -> {
+                                                                        ""
+                                                                    }
+                                                                },
+                                                            showWarning = hasPendingUpdate && navigationState.topLevelRoute == Screen.Home,
+                                                        )
+                                                    }
                                                 }
                                                 val topBarSubtitle: @Composable () -> Unit = {
                                                     if (navigationState.topLevelRoute == Screen.Home &&
@@ -1565,6 +1572,24 @@ fun MetrolistApp(
                                                             Icon(
                                                                 MetrolistIcons.Outlined.Download,
                                                                 contentDescription = stringResource(Res.string.downloads),
+                                                            )
+                                                        }
+                                                    }
+                                                    if (navigationState.topLevelRoute == Screen.Home && Screen.Settings !in railScreens) {
+                                                        TopBarIconButton(
+                                                            floating = useFloatingTopBar,
+                                                            onClick = { navigator.navigate(Screen.Settings) },
+                                                            modifier =
+                                                                Modifier.tvFocusHighlight(
+                                                                    CircleShape,
+                                                                    scale = 1.08f,
+                                                                    bringIntoView = false,
+                                                                ),
+                                                        ) {
+                                                            Icon(
+                                                                MetrolistIcons.Outlined.Settings,
+                                                                contentDescription = stringResource(Res.string.settings),
+                                                                modifier = Modifier.size(24.dp),
                                                             )
                                                         }
                                                     }
@@ -2214,7 +2239,8 @@ private fun AppTitleWithUpdateWarning(
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text(
             text = title,
-            style = MaterialTheme.typography.titleLargeEmphasized,
+            // MinMusic: top-level page titles use the display style (28/36, 600).
+            style = MaterialTheme.typography.headlineMedium,
         )
         if (showWarning) {
             Text(

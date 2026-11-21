@@ -769,6 +769,8 @@ fun AutoPlaylistScreen(
             Box(modifier = Modifier.fillMaxSize().padding(bottom = paddingValues.calculateBottomPadding())) {
                 PlaylistContent(
                     selectionActive = selection.active,
+                    // Downloads and cached songs show what was stored: source and quality badges per row.
+                    showSourceBadges = isStoredCollection,
                     onMoreOptions = { showCollectionMenu = true },
                     playlist =
                         PlaylistItem(

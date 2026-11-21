@@ -85,6 +85,7 @@ import com.metrolist.android.ui.menu.SongMenu
 import com.metrolist.android.utils.readPlaylistCover
 import com.metrolist.android.viewmodels.PlaylistViewModel
 import com.metrolist.shared.api.PlaylistRemovalFailedException
+import com.metrolist.shared.db.MusicDatabase
 import com.metrolist.shared.db.isHistoryPlaylistId
 import com.metrolist.shared.generated.resources.Res
 import com.metrolist.shared.generated.resources.action_cannot_be_undone
@@ -160,6 +161,7 @@ import com.metrolist.shared.utils.ShareUrls
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.jetbrains.compose.resources.getPluralString
@@ -212,6 +214,11 @@ fun PlaylistScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val downloadManager: SongDownloadManager = koinInject()
     val imageLoader: ImageLoader = koinInject()
+    val database: MusicDatabase = koinInject()
+    // User albums ("My albums") get the album-style header overline, numbered rows and per-track source badges.
+    val isUserAlbum by remember(database, playlistId) {
+        database.dao().playlist(playlistId).map { it?.playlist?.isUserAlbum == true }
+    }.collectAsState(initial = false)
     val requireDownloadNotifications = rememberDownloadPermissionGate()
     val currentSong by playerConnection?.currentSong?.collectAsState(initial = null)
         ?: remember { mutableStateOf(null) }
@@ -641,6 +648,8 @@ fun PlaylistScreen(
                             }.orEmpty(),
                     hasMoreSongs = page?.hasMore == true,
                     hiddenSongCount = (playlistTrackCount - songs.size).coerceAtLeast(0),
+                    isUserAlbum = isUserAlbum,
+                    showSourceBadges = isUserAlbum || isLocalPlaylist,
                     onEdit = null,
                     previewThumbnail = thumbnailHint ?: preview?.thumbnail,
                     paginationContent =

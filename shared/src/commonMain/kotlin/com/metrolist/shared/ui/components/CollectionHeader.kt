@@ -36,6 +36,9 @@ import org.jetbrains.compose.resources.stringResource
 
 val CollectionHeaderHorizontalPadding = 16.dp
 
+/** Artwork size of the horizontal collection header on phones (design: 136 dp). */
+val PhoneCollectionArtworkSize = 136.dp
+
 internal fun mediumCollectionArtworkSize(
     contentWidth: Dp,
     contentHeight: Dp,
@@ -77,8 +80,18 @@ internal fun CollectionHeader(
                 artwork(Modifier.size(mediumArtworkSize), uiEnhanced(8.dp, 16.dp))
                 CollectionInfoCard(Modifier.weight(1f), content)
             }
+        } else if (!isWide) {
+            // MinMusic phone header: 136 dp artwork (radius 16) beside the text, bottom-aligned, no card.
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                verticalAlignment = Alignment.Bottom,
+            ) {
+                artwork(Modifier.size(PhoneCollectionArtworkSize), 16.dp)
+                Column(Modifier.weight(1f), content = content)
+            }
         } else {
-            artwork(Modifier.fillMaxWidth().aspectRatio(1f), uiEnhanced(8.dp, if (isWide) 20.dp else 28.dp))
+            artwork(Modifier.fillMaxWidth().aspectRatio(1f), uiEnhanced(8.dp, 20.dp))
             Spacer(Modifier.height(16.dp))
             CollectionInfoCard(content = content)
         }

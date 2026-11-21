@@ -11,16 +11,17 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.material3.ToggleButton
 import androidx.compose.material3.ToggleButtonDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
@@ -31,6 +32,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.metrolist.shared.generated.resources.Res
 import com.metrolist.shared.generated.resources.chip_content_description
+import com.metrolist.shared.ui.components.minmusic.MmChip
 import com.metrolist.shared.ui.tv.tvFocusHighlight
 import com.metrolist.shared.ui.utils.carouselScroll
 import org.jetbrains.compose.resources.stringResource
@@ -49,9 +51,10 @@ fun <T> ChipShelf(
     pinnedLabel: String? = null,
     onPinnedClick: () -> Unit = {},
     selectionRequired: Boolean = false,
-    contentPadding: PaddingValues = PaddingValues(horizontal = 18.dp),
+    contentPadding: PaddingValues = PaddingValues(horizontal = 16.dp),
     leadingContent: (@Composable () -> Unit)? = null,
     scrollState: ScrollState = rememberScrollState(),
+    dotColor: ((T) -> Color?)? = null,
 ) {
     Row(
         modifier =
@@ -87,6 +90,7 @@ fun <T> ChipShelf(
             ShelfChip(
                 text = label(option),
                 selected = selected,
+                dotColor = dotColor?.invoke(option),
                 onClick = {
                     onSelectionChange(
                         if (selected && !selectionRequired) null else option,
@@ -103,14 +107,17 @@ private fun ShelfChip(
     text: String,
     selected: Boolean,
     onClick: () -> Unit,
+    dotColor: Color? = null,
 ) {
-    val containerHeight = ButtonDefaults.ExtraSmallContainerHeight
     val chipDescription = stringResource(Res.string.chip_content_description, text)
-    ExpressiveFilterChip(
+    // MinMusic chip: 32 dp outline, ink fill when selected (design-system section 10).
+    MmChip(
+        text = text,
         selected = selected,
         onClick = onClick,
+        dotColor = dotColor,
         modifier =
-            Modifier.height(containerHeight).clearAndSetSemantics {
+            Modifier.tvFocusHighlight(CircleShape).clearAndSetSemantics {
                 contentDescription = chipDescription
                 role = Role.Button
                 this.selected = selected
@@ -119,13 +126,6 @@ private fun ShelfChip(
                     true
                 }
             },
-        label = {
-            Text(
-                text = text,
-                style = MaterialTheme.typography.labelLarge,
-                maxLines = 1,
-            )
-        },
     )
 }
 

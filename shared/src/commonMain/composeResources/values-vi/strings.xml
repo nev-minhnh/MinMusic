@@ -2624,4 +2624,17 @@
     <string name="source_hide_password">Ẩn mật khẩu</string>
     <string name="source_zing_official_site">trang chính thức</string>
     <string name="source_zing_login_auto_close">Đăng nhập xong, cửa sổ sẽ tự đóng và kiểm tra VIP.</string>
+    <string name="mm_greeting_morning">Chào buổi sáng</string>
+    <string name="mm_greeting_afternoon">Chào buổi chiều</string>
+    <string name="mm_greeting_evening">Chào buổi tối</string>
+    <string name="mm_chart_tab_label">%1$s · %2$s</string>
+    <string name="mm_search_recent">Gần đây</string>
+    <string name="mm_search_trending_title">Xu hướng tại Việt Nam</string>
+    <string name="mm_search_trending_subtitle">Từ bảng xếp hạng Zing MP3 và NhacCuaTui</string>
+    <string name="mm_remove_history_item">Xoá %1$s khỏi lịch sử tìm kiếm</string>
+    <string name="mm_library_new_album">Album mới</string>
+    <string name="mm_library_new_album_hint">Từ bài đã tải</string>
+    <string name="mm_library_downloaded">Đã tải</string>
+    <string name="mm_open">Mở</string>
+    <string name="mm_user_album_overline">ALBUM CỦA TÔI</string>
 </resources>

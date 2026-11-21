@@ -5736,4 +5736,17 @@
     <string name="source_zing_official_site">official site</string>
     <!-- Translators: Note at the bottom of the Zing MP3 sign-in window. -->
     <string name="source_zing_login_auto_close">When you finish signing in, this window closes and checks your VIP status.</string>
+    <string name="mm_greeting_morning">Good morning</string>
+    <string name="mm_greeting_afternoon">Good afternoon</string>
+    <string name="mm_greeting_evening">Good evening</string>
+    <string name="mm_chart_tab_label">%1$s · %2$s</string>
+    <string name="mm_search_recent">Recent</string>
+    <string name="mm_search_trending_title">Trending in Vietnam</string>
+    <string name="mm_search_trending_subtitle">From the Zing MP3 and NhacCuaTui charts</string>
+    <string name="mm_remove_history_item">Remove %1$s from search history</string>
+    <string name="mm_library_new_album">New album</string>
+    <string name="mm_library_new_album_hint">From downloads</string>
+    <string name="mm_library_downloaded">Downloaded</string>
+    <string name="mm_open">Open</string>
+    <string name="mm_user_album_overline">MY ALBUM</string>
 </resources>
