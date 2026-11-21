@@ -11,8 +11,11 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.awaitTouchSlopOrCancellation
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.drag
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -73,6 +76,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -703,6 +707,10 @@ private fun ProfilesPage(
 
 private const val EDIT_SETTLE_MILLIS = 600L
 private const val MESSAGE_VISIBLE_MILLIS = 4_000L
+
+// Touch targets for starting a drag on a graph node or fader thumb, and for tapping a fader track.
+private val NODE_TOUCH_RADIUS = 24.dp
+private val TRACK_TOUCH_HALF_WIDTH = 12.dp
 private const val MAX_UNDO_STEPS = 50
 
 private fun EqualizerProfile.withoutOutputGain() = copy(outputGainDb = null)
@@ -886,6 +894,7 @@ private fun EqualizerGraph(
     val currentRange by rememberUpdatedState(range)
     val currentSpan by rememberUpdatedState(logarithmicSpan)
     val currentMaxFrequency by rememberUpdatedState(maxFrequency)
+    val currentPreamp by rememberUpdatedState(preamp)
     val density = LocalDensity.current
     val textMeasurer = rememberTextMeasurer()
     val labelStyle = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -957,6 +966,29 @@ private fun EqualizerGraph(
         }
     }
 
+    fun nodeAt(
+        position: Offset,
+        width: Int,
+        height: Int,
+        radius: Float,
+    ): Int? {
+        val current = latestProfile ?: return null
+        val graphWidth = (width - currentLeft - right).coerceAtLeast(1f)
+        val graphHeight = (height - top - bottom).coerceAtLeast(1f)
+        val plotRange = currentRange
+        return current.bands.indices
+            .filter(::editableBand)
+            .map { index ->
+                val band = current.bands[index]
+                val x = currentLeft + (ln(band.frequency / MIN_EQUALIZER_FREQUENCY) / currentSpan * graphWidth).toFloat()
+                val db = (if (band.supportsGain) band.gain else 0.0) + currentPreamp
+                val y = (top + (plotRange - db) / (plotRange * 2) * graphHeight).toFloat().coerceIn(top, top + graphHeight)
+                index to (Offset(x, y) - position).getDistance()
+            }.filter { it.second <= radius }
+            .minByOrNull { it.second }
+            ?.first
+    }
+
     val gestures =
         if (profile == null) {
             Modifier
@@ -965,43 +997,40 @@ private fun EqualizerGraph(
                 .pointerInput(profile.id, top, bottom) {
                     detectTapGestures { position -> nearestBand(position.x, size.width)?.let { selectedBand = it } }
                 }.pointerInput(profile.id, top, bottom) {
-                    var dragBand: Int? = null
-                    var dragGain: Double? = null
-                    var dragFrequency: Double? = null
-                    detectDragGestures(
-                        onDragEnd = { dragRange = null },
-                        onDragCancel = { dragRange = null },
-                        onDragStart = { position ->
-                            dragRange = currentRange
-                            dragBand = nearestBand(position.x, size.width)
-                            dragGain = null
-                            dragFrequency = null
-                            dragBand?.let { index ->
-                                selectedBand = index
-                                dragGain = latestProfile?.bands?.getOrNull(index)?.gain
-                                dragFrequency = latestProfile?.bands?.getOrNull(index)?.frequency
-                            }
-                        },
-                        onDrag = { change, drag ->
-                            val index = dragBand ?: return@detectDragGestures
-                            val band = latestProfile?.bands?.getOrNull(index)
-                            val previousGain = dragGain
-                            val previousFrequency = dragFrequency
-                            if (band != null && previousGain != null && previousFrequency != null && editableBand(index)) {
+                    // Only drags that start on a node move it; any other drag is left to page scrolling.
+                    awaitEachGesture {
+                        val down = awaitFirstDown(requireUnconsumed = false)
+                        val index = nodeAt(down.position, size.width, size.height, NODE_TOUCH_RADIUS.toPx()) ?: return@awaitEachGesture
+                        val slop = awaitTouchSlopOrCancellation(down.id) { change, _ -> change.consume() } ?: return@awaitEachGesture
+                        var dragGain = latestProfile?.bands?.getOrNull(index)?.gain ?: return@awaitEachGesture
+                        var dragFrequency = latestProfile?.bands?.getOrNull(index)?.frequency ?: return@awaitEachGesture
+                        selectedBand = index
+                        dragRange = currentRange
+
+                        fun move(delta: Offset) {
+                            val band = latestProfile?.bands?.getOrNull(index) ?: return
+                            if (!editableBand(index)) return
+                            val sensitivity = if (band.filterType == FilterType.PK) 1.0 else 0.5
+                            val nextGain =
+                                (dragGain - delta.y * 2 * currentRange / ((size.height - top - bottom) * sensitivity))
+                                    .coerceIn(MIN_EQUALIZER_BAND_GAIN_DB, MAX_EQUALIZER_BAND_GAIN_DB)
+                            val graphWidth = (size.width - currentLeft - right).coerceAtLeast(1f)
+                            val nextFrequency =
+                                (dragFrequency * exp(delta.x / graphWidth * currentSpan))
+                                    .coerceIn(MIN_EQUALIZER_FREQUENCY, currentMaxFrequency)
+                            dragGain = nextGain
+                            updateBand(index, nextGain, nextFrequency)?.let { dragFrequency = it }
+                        }
+                        try {
+                            move(slop.position - down.position)
+                            drag(slop.id) { change ->
                                 change.consume()
-                                val sensitivity = if (band.filterType == FilterType.PK) 1.0 else 0.5
-                                val nextGain =
-                                    (previousGain - drag.y * 2 * currentRange / ((size.height - top - bottom) * sensitivity))
-                                        .coerceIn(MIN_EQUALIZER_BAND_GAIN_DB, MAX_EQUALIZER_BAND_GAIN_DB)
-                                val graphWidth = (size.width - currentLeft - right).coerceAtLeast(1f)
-                                val nextFrequency =
-                                    (previousFrequency * exp(drag.x / graphWidth * currentSpan))
-                                        .coerceIn(MIN_EQUALIZER_FREQUENCY, currentMaxFrequency)
-                                dragGain = nextGain
-                                dragFrequency = updateBand(index, nextGain, nextFrequency)
+                                move(change.positionChange())
                             }
-                        },
-                    )
+                        } finally {
+                            dragRange = null
+                        }
+                    }
                 }
         }
 
@@ -1368,28 +1397,42 @@ private fun VerticalBandFader(
     val gainSpan = MAX_EQUALIZER_BAND_GAIN_DB - MIN_EQUALIZER_BAND_GAIN_DB
     val latestOnSelected by rememberUpdatedState(onSelected)
     val latestOnGainChange by rememberUpdatedState(onGainChange)
+    val latestGain by rememberUpdatedState(gain)
     Canvas(
         Modifier
             .size(width = 48.dp, height = 132.dp)
             .pointerInput(enabled) {
                 detectTapGestures { position ->
                     latestOnSelected()
-                    if (enabled) {
+                    // Taps beside the track only select the band.
+                    if (enabled && abs(position.x - size.width / 2f) <= TRACK_TOUCH_HALF_WIDTH.toPx()) {
                         val inset = 8.dp.toPx()
                         val fraction = ((position.y - inset) / (size.height - inset * 2)).coerceIn(0f, 1f)
                         latestOnGainChange(MAX_EQUALIZER_BAND_GAIN_DB - fraction * gainSpan)
                     }
                 }
             }.pointerInput(enabled) {
-                detectDragGestures(
-                    onDragStart = { latestOnSelected() },
-                    onDrag = { change, _ ->
+                // Only drags that start on the thumb change the gain; other drags scroll the page.
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    if (!enabled) return@awaitEachGesture
+                    val inset = 8.dp.toPx()
+                    val travel = (size.height - inset * 2).coerceAtLeast(1f)
+                    val startGain = latestGain.coerceIn(MIN_EQUALIZER_BAND_GAIN_DB, MAX_EQUALIZER_BAND_GAIN_DB)
+                    val thumbY = inset + ((MAX_EQUALIZER_BAND_GAIN_DB - startGain) / gainSpan * travel).toFloat()
+                    if ((down.position - Offset(size.width / 2f, thumbY)).getDistance() > NODE_TOUCH_RADIUS.toPx()) {
+                        return@awaitEachGesture
+                    }
+                    val slop = awaitTouchSlopOrCancellation(down.id) { change, _ -> change.consume() } ?: return@awaitEachGesture
+                    latestOnSelected()
+
+                    fun follow(y: Float) = latestOnGainChange(startGain - (y - down.position.y) / travel * gainSpan)
+                    follow(slop.position.y)
+                    drag(slop.id) { change ->
                         change.consume()
-                        val inset = 8.dp.toPx()
-                        val fraction = ((change.position.y - inset) / (size.height - inset * 2)).coerceIn(0f, 1f)
-                        latestOnGainChange(MAX_EQUALIZER_BAND_GAIN_DB - fraction * gainSpan)
-                    },
-                )
+                        follow(change.position.y)
+                    }
+                }
             },
     ) {
         val inset = 8.dp.toPx()
