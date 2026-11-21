@@ -425,7 +425,8 @@ class Settings(
     var enableLandscapeScaling by preference(EnableLandscapeScalingKey, false)
     var forceBottomNavBar by preference(ForceBottomNavBarKey, false)
     var slimNavBar by preference(SlimNavBarKey, false)
-    var floatingNavBar by preference(FloatingNavBarKey, false)
+    // MinMusic: the floating rounded nav bar is the phone default (owner decision); a saved choice still wins.
+    var floatingNavBar by preference(FloatingNavBarKey, true)
     var floatingTopBar by preference(FloatingTopBarKey, false)
     var floatingSearch by preference(false)
     var voiceSearchEnabled by preference(VoiceSearchEnabledKey, true)
