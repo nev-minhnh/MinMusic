@@ -153,6 +153,7 @@ fun PlayerMenu(
     onNavigateToListenTogether: () -> Unit = {},
     onShowSongDetails: () -> Unit = onDismiss,
     extraActions: List<PlayerMenuAction> = emptyList(),
+    startWithEqualizer: Boolean = false,
 ) {
     val suggestedToHostText = stringResource(Res.string.suggested_to_host)
 
@@ -189,7 +190,8 @@ fun PlayerMenu(
     val isTv = LocalIsTv.current
     val menuSheetState = rememberModalSheetState()
     var showPlaybackSpeed by remember { mutableStateOf(false) }
-    var showEqualizer by remember { mutableStateOf(false) }
+    // The player's EQ chip opens the menu straight into the same equalizer entry as the "Equalizer" action.
+    var showEqualizer by remember { mutableStateOf(startWithEqualizer) }
     if (showEqualizer) {
         EqualizerDialog(
             onDismiss = { if (isTv) showEqualizer = false else onDismiss() },

@@ -320,6 +320,35 @@ class AndroidPlayerPlatform(
     }
 
     @Composable
+    override fun EqualizerShortcut(
+        viewModel: PlayerViewModel,
+        onDismiss: () -> Unit,
+        onNavigateToAlbum: (String) -> Unit,
+        onNavigateToArtist: (String) -> Unit,
+        onNavigateToListenTogether: () -> Unit,
+    ) {
+        val volume by playerConnection.volume.collectAsState()
+        val playbackSpeed by playerConnection.playbackSpeedFlow.collectAsState()
+        val playbackPitch by playerConnection.playbackPitchFlow.collectAsState()
+        // Same entry as the menu's "Equalizer" action, opened directly instead of the menu sheet.
+        AndroidPlayerMenu(
+            playerViewModel = viewModel,
+            volume = volume,
+            onVolumeChange = playerConnection::setVolume,
+            playbackSpeed = playbackSpeed,
+            onPlaybackSpeedChange = playerConnection::setPlaybackSpeed,
+            playbackPitch = playbackPitch,
+            onPlaybackPitchChange = playerConnection::setPlaybackPitch,
+            onDismiss = onDismiss,
+            onNavigateToAlbum = onNavigateToAlbum,
+            onNavigateToArtist = onNavigateToArtist,
+            onNavigateToListenTogether = onNavigateToListenTogether,
+            onShowSongDetails = onDismiss,
+            startWithEqualizer = true,
+        )
+    }
+
+    @Composable
     override fun SongDetailsSheet(
         viewModel: PlayerViewModel,
         onDismiss: () -> Unit,
