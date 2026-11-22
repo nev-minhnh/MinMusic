@@ -94,6 +94,25 @@ jobs:
           $helper = Join-Path $output "metro-wv2-helper.exe"
           if (-not (Test-Path $helper -PathType Leaf)) { throw "Sign-in helper was not produced at $helper" }
 
+      # YouTube PO token sidecar: bundled so playback does not depend on a first-run download.
+      # Version and SHA-256 must match DesktopTokenProvider (POT_PROVIDER_VERSION / assetSha256).
+      - name: Bundle PO token sidecar
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $source = "shared/src/desktopMain/kotlin/com/metrolist/shared/youtube/playback/DesktopTokenProvider.kt"
+          $text = Get-Content $source -Raw
+          $version = [regex]::Match($text, 'POT_PROVIDER_VERSION = "([^"]+)"').Groups[1].Value
+          $expected = [regex]::Match($text, 'assetName = "bgutil-pot-windows-x86_64.exe",\s*assetSha256 = "([0-9a-f]{64})"').Groups[1].Value
+          if (-not $version -or -not $expected) { throw "Could not read the sidecar pin from $source" }
+          $target = "desktopApp/src/desktopMain/resources/windows/bgutil-ytdlp-pot-provider-rs.exe"
+          gh release download $version -R jim60105/bgutil-ytdlp-pot-provider-rs -p "bgutil-pot-windows-x86_64.exe" -O $target --clobber
+          if ($LASTEXITCODE -ne 0) { throw "Sidecar download failed" }
+          $actual = (Get-FileHash $target -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($actual -ne $expected) { throw "Sidecar SHA-256 mismatch: $actual != $expected" }
+          Write-Host "Bundled PO token sidecar $version ($actual)"
+
       - name: Build installer and portable ZIP
         shell: bash
         env:
