@@ -68,6 +68,8 @@ import com.metrolist.shared.generated.resources.mm_tablet_nav_my_albums
 import com.metrolist.shared.generated.resources.mm_tablet_nav_yours
 import com.metrolist.shared.generated.resources.mm_tablet_search_hint
 import com.metrolist.shared.generated.resources.recognize_music
+import com.metrolist.shared.generated.resources.tablet_nav_close_menu
+import com.metrolist.shared.generated.resources.tablet_nav_open_menu
 import com.metrolist.shared.ui.components.images.AsyncImage
 import com.metrolist.shared.ui.icons.MetrolistIcons
 import com.metrolist.shared.ui.navigation.AdaptiveNavigationItem
@@ -79,6 +81,9 @@ import org.koin.compose.koinInject
 
 val TabletRailWidth = 72.dp
 val TabletSidebarWidth = 240.dp
+
+/** Sidebar opened from the rail's menu button as an overlay (Medium width, or wherever the 240 sidebar is unavailable). */
+val TabletOverlaySidebarWidth = 280.dp
 
 /** Width the tablet navigation occupies, for insets such as the mini player offset. */
 fun tabletNavigationWidth(sidebar: Boolean): Dp = if (sidebar) TabletSidebarWidth else TabletRailWidth
@@ -94,9 +99,13 @@ fun TabletNavigation(
     containerColor: Color,
     modifier: Modifier = Modifier,
     itemModifier: @Composable (Screen) -> Modifier = { Modifier },
-) {
     // No width animation: the content beside it would relayout every frame (brief: animate offset/scale/alpha only).
-    val width = tabletNavigationWidth(sidebar)
+    width: Dp = tabletNavigationWidth(sidebar),
+    // True when the menu button opens (rail) or closes (sidebar) the overlay sidebar instead of the docked one.
+    overlayMenu: Boolean = false,
+    // Called after any destination in the column is chosen, so the overlay can close itself.
+    onNavigated: () -> Unit = {},
+) {
     val database: MusicDatabase = koinInject()
     val userAlbums by remember(database) { database.dao().userAlbums() }
         .collectAsStateWithLifecycle(initialValue = emptyList())
@@ -110,7 +119,7 @@ fun TabletNavigation(
                 .windowInsetsPadding(WindowInsets.statusBars.only(WindowInsetsSides.Top))
                 .windowInsetsPadding(WindowInsets.navigationBars.only(WindowInsetsSides.Bottom)),
     ) {
-        TabletNavigationBrand(sidebar = sidebar, onToggleSidebar = onToggleSidebar)
+        TabletNavigationBrand(sidebar = sidebar, onToggleSidebar = onToggleSidebar, overlayMenu = overlayMenu)
         Column(
             modifier =
                 Modifier
@@ -128,7 +137,10 @@ fun TabletNavigation(
                         label = item.label,
                         icon = if (selected) item.selectedIcon else item.icon,
                         selected = selected,
-                        onClick = { onSelect(item.key) },
+                        onClick = {
+                            onSelect(item.key)
+                            onNavigated()
+                        },
                         modifier = itemModifier(item.key),
                     )
                 } else {
@@ -136,7 +148,10 @@ fun TabletNavigation(
                         label = item.label,
                         icon = if (selected) item.selectedIcon else item.icon,
                         selected = selected,
-                        onClick = { onSelect(item.key) },
+                        onClick = {
+                            onSelect(item.key)
+                            onNavigated()
+                        },
                         modifier = itemModifier(item.key),
                     )
                 }
@@ -156,9 +171,15 @@ fun TabletNavigation(
                 )
             shortcuts.forEach { (label, icon, route) ->
                 if (sidebar) {
-                    SidebarItem(label = label, icon = icon, selected = false, onClick = { navigator.navigate(route) })
+                    SidebarItem(label = label, icon = icon, selected = false, onClick = {
+                        navigator.navigate(route)
+                        onNavigated()
+                    })
                 } else {
-                    RailIconButton(label = label, icon = icon, onClick = { navigator.navigate(route) })
+                    RailIconButton(label = label, icon = icon, onClick = {
+                        navigator.navigate(route)
+                        onNavigated()
+                    })
                 }
             }
 
@@ -169,19 +190,24 @@ fun TabletNavigation(
                     UserAlbumEntry(
                         album = album,
                         sidebar = sidebar,
-                        onClick = { navigator.navigate(Screen.Playlist(album.id, thumbnailHint = album.thumbnailUrl)) },
+                        onClick = {
+                            navigator.navigate(Screen.Playlist(album.id, thumbnailHint = album.thumbnailUrl))
+                            onNavigated()
+                        },
                     )
                 }
             }
             Spacer(Modifier.height(8.dp))
         }
-        // Settings is the gear in the top bar (tablet spec 5.2). The rail keeps the expand button at its foot.
+        // Settings is the gear in the top bar (tablet spec 5.2). The rail keeps the menu button at its foot:
+        // it expands the docked sidebar where one fits (>= 1024 dp), otherwise it opens the overlay sidebar.
         if (!sidebar && onToggleSidebar != null) {
             Box(Modifier.fillMaxWidth().padding(bottom = 12.dp), contentAlignment = Alignment.Center) {
                 IconButton(onClick = onToggleSidebar) {
                     Icon(
                         MetrolistIcons.Filled.Menu,
-                        contentDescription = stringResource(Res.string.mm_tablet_nav_expand),
+                        contentDescription =
+                            stringResource(if (overlayMenu) Res.string.tablet_nav_open_menu else Res.string.mm_tablet_nav_expand),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
@@ -195,6 +221,7 @@ fun TabletNavigation(
 private fun TabletNavigationBrand(
     sidebar: Boolean,
     onToggleSidebar: (() -> Unit)?,
+    overlayMenu: Boolean,
 ) {
     val logo: @Composable () -> Unit = {
         Image(
@@ -222,7 +249,8 @@ private fun TabletNavigationBrand(
                 IconButton(onClick = onToggleSidebar) {
                     Icon(
                         MetrolistIcons.AutoMirrored.Filled.MenuOpen,
-                        contentDescription = stringResource(Res.string.mm_tablet_nav_collapse),
+                        contentDescription =
+                            stringResource(if (overlayMenu) Res.string.tablet_nav_close_menu else Res.string.mm_tablet_nav_collapse),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }

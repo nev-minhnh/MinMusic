@@ -2676,4 +2676,10 @@
     <string name="mm_open_downloads">Mở nhạc đã tải</string>
     <string name="mm_settings_tablet_floating_player_bar">Thanh phát nổi trên máy tính bảng</string>
     <string name="mm_settings_tablet_floating_player_bar_description">Dùng thanh bo tròn nổi cạnh thanh điều hướng thay cho thanh gắn đáy toàn chiều rộng</string>
+    <string name="tablet_nav_open_menu">Mở menu</string>
+    <string name="tablet_nav_close_menu">Đóng menu</string>
+    <string name="tablet_bar_open_player">Mở trình phát</string>
+    <string name="tablet_player_tap_to_open">Chạm để mở</string>
+    <string name="tablet_player_related">Liên quan</string>
+    <string name="tablet_player_related_empty">Chưa có bài hát liên quan</string>
 </resources>

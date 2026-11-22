@@ -1,13 +1,18 @@
 package com.metrolist.android.ui
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -17,6 +22,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteDefaults
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteType
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -42,6 +48,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.metrolist.android.ui.component.TabletNavigation
+import com.metrolist.android.ui.component.TabletOverlaySidebarWidth
 import com.metrolist.shared.generated.resources.Res
 import com.metrolist.shared.generated.resources.filter_library
 import com.metrolist.shared.generated.resources.home
@@ -241,43 +248,91 @@ fun MetrolistNavigationScaffold(
         }
     }
 
+    // Where the docked 240 sidebar is not available (Medium width, or < 1024 dp), the rail's menu button opens
+    // the same sidebar as a 280 dp overlay with a 32 % scrim (tablet spec 3.1). It closes on scrim tap,
+    // back, or any navigation from inside it.
+    val overlaySidebarAllowed = tabletNavigation && onToggleTabletSidebar == null && navigationVisible
+    var overlaySidebarOpen by remember { mutableStateOf(false) }
+    LaunchedEffect(overlaySidebarAllowed) { if (!overlaySidebarAllowed) overlaySidebarOpen = false }
+    val overlaySidebarShown = overlaySidebarAllowed && overlaySidebarOpen
+    val tabletNavigationColor = if (containerColor == Color.Black) Color.Black else MaterialTheme.colorScheme.surfaceContainerLow
+
     // Tablets: the MinMusic rail/sidebar sits at the start, top-aligned with the logo. The scaffold stays
     // in the same slot either way so rotating (rail <-> sidebar) keeps the screen state.
-    Row(modifier.background(containerColor)) {
+    Box(modifier.background(containerColor)) {
+        Row(Modifier.fillMaxSize()) {
+            if (tabletNavigation) {
+                AnimatedVisibility(
+                    visible = navigationVisible,
+                    enter = fadeIn(MinMotion.fast()),
+                    exit = fadeOut(MinMotion.fast()),
+                ) {
+                    TabletNavigation(
+                        navigator = navigator,
+                        items = items,
+                        selectedKey = selectedScreen,
+                        onSelect = onSelectScreen,
+                        sidebar = tabletSidebar,
+                        onToggleSidebar = onToggleTabletSidebar ?: { overlaySidebarOpen = true },
+                        // surface1 beside the stage; pure black stays black.
+                        containerColor = tabletNavigationColor,
+                        itemModifier = itemModifier,
+                        modifier = Modifier.padding(bottom = tabletNavigationBottomInset),
+                        overlayMenu = onToggleTabletSidebar == null,
+                    )
+                }
+            }
+            MetrolistAdaptiveScaffold(
+                adaptiveLayout = adaptiveLayout,
+                items = items,
+                selectedScreen = selectedScreen,
+                onSelect = onSelectScreen,
+                navigationVisible = navigationVisible,
+                useFloatingNavigation = useFloatingNavigation,
+                onFloatingNavigationOccupiedHeightChanged = onFloatingNavigationOccupiedHeightChanged,
+                floatingSeparateKey = Screen.Search.takeIf { it in screens },
+                navigationSuiteType = if (tabletNavigation) NavigationSuiteType.None else navigationSuiteType,
+                itemModifier = itemModifier,
+                modifier = Modifier.weight(1f).fillMaxHeight(),
+                content = content,
+            )
+        }
         if (tabletNavigation) {
+            if (overlaySidebarShown) BackHandler { overlaySidebarOpen = false }
             AnimatedVisibility(
-                visible = navigationVisible,
-                enter = fadeIn(MinMotion.fast()),
-                exit = fadeOut(MinMotion.fast()),
+                visible = overlaySidebarShown,
+                enter = fadeIn(MinMotion.standardEnter()),
+                exit = fadeOut(MinMotion.standardExit()),
+            ) {
+                Box(
+                    Modifier
+                        .fillMaxSize()
+                        .background(Color.Black.copy(alpha = 0.32f))
+                        .clickable(interactionSource = null, indication = null) { overlaySidebarOpen = false },
+                )
+            }
+            AnimatedVisibility(
+                visible = overlaySidebarShown,
+                enter = slideInHorizontally(MinMotion.standardEnter()) { -it },
+                exit = slideOutHorizontally(MinMotion.standardExit()) { -it },
             ) {
                 TabletNavigation(
                     navigator = navigator,
                     items = items,
                     selectedKey = selectedScreen,
                     onSelect = onSelectScreen,
-                    sidebar = tabletSidebar,
-                    onToggleSidebar = onToggleTabletSidebar,
-                    // surface1 beside the stage; pure black stays black.
-                    containerColor = if (containerColor == Color.Black) Color.Black else MaterialTheme.colorScheme.surfaceContainerLow,
-                    itemModifier = itemModifier,
+                    sidebar = true,
+                    onToggleSidebar = { overlaySidebarOpen = false },
+                    containerColor = tabletNavigationColor,
+                    // Long-press on Search only: the rail keeps the focus requesters.
+                    itemModifier = { screen -> searchLongPressModifier(screen) },
+                    width = TabletOverlaySidebarWidth,
+                    overlayMenu = true,
+                    onNavigated = { overlaySidebarOpen = false },
                     modifier = Modifier.padding(bottom = tabletNavigationBottomInset),
                 )
             }
         }
-        MetrolistAdaptiveScaffold(
-            adaptiveLayout = adaptiveLayout,
-            items = items,
-            selectedScreen = selectedScreen,
-            onSelect = onSelectScreen,
-            navigationVisible = navigationVisible,
-            useFloatingNavigation = useFloatingNavigation,
-            onFloatingNavigationOccupiedHeightChanged = onFloatingNavigationOccupiedHeightChanged,
-            floatingSeparateKey = Screen.Search.takeIf { it in screens },
-            navigationSuiteType = if (tabletNavigation) NavigationSuiteType.None else navigationSuiteType,
-            itemModifier = itemModifier,
-            modifier = Modifier.weight(1f).fillMaxHeight(),
-            content = content,
-        )
     }
 }
 

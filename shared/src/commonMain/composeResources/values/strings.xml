@@ -5808,4 +5808,10 @@
     <string name="mm_open_downloads">Open downloads</string>
     <string name="mm_settings_tablet_floating_player_bar">Floating player bar on tablets</string>
     <string name="mm_settings_tablet_floating_player_bar_description">Show the rounded floating bar beside the navigation instead of the bar docked across the bottom</string>
+    <string name="tablet_nav_open_menu">Open menu</string>
+    <string name="tablet_nav_close_menu">Close menu</string>
+    <string name="tablet_bar_open_player">Open player</string>
+    <string name="tablet_player_tap_to_open">Tap to open</string>
+    <string name="tablet_player_related">Related</string>
+    <string name="tablet_player_related_empty">No related songs yet</string>
 </resources>
