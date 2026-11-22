@@ -16,6 +16,7 @@ import com.metrolist.shared.db.MusicDatabase
 import com.metrolist.shared.db.OfflineSongAvailability
 import com.metrolist.shared.db.daos.DatabaseDao
 import com.metrolist.shared.db.getDatabaseBuilder
+import com.metrolist.shared.utils.OsUtil
 import com.metrolist.shared.youtube.playback.DesktopTokenProvider
 import com.metrolist.shared.youtube.playback.LocalAudioSource
 import org.koin.dsl.module
@@ -33,7 +34,9 @@ val composeStateModule =
         single<OfflineSongAvailability> { desktopSongOfflineAvailability(get()) }
         single { DesktopPageBoundTokenRuntime() }
         single<TokenProvider> {
-            DesktopTokenProvider(get<DesktopPageBoundTokenRuntime>()) {
+            // MinMusic (Windows): use the bundled bgutil sidecar first (downloaded into the cache when missing);
+            // the page-bound WebView stays the fallback. Without this the sidecar was never started on Windows.
+            DesktopTokenProvider(get<DesktopPageBoundTokenRuntime>(), preferSidecar = OsUtil.isWindows) {
                 val queue = PlayerState.queue.snapshots.value
                 queue.displayedItems
                     .asSequence()
