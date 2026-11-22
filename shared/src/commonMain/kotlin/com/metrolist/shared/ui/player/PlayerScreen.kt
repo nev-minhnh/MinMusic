@@ -518,6 +518,7 @@ fun PlayerScreen(
     SideEffect { onLyricsVisibleChange(uiState.isLyricsVisible) }
 
     val platform = LocalPlayerPlatform.current
+    val deviceConnectTarget = platform.deviceConnectControlledTarget()
     val playerConnection = LocalPlayerSession.current
     val isReconnecting by playerConnection?.isReconnecting?.collectWhilePlayerActive(isPlayerContentVisible && isScreenVisible)
         ?: remember { mutableStateOf(false) }
@@ -1457,6 +1458,7 @@ fun PlayerScreen(
                                                     },
                                                     contentColor = textBackgroundColor,
                                                     modifier = Modifier.mmPlayerBleed(MmPlayerTopBarBleed),
+                                                    controllingDeviceName = deviceConnectTarget?.name,
                                                 )
                                             }
                                             AnimatedVisibility(
@@ -2473,10 +2475,13 @@ fun PlayerScreen(
                                             onLyricsVisibleChange = { visible -> viewModel.setLyricsVisible(visible) },
                                             isPlaying = isPlaying,
                                             castState = castState,
+                                            // The output chip is also the Device Connect entry, so it opens the device picker
+                                            // even while casting is turned off.
                                             onOpenCast =
-                                                openCastDialog.takeIf {
-                                                    !isListenTogetherGuest && platform.supportsCasting &&
-                                                        Settings.shared.isPlayerCastButtonVisible
+                                                when {
+                                                    isListenTogetherGuest || !platform.supportsCasting -> null
+                                                    Settings.shared.isPlayerCastButtonVisible -> openCastDialog
+                                                    else -> ({ showDeviceConnectSheet = true })
                                                 },
                                             onOpenEqualizer = { showEqualizerShortcut = true },
                                             sleepTimerState = sleepTimerState,
@@ -2486,6 +2491,7 @@ fun PlayerScreen(
                                             navigationBarBottomPadding = navigationBarBottomPadding,
                                             nextSongTitle = nextSong?.title,
                                             queueSize = queueItems.size,
+                                            controlledTarget = deviceConnectTarget,
                                         )
                                     } else {
                                         PlayerBottomControls(

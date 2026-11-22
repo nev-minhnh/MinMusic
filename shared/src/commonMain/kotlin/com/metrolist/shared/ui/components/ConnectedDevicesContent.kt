@@ -48,6 +48,8 @@ import com.metrolist.shared.cast.CastConnectionStatus
 import com.metrolist.shared.cast.CastDevice
 import com.metrolist.shared.cast.CastState
 import com.metrolist.shared.deviceconnect.DcSyncState
+import com.metrolist.shared.deviceconnect.DeviceConnectControlledTarget
+import com.metrolist.shared.deviceconnect.DeviceConnectControllerBanner
 import com.metrolist.shared.deviceconnect.DeviceConnectManager
 import com.metrolist.shared.deviceconnect.DeviceConnectPlaybackStatus
 import com.metrolist.shared.generated.resources.Res
@@ -59,7 +61,7 @@ import com.metrolist.shared.generated.resources.device_connect_default_device
 import com.metrolist.shared.generated.resources.device_connect_default_device_description
 import com.metrolist.shared.generated.resources.device_connect_enable
 import com.metrolist.shared.generated.resources.device_connect_grant_permission
-import com.metrolist.shared.generated.resources.device_connect_pair_hint
+import com.metrolist.shared.generated.resources.device_connect_pair_hint_settings
 import com.metrolist.shared.generated.resources.disconnect_cast
 import com.metrolist.shared.generated.resources.listen_together_connected
 import com.metrolist.shared.generated.resources.no_compatible_devices
@@ -89,6 +91,7 @@ fun ConnectedDevicesContent(
     permissionRequired: Boolean = false,
     onOpenIntegrations: (() -> Unit)? = null,
     closeButtonModifier: Modifier = Modifier,
+    controlledTarget: DeviceConnectControlledTarget? = null,
 ) {
     val activeCast = castState.device.takeIf { Settings.shared.castEnabled && castState.status != CastConnectionStatus.DISCONNECTED }
     val availableCast = devices.filter { Settings.shared.castEnabled && it.id != activeCast?.id }
@@ -116,6 +119,7 @@ fun ConnectedDevicesContent(
                 Icon(MetrolistIcons.Outlined.Close, stringResource(Res.string.close))
             }
         }
+        controlledTarget?.let { DeviceConnectControllerBanner(it) }
         if (empty) {
             Column(
                 Modifier.fillMaxWidth().padding(vertical = 20.dp),
@@ -259,7 +263,7 @@ fun ConnectedDevicesContent(
                 }
             }
             Text(
-                stringResource(Res.string.device_connect_pair_hint),
+                stringResource(Res.string.device_connect_pair_hint_settings),
                 style = MaterialTheme.typography.bodySmall,
                 color = if (onOpenIntegrations != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,

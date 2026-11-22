@@ -26,12 +26,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.metrolist.desktop.deviceconnect.DesktopDeviceConnect
 import com.metrolist.desktop.state.app.UiState
 import com.metrolist.desktop.state.playback.LyricsState
 import com.metrolist.desktop.state.playback.PlayerState
 import com.metrolist.shared.api.lyrics.LyricsUtils
+import com.metrolist.shared.deviceconnect.rememberDeviceConnectControlledTarget
 import com.metrolist.shared.equalizer.EqualizerProfiles
 import com.metrolist.shared.generated.resources.Res
+import com.metrolist.shared.generated.resources.device_connect_controlling
 import com.metrolist.shared.generated.resources.equalizer
 import com.metrolist.shared.generated.resources.lyrics
 import com.metrolist.shared.generated.resources.mm_desktop_lyrics_peek_hint
@@ -130,20 +133,28 @@ internal fun MmDesktopPlayerChips(
     modifier: Modifier = Modifier,
 ) {
     val castState by PlayerState.castManager.state.collectAsState()
+    val controlledTarget = rememberDeviceConnectControlledTarget(DesktopDeviceConnect.manager)
     Row(
         modifier = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         val outputName =
-            castState.device?.name?.takeIf { castState.isConnected && it.isNotBlank() }
+            controlledTarget?.let { stringResource(Res.string.device_connect_controlling, it.name) }
+                ?: castState.device?.name?.takeIf { castState.isConnected && it.isNotBlank() }
                 ?: EqualizerProfiles.outputDevice?.productName?.takeIf { it.isNotBlank() }
                 ?: stringResource(Res.string.mm_player_this_device)
         MmPlayerChip(
             label = outputName,
-            icon = if (castState.isConnected) MetrolistIcons.Filled.Cast else MetrolistIcons.Outlined.Headphones,
-            onClick = { onOpenCast?.invoke() },
-            active = castState.isConnected,
+            icon =
+                when {
+                    controlledTarget != null -> MetrolistIcons.Outlined.Devices
+                    castState.isConnected -> MetrolistIcons.Filled.Cast
+                    else -> MetrolistIcons.Outlined.Headphones
+                },
+            // While controlling another device the chip opens the device panel with "play here" and "disconnect".
+            onClick = { if (controlledTarget != null) UiState.toggleDeviceConnectPanel() else onOpenCast?.invoke() },
+            active = castState.isConnected || controlledTarget != null,
         )
         val profileName =
             EqualizerProfiles.activeProfile?.name?.takeIf { Settings.shared.equalizerEnabled && it.isNotBlank() }
