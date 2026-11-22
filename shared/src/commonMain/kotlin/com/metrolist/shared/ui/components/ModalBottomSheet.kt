@@ -5,6 +5,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberScrollableState
+import androidx.compose.foundation.gestures.scrollable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -30,9 +32,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -45,6 +50,7 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.semantics.collapse
@@ -271,7 +277,11 @@ fun ModalBottomSheet(
                                         dragHandle()
                                     }
                                 }
-                                content()
+                                if (wideDialog) {
+                                    WideDialogBody(content)
+                                } else {
+                                    content()
+                                }
                             }
                         }
                     },
@@ -292,6 +302,55 @@ fun ModalBottomSheet(
             }
         }
     }
+}
+
+/**
+ * Dialog body: when the content is taller than the dialog's max height it scrolls instead of being clipped.
+ * The content is measured at its full (finite) height and scrolled by offset, so nested verticalScroll content
+ * keeps working. Content that cannot report an intrinsic height (LazyColumn, BoxWithConstraints) already
+ * scrolls itself and is measured as before.
+ */
+@Composable
+private fun WideDialogBody(content: @Composable ColumnScope.() -> Unit) {
+    var maxScroll by remember { mutableIntStateOf(0) }
+    var offset by remember { mutableFloatStateOf(0f) }
+    val scrollableState =
+        rememberScrollableState { delta ->
+            val target = (offset - delta).coerceIn(0f, maxScroll.toFloat())
+            val consumed = offset - target
+            offset = target
+            consumed
+        }
+    Column(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .clipToBounds()
+                .scrollable(scrollableState, Orientation.Vertical, enabled = maxScroll > 0)
+                .layout { measurable, constraints ->
+                    val needed =
+                        if (constraints.hasBoundedHeight) {
+                            // SubcomposeLayout (lazy lists) throws on intrinsics: such content scrolls itself.
+                            runCatching { measurable.maxIntrinsicHeight(constraints.maxWidth) }.getOrNull()
+                        } else {
+                            null
+                        }
+                    if (needed == null || needed <= constraints.maxHeight) {
+                        if (maxScroll != 0) maxScroll = 0
+                        val placeable = measurable.measure(constraints)
+                        layout(placeable.width, placeable.height) { placeable.place(0, 0) }
+                    } else {
+                        val placeable = measurable.measure(constraints.copy(minHeight = needed, maxHeight = needed))
+                        val visible = constraints.maxHeight
+                        val range = (placeable.height - visible).coerceAtLeast(0)
+                        if (maxScroll != range) maxScroll = range
+                        layout(placeable.width, visible) {
+                            placeable.place(0, -offset.roundToInt().coerceIn(0, range))
+                        }
+                    }
+                },
+        content = content,
+    )
 }
 
 /** Windows at least this wide show bottom sheets as centred dialogs (owner decision, tablet spec 7). */
