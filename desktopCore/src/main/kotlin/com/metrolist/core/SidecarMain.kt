@@ -35,6 +35,7 @@ fun main(args: Array<String>) {
     CoreConfig.options = options
     options.dataRoot?.let { System.setProperty("minmusic.dataRoot", it) }
     System.setProperty("java.awt.headless", "true")
+    System.setProperty("minmusic.sidecar", "true")
     System.getProperties().putIfAbsent("java.net.useSystemProxies", "true")
     System.setProperty("org.bytedeco.javacpp.maxPhysicalBytes", "0")
     System.setProperty("org.bytedeco.javacpp.maxBytes", "0")

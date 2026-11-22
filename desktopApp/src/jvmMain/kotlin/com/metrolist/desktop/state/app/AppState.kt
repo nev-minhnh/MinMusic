@@ -91,6 +91,8 @@ object AppState {
     }
 
     fun checkForUpdates(notify: Boolean = false) {
+        // The headless sidecar never checks GitHub: the Tauri shell owns updates.
+        if (System.getProperty("minmusic.sidecar") == "true") return
         if (UiState.isCheckingForUpdates || UiState.isDownloadingUpdate || UiState.updateManagerStarted) return
         UiState.isCheckingForUpdates = true
         UiState.updateCheckFailed = false
