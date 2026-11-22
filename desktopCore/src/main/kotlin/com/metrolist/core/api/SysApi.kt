@@ -1,10 +1,12 @@
 package com.metrolist.core.api
 
 import com.metrolist.core.CoreConfig
+import com.metrolist.core.CoreLog
 import com.metrolist.core.server.Handler
 import com.metrolist.core.server.Topic
 import com.metrolist.core.server.epochNow
 import com.metrolist.core.server.handler
+import com.metrolist.core.server.str
 import com.metrolist.core.server.topic
 import com.metrolist.shared.BuildConfig
 import com.metrolist.shared.utils.XdgUtils
@@ -18,6 +20,11 @@ object SysApi {
     val handlers: Map<String, Handler> =
         mapOf(
             "sys.ping" to handler { _, _ -> buildJsonObject { put("t", epochNow()) } },
+            "app.log" to
+                handler { params, _ ->
+                    CoreLog.info("ui[${params.str("level") ?: "info"}]: ${params.str("msg").orEmpty().take(2000)}")
+                    buildJsonObject { }
+                },
             "app.info" to
                 handler { _, _ ->
                     buildJsonObject {

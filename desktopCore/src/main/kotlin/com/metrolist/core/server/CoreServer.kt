@@ -151,7 +151,7 @@ class CoreServer(
                 }
 
                 else -> {
-                    val handler = handlers[method] ?: throw ApiException("unsupported", "unknown method $method")
+                    val handler = handlers[method] ?: throw ApiException("bad_request", "unknown method $method")
                     conn.respond(id, handler(params, conn), null)
                 }
             }
