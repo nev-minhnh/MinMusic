@@ -3,6 +3,8 @@ package com.metrolist.shared.db
 import androidx.sqlite.execSQL
 import com.metrolist.shared.api.lyrics.LyricsFetcher
 import com.metrolist.shared.api.lyrics.LyricsTranslationClient
+import com.metrolist.shared.api.lyrics.LyricsUtils
+import com.metrolist.shared.api.lyrics.MlxBuilder
 import com.metrolist.shared.backup.copyLegacyBackupTables
 import com.metrolist.shared.db.entities.LyricsEntity
 import com.metrolist.shared.model.LyricsProvider
@@ -41,7 +43,15 @@ class LegacyUserLyricsRecoveryTest {
                         isVideoContext: Boolean,
                     ): LyricsWithProvider {
                         fetches++
-                        return LyricsWithProvider("[00:01.00] Fetched replacement", "LrcLib")
+                        // LrcLib reports the song it matched, so the automatic lookup accepts it.
+                        return LyricsWithProvider(
+                            MlxBuilder()
+                                .meta("LrcLib")
+                                .song(title = "Synthetic song", artist = "Synthetic artist")
+                                .line(1_000, "Fetched replacement")
+                                .build(),
+                            "LrcLib",
+                        )
                     }
                 }
             try {
@@ -114,7 +124,8 @@ class LegacyUserLyricsRecoveryTest {
                     )
                     assertTrue(fetches > 0)
                     assertNull(repository.getUserLyrics("song"))
-                    assertEquals("[00:01.00] Fetched replacement", database.dao().cachedLyrics("song")?.lyrics)
+                    val stored = LyricsUtils.parseLyrics(database.dao().cachedLyrics("song")?.lyrics.orEmpty())
+                    assertEquals(listOf(1_000L to "Fetched replacement"), stored.map { it.time to it.text })
                 } finally {
                     database.close()
                 }

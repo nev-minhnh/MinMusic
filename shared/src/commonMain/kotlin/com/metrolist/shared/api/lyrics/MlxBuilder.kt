@@ -44,10 +44,12 @@ class MlxBuilder {
         youtubeId: String? = null,
         songwriters: List<String>? = null,
         translationLanguage: String? = null,
+        durationMs: Long? = null,
     ): MlxBuilder {
         songLines.clear()
         if (title != null) songLines.appendLine("title=$title")
         if (artist != null) songLines.appendLine("artist=$artist")
+        if (durationMs != null && durationMs > 0) songLines.appendLine("duration_ms=$durationMs")
         if (youtubeId != null) songLines.appendLine("youtube_id=$youtubeId")
         if (translationLanguage != null) songLines.appendLine("translation_language=$translationLanguage")
         if (!songwriters.isNullOrEmpty()) {

@@ -9,6 +9,7 @@ import io.ktor.client.HttpClient
 import io.ktor.client.request.parameter
 import io.ktor.client.request.prepareGet
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -31,20 +32,30 @@ class KuGouLyricsProvider(
         album: String? = null,
     ): String? {
         val keyword = generateKeyword(title, artist, album)
-        val searchResult =
-            searchSongs(keyword, duration)
+        val query = LyricsQuery(title, artist, duration.takeIf { it > 0 }?.let { it * 1_000L })
+        val match =
+            searchSongs(keyword, query)
                 ?: keyword.album
                     ?.takeIf { it.isNotBlank() }
-                    ?.let { searchSongs(keyword.copy(album = null), duration) }
+                    ?.let { searchSongs(keyword.copy(album = null), query) }
                 ?: return null
-        val lrc = downloadLyrics(searchResult.first, searchResult.second) ?: return null
-        return lrcToMlx(lrc.normalize(), title, artist)
+        val lrc = downloadLyrics(match.id, match.accessKey) ?: return null
+        return lrcToMlx(lrc.normalize(), title, artist)?.let { LyricsMatch.withMatchedSong(it, match.song, match.singer, match.durationMs) }
     }
+
+    private class Candidate(
+        val id: Long,
+        val accessKey: String,
+        val durationMs: Long,
+        val song: String?,
+        val singer: String?,
+    )
 
     private suspend fun searchSongs(
         keyword: Keyword,
-        duration: Int,
-    ): Pair<Long, String>? {
+        track: LyricsQuery,
+    ): Candidate? {
+        val duration = track.durationMs?.let { (it / 1_000L).toInt() } ?: 0
         val query =
             buildString {
                 // KuGou only matches "artist - title"; "title - artist" returns no candidates.
@@ -74,18 +85,28 @@ class KuGouLyricsProvider(
         val parsedCandidates =
             candidates.mapNotNull { el ->
                 val obj = el.jsonObject
-                Triple(
-                    obj["id"]?.jsonPrimitive?.longOrNull ?: return@mapNotNull null,
-                    obj["accesskey"]?.jsonPrimitive?.content ?: return@mapNotNull null,
-                    obj["duration"]?.jsonPrimitive?.longOrNull ?: return@mapNotNull null,
+                val rawDuration = obj["duration"]?.jsonPrimitive?.longOrNull ?: return@mapNotNull null
+                Candidate(
+                    id = obj["id"]?.jsonPrimitive?.longOrNull ?: return@mapNotNull null,
+                    accessKey = obj["accesskey"]?.jsonPrimitive?.content ?: return@mapNotNull null,
+                    // KuGou reports milliseconds; older answers used seconds.
+                    durationMs = if (rawDuration in 1 until 10_000) rawDuration * 1_000L else rawDuration,
+                    song = obj["song"]?.jsonPrimitive?.contentOrNull,
+                    singer = obj["singer"]?.jsonPrimitive?.contentOrNull,
                 )
             }
-        if (duration <= 0) {
-            return parsedCandidates.firstOrNull()?.let { Pair(it.first, it.second) }
-        }
-        val best = parsedCandidates.minByOrNull { (_, _, d) -> durationDiffSeconds(d, duration) } ?: return null
-        if (durationDiffSeconds(best.third, duration) > DURATION_TOLERANCE) return null
-        return Pair(best.first, best.second)
+        // KuGou also lists other songs (same artist, similar words): keep only this title by this artist,
+        // then the closest length.
+        return parsedCandidates
+            .map { it to LyricsMatch.evaluate(track, LyricsCandidateInfo(it.song, it.singer, it.durationMs)) }
+            .filter { (candidate, verdict) ->
+                verdict.confidence != LyricsMatchConfidence.REJECTED &&
+                    (duration <= 0 || durationDiffSeconds(candidate.durationMs, duration) <= DURATION_TOLERANCE)
+            }.sortedWith(
+                compareByDescending<Pair<Candidate, LyricsMatchVerdict>> { it.second.confidence }
+                    .thenBy { it.second.durationDeltaMs ?: Long.MAX_VALUE },
+            ).firstOrNull()
+            ?.first
     }
 
     // KuGou reports milliseconds; fixtures use seconds.
