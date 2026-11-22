@@ -2,6 +2,9 @@ package com.metrolist.core.api
 
 import androidx.compose.runtime.snapshotFlow
 import com.metrolist.core.CoreLog
+import com.metrolist.core.api.pages.loadAlbum
+import com.metrolist.core.api.queue.QueueTracker
+import com.metrolist.core.api.queue.canNext
 import com.metrolist.core.server.ApiException
 import com.metrolist.core.server.Handler
 import com.metrolist.core.server.Topic
@@ -16,7 +19,6 @@ import com.metrolist.core.server.requireLong
 import com.metrolist.core.server.requireStr
 import com.metrolist.core.server.str
 import com.metrolist.core.server.topic
-import com.metrolist.core.server.unsupported
 import com.metrolist.core.server.badRequest
 import com.metrolist.desktop.state.playback.PlayerState as DesktopPlayerState
 import com.metrolist.shared.db.daos.DatabaseDao
@@ -35,6 +37,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.isActive
@@ -124,27 +127,14 @@ object PlayerApi {
     private suspend fun play(params: JsonObject): JsonElement {
         backendReady()
         val context = params.obj("context") ?: badRequest("missing 'context'")
-        val songs: List<SongItem> =
-            when (context.str("kind")) {
-                "tracks" -> {
-                    val ids = (context["ids"] as? JsonArray)?.mapNotNull { (it as? JsonPrimitive)?.takeIf(JsonPrimitive::isString)?.content }
-                    resolve(ids ?: badRequest("context.ids must be an array of ids"))
-                }
-
-                "library" -> {
-                    withContext(Dispatchers.IO) {
-                        LibraryApi.songs(context.str("list") ?: "songs", context.obj("sort"), context.obj("filter")).map { it.toSongItem() }
-                    }
-                }
-
-                "album", "playlist", "artist", "radio", "userAlbum" -> {
-                    unsupported("play context '${context.str("kind")}' is not available in M0")
-                }
-
-                else -> {
-                    badRequest("unknown context.kind")
-                }
-            }
+        val kind = context.str("kind")
+        if (kind == "radio") {
+            // startRadio(song: SongItem): replaces the queue with a radio seeded by the song, on core-main.
+            val seed = resolve(listOf(context.str("id") ?: badRequest("radio context needs 'id'"))).first()
+            withContext(Dispatchers.Main) { DesktopPlayerState.startRadio(seed) }
+            return emptyResult()
+        }
+        val songs = resolveContext(context)
         if (songs.isEmpty()) throw ApiException("not_found", "nothing to play")
         val index =
             params.int("startIndex")
@@ -152,12 +142,79 @@ object PlayerApi {
                 ?: 0
         val track = songs[index.coerceIn(0, songs.lastIndex)]
         val shuffle = params.bool("shuffle")
-        withContext(Dispatchers.Main) { DesktopPlayerState.playTrack(track, songs, shuffleModeEnabled = shuffle) }
+        // playTrack(track, list, songsOnly, shuffleModeEnabled): replaces the queue; artist radios stay songs-only.
+        withContext(Dispatchers.Main) { DesktopPlayerState.playTrack(track, songs, songsOnly = kind == "artist", shuffleModeEnabled = shuffle) }
         return emptyResult()
     }
 
+    /** Plays [ids] as a fresh queue (used by `app.openUrl` for a video link). */
+    internal suspend fun playIds(ids: List<String>) {
+        backendReady()
+        val songs = resolve(ids)
+        val track = songs.firstOrNull() ?: throw ApiException("not_found", "nothing to play")
+        withContext(Dispatchers.Main) { DesktopPlayerState.playTrack(track, songs) }
+    }
+
+    /**
+     * The songs of a play context (api.md 3.6), shared by `player.play` and `queue.addContext`. `radio` yields the
+     * station's songs here (`player.play` starts the radio through PlayerState instead).
+     */
+    internal suspend fun resolveContext(context: JsonObject): List<SongItem> {
+        backendReady()
+        return when (context.str("kind")) {
+            "tracks" -> {
+                val ids = (context["ids"] as? JsonArray)?.mapNotNull { (it as? JsonPrimitive)?.takeIf(JsonPrimitive::isString)?.content }
+                resolve(ids ?: badRequest("context.ids must be an array of ids"))
+            }
+
+            "library" -> {
+                withContext(Dispatchers.IO) {
+                    LibraryApi.songs(context.str("list") ?: "songs", context.obj("sort"), context.obj("filter")).map { it.toSongItem() }
+                }
+            }
+
+            "album" -> {
+                (loadAlbum(context.requireStr("id")) ?: throw ApiException("not_found", "album not found")).songs
+            }
+
+            "playlist" -> {
+                playlistSongs(context.requireStr("id"))
+            }
+
+            "artist" -> {
+                // getArtistSongs(channelId, page = null, onFailure): List<SongItem>
+                GlobalYouTubeRepository.instance.getArtistSongs(context.requireStr("id"))
+            }
+
+            "radio" -> {
+                GlobalYouTubeRepository.instance.startRadio(context.requireStr("id"))
+            }
+
+            "userAlbum" -> {
+                val id = context.requireStr("id").removePrefix("lp:")
+                withContext(Dispatchers.IO) {
+                    // PlaylistDao.playlistSongs(playlistId: String): Flow<List<PlaylistSong>>; PlaylistSong.toSongItem() keeps the entry ids.
+                    GlobalContext.get().get<DatabaseDao>().playlistSongs(id).first().map { it.toSongItem() }
+                }
+            }
+
+            else -> {
+                badRequest("unknown context.kind")
+            }
+        }
+    }
+
+    /** All songs of a playlist for playback: the first page that has songs, then continuations up to [MAX_PLAYLIST_SONGS]. */
+    private suspend fun playlistSongs(id: String): List<SongItem> {
+        val repo = GlobalYouTubeRepository.instance
+        // getPlaylistPlaybackPage(playlistId): PlaylistPage; continuePlaylistPage(page, applyContentFilters): PlaylistPage
+        var page = repo.getPlaylistPlaybackPage(id)
+        while (page.hasMore && page.songs.size < MAX_PLAYLIST_SONGS) page = repo.continuePlaylistPage(page, false)
+        return page.songs
+    }
+
     /** Library rows where known, YouTube metadata for other ids, and a bare item as the last resort (it still plays). */
-    private suspend fun resolve(ids: List<String>): List<SongItem> =
+    internal suspend fun resolve(ids: List<String>): List<SongItem> =
         withContext(Dispatchers.IO) {
             val stored = GlobalContext.get().get<DatabaseDao>().getSongsByIds(ids).associateBy { it.id }
             ids.map { id -> stored[id]?.toSongItem() ?: remoteSong(id) ?: SongItem(id = id, title = id, thumbnail = null, artists = emptyList<ArtistTiny>(), album = null) }
@@ -197,7 +254,8 @@ object PlayerApi {
             eq = EqSummary(enabled = false, profileName = ""),
             source = track?.let { sourceOf(it.id).key },
             canPrev = p.canSkipPrevious,
-            canNext = queue.currentIndex + 1 < queue.entries.size || repeat == RepeatMode.ALL,
+            // Autoplay: at the end of a YouTube queue the core loads a radio, so "next" stays enabled (see PlaybackQueuePolicy).
+            canNext = canNext(queue.currentIndex, queue.entries.size, repeat, Settings.shared.autoLoadMore, track?.id),
         )
     }
 
@@ -226,6 +284,7 @@ object PlayerApi {
     val playerTopic: Topic =
         topic { _, emit ->
             backendReady()
+            QueueTracker.ensureStarted()
             coroutineScope {
                 val first = withContext(Dispatchers.Main) { stateNow() }
                 emit("player.snapshot", first.toJson())
@@ -288,6 +347,7 @@ object PlayerApi {
             }
         }
 
+    private const val MAX_PLAYLIST_SONGS = 5_000
     private const val REMOTE_LOOKUP_MS = 8_000L
     private const val SEEK_JUMP_MS = 1_500L
     private const val POSITION_TICK_MS = 1_000L
