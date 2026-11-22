@@ -16,10 +16,13 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.metrolist.shared.deviceconnect.DEVICE_CONNECT_DEFAULT_PORT
 import com.metrolist.shared.deviceconnect.DcSyncState
+import com.metrolist.shared.deviceconnect.DeviceConnectAddresses
 import com.metrolist.shared.deviceconnect.DeviceConnectDirectConnection
 import com.metrolist.shared.deviceconnect.DeviceConnectManager
 import com.metrolist.shared.deviceconnect.DeviceConnectPlaybackStatus
+import com.metrolist.shared.deviceconnect.decodeDeviceConnectManualEndpoints
 import com.metrolist.shared.deviceconnect.deviceConnectDeviceMetadata
 import com.metrolist.shared.deviceconnect.deviceConnectPeerStatus
 import com.metrolist.shared.generated.resources.*
@@ -40,6 +43,13 @@ data class DeviceConnectSettingsHost(
     val onPair: (String) -> Unit,
     val onCancelPairing: (String) -> Unit,
     val onForget: (String) -> Unit,
+    // MinMusic: direct (VPN) connections, pairing links and platform hints.
+    val showQrCode: Boolean = false,
+    val onUpdatePort: (Int) -> Unit = {},
+    val onForgetManualEndpoint: (String) -> Unit = {},
+    val onAcceptLink: () -> Unit = {},
+    val onDismissLink: () -> Unit = {},
+    val platformNotice: (@Composable () -> Unit)? = null,
 )
 
 @Composable
@@ -57,15 +67,34 @@ internal fun SettingsUiRegistryBuilder.deviceConnectPage(host: DeviceConnectSett
         id = SettingsPageId.DEVICE_CONNECT,
         title = stringResource(Res.string.device_connect_title),
         subtitle = settingsPageSubtitle(stringResource(Res.string.settings_device_connect_overview), integrationStatus(enabled)),
-        icon = MetrolistIcons.Outlined.AccountTree,
+        icon = MetrolistIcons.Outlined.Devices,
         tone = SettingsTone.BLUE,
     ) {
+        // First, so the main switch does not disable it: accepting also turns Device Connect on.
+        state.linkOffer?.let { offer ->
+            group("deviceConnectLinkOffer", stringResource(Res.string.device_connect_link_offer_group)) {
+                action(
+                    id = "deviceConnectLinkAccept",
+                    title = stringResource(Res.string.device_connect_link_offer_title, offer.deviceName.ifBlank { offer.address }),
+                    description = offer.address,
+                    valueLabel = stringResource(Res.string.connect),
+                ) {
+                    if (!enabled) host.onEnabledChange(true)
+                    host.onAcceptLink()
+                }
+                action(
+                    id = "deviceConnectLinkDismiss",
+                    title = stringResource(Res.string.cancel),
+                    onClick = host.onDismissLink,
+                )
+            }
+        }
         group("deviceConnectMaster", "") {
             mainSwitch(
                 id = "deviceConnectEnabled",
                 title = stringResource(Res.string.device_connect_enable),
                 checked = enabled,
-                description = stringResource(Res.string.device_connect_summary),
+                description = stringResource(Res.string.device_connect_explainer),
                 onCheckedChange = host.onEnabledChange,
             )
         }
@@ -82,6 +111,17 @@ internal fun SettingsUiRegistryBuilder.deviceConnectPage(host: DeviceConnectSett
                     id = "deviceConnectThisDevice",
                     title = stringResource(Res.string.device_connect_this_device_label),
                     description = deviceConnectDeviceMetadata(state.localDeviceType),
+                    enabled = false,
+                ) {}
+                action(
+                    id = "deviceConnectListening",
+                    title = stringResource(Res.string.device_connect_listening_title),
+                    description =
+                        if (state.fixedPortUnavailable) {
+                            stringResource(Res.string.device_connect_port_busy, Settings.shared.deviceConnectPort, state.serverPort)
+                        } else {
+                            stringResource(Res.string.device_connect_listening, state.serverPort, state.reachableAddresses.size)
+                        },
                     enabled = false,
                 ) {}
             }
@@ -176,6 +216,21 @@ internal fun SettingsUiRegistryBuilder.deviceConnectPage(host: DeviceConnectSett
                 ) { host.onForget(device.deviceId) }
             }
         }
+        group("deviceConnectAddresses", stringResource(Res.string.device_connect_addresses_title), enabled = enabled) {
+            custom("deviceConnectAddressList", stringResource(Res.string.device_connect_addresses_title), enabled = state.serverRunning) {
+                if (state.serverRunning) DeviceConnectAddresses(state, host.showQrCode)
+            }
+            text(
+                id = "deviceConnectPort",
+                title = stringResource(Res.string.device_connect_port_title),
+                description = stringResource(Res.string.device_connect_port_description, DEVICE_CONNECT_DEFAULT_PORT),
+                value = Settings.shared.deviceConnectPort.toString(),
+                placeholder = DEVICE_CONNECT_DEFAULT_PORT.toString(),
+            ) { value -> value.trim().toIntOrNull()?.let(host.onUpdatePort) }
+            host.platformNotice?.let { notice ->
+                custom("deviceConnectPlatformNotice", stringResource(Res.string.device_connect_addresses_title)) { notice() }
+            }
+        }
         group("deviceConnectAdvanced", stringResource(Res.string.advanced), enabled = enabled) {
             custom("deviceConnectDirect", stringResource(Res.string.device_connect_direct_title), enabled = state.serverRunning) {
                 if (enabled) {
@@ -187,6 +242,14 @@ internal fun SettingsUiRegistryBuilder.deviceConnectPage(host: DeviceConnectSett
                         }
                     }
                 }
+            }
+            decodeDeviceConnectManualEndpoints(Settings.shared.deviceConnectManualEndpoints).forEach { endpoint ->
+                action(
+                    id = "deviceConnectManual:$endpoint",
+                    title = endpoint,
+                    description = stringResource(Res.string.device_connect_manual_saved),
+                    valueLabel = stringResource(Res.string.device_connect_forget),
+                ) { host.onForgetManualEndpoint(endpoint) }
             }
             action(
                 id = "deviceConnectInfo",

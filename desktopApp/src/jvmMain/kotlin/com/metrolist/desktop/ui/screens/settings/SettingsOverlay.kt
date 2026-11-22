@@ -362,6 +362,7 @@ fun SettingsOverlay(colorScheme: ColorScheme) {
                             )
                         },
                         rememberMetroEqProfilePicker = { onPicked -> rememberMetroEqProfilePicker(onPicked) },
+                        deviceConnect = rememberDeviceConnectSettingsHost(),
                         storageSummary = storageSummary,
                         onClose = {
                             UiState.showSettings = false

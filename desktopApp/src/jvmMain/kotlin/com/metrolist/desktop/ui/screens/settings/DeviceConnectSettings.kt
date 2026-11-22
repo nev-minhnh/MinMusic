@@ -9,6 +9,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.rememberCoroutineScope
 import com.metrolist.desktop.deviceconnect.DesktopDeviceConnect
+import com.metrolist.desktop.deviceconnect.WindowsFirewall
+import com.metrolist.desktop.deviceconnect.WindowsFirewallNotice
 import com.metrolist.shared.settings.Settings
 import com.metrolist.shared.ui.settings.DeviceConnectSettingsHost
 import kotlinx.coroutines.launch
@@ -20,6 +22,12 @@ internal fun rememberDeviceConnectSettingsHost(): DeviceConnectSettingsHost {
     LaunchedEffect(Settings.shared.deviceConnectEnabled) {
         if (Settings.shared.deviceConnectEnabled) manager.refreshPairingState()
     }
+    val firewallNotice: (@Composable () -> Unit)? =
+        if (WindowsFirewall.isWindows) {
+            { WindowsFirewallNotice() }
+        } else {
+            null
+        }
     return DeviceConnectSettingsHost(
         state = manager.state,
         playbackState = manager.remote.state,
@@ -32,5 +40,11 @@ internal fun rememberDeviceConnectSettingsHost(): DeviceConnectSettingsHost {
         onPair = manager::pair,
         onCancelPairing = manager::rejectPairing,
         onForget = { id -> scope.launch { manager.forget(id) } },
+        showQrCode = true,
+        onUpdatePort = manager::updateListeningPort,
+        onForgetManualEndpoint = manager::forgetManualEndpoint,
+        onAcceptLink = manager::acceptConnectionLink,
+        onDismissLink = manager::dismissConnectionLink,
+        platformNotice = firewallNotice,
     )
 }
