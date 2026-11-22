@@ -9,7 +9,7 @@ import com.sun.jna.platform.win32.WinReg
 import dev.nucleusframework.core.runtime.NucleusApp
 import java.io.File
 
-internal object WindowsAppIdentity {
+object WindowsAppIdentity {
     internal val appId: String get() = NucleusApp.aumid
 
     fun setProcessIdentity() {

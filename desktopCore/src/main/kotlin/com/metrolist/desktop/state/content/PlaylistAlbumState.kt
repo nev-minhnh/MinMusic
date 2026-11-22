@@ -8,6 +8,7 @@ package com.metrolist.desktop.state.content
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.metrolist.core.bridge.CoreNotifier
 import com.metrolist.desktop.state.app.AppState
 import com.metrolist.desktop.state.app.DesktopNavigation
 import com.metrolist.desktop.state.playback.PlayerState
@@ -333,7 +334,7 @@ object PlaylistAlbumState {
                     isPlaylistBookmarked = bookmarked
                     LibraryContentState.fetchLibraryData()
                 } else {
-                    AppState.snackbarHostState.showSnackbar(getString(Res.string.error_occurred))
+                    CoreNotifier.show(getString(Res.string.error_occurred))
                 }
             }
     }
@@ -351,7 +352,7 @@ object PlaylistAlbumState {
             if (GlobalYouTube.innerTube.sessionSnapshot() != session || PlayerState.currentTrack?.id != song.id) return@launch
             val id = album?.id
             if (id == null) {
-                AppState.snackbarHostState.showSnackbar(getString(Res.string.error_occurred))
+                CoreNotifier.show(getString(Res.string.error_occurred))
             } else {
                 fetchAlbumData(id)
             }
@@ -418,7 +419,7 @@ object PlaylistAlbumState {
                         albumSession = session
                         albumPageData = firstPage?.let(BlockedContent::filterAlbumPage)
                         if (firstPage != null) {
-                            AppState.snackbarHostState.showSnackbar(getString(Res.string.error_occurred))
+                            CoreNotifier.show(getString(Res.string.error_occurred))
                         }
                     }
                 } finally {
@@ -592,7 +593,7 @@ object PlaylistAlbumState {
                 playlistLoadError = result.exceptionOrNull() as? PlaylistNotFoundException
             }
             if (result.isFailure) {
-                AppState.snackbarHostState.showSnackbar(
+                CoreNotifier.show(
                     getString(
                         when (result.exceptionOrNull()) {
                             is PlaylistNotFoundException -> Res.string.playlist_removed_from_youtube

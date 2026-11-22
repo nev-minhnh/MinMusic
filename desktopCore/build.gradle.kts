@@ -18,14 +18,16 @@ import java.time.Instant
 import java.util.concurrent.TimeUnit
 
 // MinMusic for Windows v2: headless Kotlin core sidecar (docs/architecture.md sections 2 and 3).
-// M0 spike: depends on :desktopApp (Compose UI classes are on the classpath but never instantiated) and :shared.
+// M1-1: the headless desktop state (storage, history, backup, sources, PlayerState ...) lives here; :desktopApp depends on
+// this module, never the other way round. The sidecar runtime classpath carries no Compose UI, Skiko, Coil-Compose or WebView.
 plugins {
     kotlin("jvm")
     kotlin("plugin.serialization")
+    // ListenTogetherState.isListenTogetherGuest() is a @Composable; the compiler plugin must also compile this module.
+    id("org.jetbrains.kotlin.plugin.compose")
+    `java-library`
     application
 }
-
-evaluationDependsOn(":desktopApp")
 
 // Adoptium publishes no Windows ARM64 JDK 25; Microsoft's OpenJDK build is the one available there.
 val jdkVendor =
@@ -58,12 +60,64 @@ application {
     mainClass.set("com.metrolist.core.SidecarMainKt")
 }
 
+// The platform-trimmed sqlite-jdbc jar (moved here from :desktopApp, which now consumes this task's output).
+val currentOperatingSystem =
+    org.gradle.internal.os.OperatingSystem
+        .current()
+val targetArchitecture =
+    providers
+        .gradleProperty("metrolist.desktop.arch")
+        .orElse(System.getProperty("os.arch"))
+        .get()
+        .lowercase()
+require(targetArchitecture in setOf("aarch64", "arm64", "x86_64", "amd64")) { "Unsupported desktop architecture: $targetArchitecture" }
+val isArm64 = targetArchitecture.contains("aarch64") || targetArchitecture.contains("arm64")
+val platformClassifier =
+    when {
+        currentOperatingSystem.isWindows -> "win"
+        currentOperatingSystem.isMacOsX -> if (isArm64) "mac-aarch64" else "mac"
+        currentOperatingSystem.isLinux -> if (isArm64) "linux-aarch64" else "linux"
+        else -> error("Unknown OS")
+    }
+val sqliteNativePath =
+    when {
+        currentOperatingSystem.isWindows -> "Windows/${if (isArm64) "aarch64" else "x86_64"}"
+        currentOperatingSystem.isMacOsX -> "Mac/${if (isArm64) "aarch64" else "x86_64"}"
+        currentOperatingSystem.isLinux -> "Linux/${if (isArm64) "aarch64" else "x86_64"}"
+        else -> error("Unknown OS")
+    }
+
+interface ArchiveOps {
+    @get:Inject
+    val archiveOperations: ArchiveOperations
+}
+val archiveOps = objects.newInstance<ArchiveOps>().archiveOperations
+
+val sqliteJdbcSource = configurations.create("sqliteJdbcSource") { isTransitive = false }
+dependencies.add(sqliteJdbcSource.name, libs.sqlite.jdbc)
+val sqliteJdbcSourceJar = sqliteJdbcSource.elements.map { files -> files.single().asFile }
+val platformSqliteJdbc =
+    tasks.register<Jar>("platformSqliteJdbc") {
+        archiveFileName.set("sqlite-jdbc-${libs.versions.sqliteJdbc.get()}-$platformClassifier.jar")
+        destinationDirectory.set(layout.buildDirectory.dir("platform-libs"))
+        isPreserveFileTimestamps = false
+        isReproducibleFileOrder = true
+        manifest.attributes["Multi-Release"] = "true"
+        from(sqliteJdbcSourceJar.map(archiveOps::zipTree)) {
+            exclude("META-INF/MANIFEST.MF", "META-INF/*.SF", "META-INF/*.RSA", "META-INF/*.DSA", "org/sqlite/native/**")
+        }
+        from(sqliteJdbcSourceJar.map(archiveOps::zipTree)) {
+            include("org/sqlite/native/$sqliteNativePath/**")
+        }
+    }
+
 dependencies {
-    implementation(project(":desktopApp"))
-    implementation(project(":shared")) {
+    // `api`: shared's types appear in the public signatures of the moved state classes, and :desktopApp compiles against them.
+    api(project(":shared")) {
         exclude(group = "org.xerial", module = "sqlite-jdbc")
     }
-    implementation(libs.runtime)
+    api(libs.runtime)
+    api(libs.components.resources)
     implementation(libs.room.runtime)
     implementation(libs.koin.core)
     implementation(libs.kotlinx.coroutines.core)
@@ -73,12 +127,66 @@ dependencies {
     implementation(libs.ktor.server.websockets)
     implementation(libs.ktor.client.core)
     implementation(libs.slf4j.simple)
+
+    // Dependencies of the moved desktopApp code (same ones desktopApp's jvmMain declared).
+    implementation(files(platformSqliteJdbc))
+    implementation(libs.okhttp)
+    implementation(libs.datastore)
+    implementation(libs.jna)
+    implementation(libs.jna.platform)
+    implementation(libs.ktor.client.cio)
+    implementation(libs.ktor.client.websockets)
+    implementation(libs.ktor.client.content.negotiation)
+    implementation(libs.ktor.serialization.json)
+    implementation(libs.sharesheet)
+    implementation("dev.nucleusframework:nucleus.core-runtime:${libs.versions.nucleusframework.get()}")
+
+    testImplementation(kotlin("test"))
+    testImplementation(libs.junit4)
+    testImplementation(libs.multiplatform.settings.test)
+    testImplementation(libs.ktor.client.mock)
+    // Only the transcoder test reads M4A tags back through JavaCV.
+    testImplementation("org.bytedeco:javacv:${libs.versions.javacv.get()}") {
+        isTransitive = false
+    }
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:${libs.versions.kotlinxCoroutines.get()}")
+}
+
+tasks.test {
+    useJUnit()
 }
 
 // The core has its own single-thread Main dispatcher (CoreMainDispatcherFactory); Swing's would be picked otherwise.
 configurations.matching { it.name == "runtimeClasspath" || it.name == "compileClasspath" }.configureEach {
     exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-coroutines-swing")
     exclude(group = "org.jetbrains.kotlin", module = "kotlin-reflect")
+}
+
+// Sidecar diet (M1-1): the compile classpath still sees everything `shared` exposes, but the runtime image carries no UI
+// toolkit. Nothing in the headless core instantiates these; the class-load audit (desktopCore/docs/m1-1-classload-*.txt)
+// proves it. Kept on purpose: runtime-desktop, components-resources (library-desktop), collection, atomicfu, and
+// navigation3-runtime (Screen is a NavKey, and the content states navigate with it).
+configurations.matching { it.name == "runtimeClasspath" }.configureEach {
+    exclude(group = "org.jetbrains.skiko")
+    exclude(group = "org.jetbrains.compose.ui")
+    exclude(group = "org.jetbrains.compose.foundation")
+    exclude(group = "org.jetbrains.compose.material")
+    exclude(group = "org.jetbrains.compose.material3")
+    exclude(group = "org.jetbrains.compose.material3.adaptive")
+    exclude(group = "org.jetbrains.compose.animation")
+    exclude(group = "org.jetbrains.compose.desktop")
+    exclude(group = "io.coil-kt.coil3", module = "coil-compose")
+    exclude(group = "io.coil-kt.coil3", module = "coil-compose-core")
+    exclude(group = "io.github.kdroidfilter")
+    exclude(group = "com.mikepenz")
+    exclude(group = "com.valentinilk.shimmer")
+    exclude(group = "sh.calvin.reorderable")
+    exclude(group = "me.saket.swipe")
+    exclude(module = "navigation3-ui")
+    exclude(module = "navigationevent-compose")
+    exclude(module = "lifecycle-runtime-compose")
+    exclude(module = "lifecycle-viewmodel-compose")
+    exclude(module = "savedstate-compose")
 }
 
 // Same JVM profile as the v1 Windows launcher (desktopApp/build.gradle.kts desktopWindowsJvmArgs) minus the Skiko flags.
@@ -102,6 +210,8 @@ val sidecarJvmArgs =
         "-Dorg.bytedeco.javacpp.maxPhysicalBytes=0",
         "-Dorg.bytedeco.javacpp.maxBytes=0",
         "-Djava.awt.headless=true",
+        // Makes CoreMainDispatcherFactory win over every other Dispatchers.Main factory (the v1 app leaves it unset).
+        "-Dminmusic.sidecar=true",
     )
 
 // architecture.md 3.2 module list, plus java.logging (JUL users such as slf4j-simple's neighbours and JNA) and
@@ -212,6 +322,8 @@ abstract class SidecarImageTask : DefaultTask() {
                     "--no-man-pages",
                     "--compress",
                     "zip-9",
+                    // jdk.localedata shrinks from about 15 MB; the UI strings are en and vi.
+                    "--include-locales=en,vi",
                     "--output",
                     runtime.absolutePath,
                 ),
@@ -298,11 +410,10 @@ tasks.register<SidecarImageTask>("sidecarImage") {
     notCompatibleWithConfigurationCache("task class is declared in the build script")
     description = "Builds the headless core runtime image (jlink + AppCDS) into sidecar/dist."
     dependsOn(tasks.named("jar"))
-    val platformSqlite = project(":desktopApp").tasks.named("platformSqliteJdbc")
-    dependsOn(platformSqlite)
+    dependsOn(platformSqliteJdbc)
     runtimeJars.from(tasks.named("jar"), configurations.named("runtimeClasspath"))
-    // The platform-trimmed sqlite-jdbc jar of desktopApp (a file dependency there); a no-op when it is already on the classpath.
-    extraJars.from(platformSqlite)
+    // The platform-trimmed sqlite-jdbc jar (a file dependency above); a no-op when it is already on the classpath.
+    extraJars.from(platformSqliteJdbc)
     jdkHome.set(
         javaToolchains
             .launcherFor {

@@ -35,6 +35,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.metrolist.desktop.state.app.AppState
+import com.metrolist.desktop.state.app.snackbarHostState
 import com.metrolist.desktop.state.app.UiState
 import com.metrolist.desktop.state.auth.AuthState
 import com.metrolist.desktop.state.content.LibraryContentState

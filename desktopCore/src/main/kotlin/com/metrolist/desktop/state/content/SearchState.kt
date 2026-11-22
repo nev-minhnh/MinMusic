@@ -8,6 +8,7 @@ package com.metrolist.desktop.state.content
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.metrolist.core.bridge.CoreNotifier
 import com.metrolist.desktop.state.app.AppState
 import com.metrolist.desktop.state.app.DesktopNavigation
 import com.metrolist.desktop.state.app.UiState
@@ -41,7 +42,7 @@ object SearchState {
                 uiState = state
                 if (failed) {
                     AppState.scope.launch {
-                        AppState.snackbarHostState.showSnackbar(getString(Res.string.search_history_removal_failed))
+                        CoreNotifier.show(getString(Res.string.search_history_removal_failed))
                     }
                 }
             }

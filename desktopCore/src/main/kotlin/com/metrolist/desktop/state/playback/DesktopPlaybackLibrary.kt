@@ -314,7 +314,7 @@ internal class DesktopPlaybackLibrary(
 private val PLAYLIST_LOAD_TIMEOUT = 20.seconds
 private val PLAYLIST_ADD_TIMEOUT = 60.seconds
 
-internal class PlaylistAdditionStopped(
+class PlaylistAdditionStopped(
     val completed: Int,
     val total: Int,
     val uncertain: Boolean,

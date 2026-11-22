@@ -6,7 +6,7 @@ import kotlinx.coroutines.withContext
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
-internal suspend fun readWindowsLoginHelperOutput(builder: ProcessBuilder): String =
+suspend fun readWindowsLoginHelperOutput(builder: ProcessBuilder): String =
     withContext(Dispatchers.IO) {
         val process = builder.redirectErrorStream(false).redirectError(ProcessBuilder.Redirect.DISCARD).start()
         try {

@@ -3,7 +3,7 @@ package com.metrolist.desktop.utils
 import com.metrolist.desktop.crash.DesktopCrashRecovery
 import java.lang.management.ManagementFactory
 
-internal fun desktopRestartCommand(): List<String> {
+fun desktopRestartCommand(): List<String> {
     val info = ProcessHandle.current().info()
     val classPath = System.getProperty("java.class.path", "")
     val mainCommand = System.getProperty("sun.java.command", "")
@@ -56,7 +56,7 @@ internal fun desktopRestartCommand(
 internal fun windowsDelayedRestartCommand(appCommand: List<String>): List<String> =
     listOf("cmd", "/c", "\"ping -n 2 127.0.0.1 >nul & start \"\" ${appCommand.joinToString(" ") { "\"$it\"" }}\"")
 
-internal fun ProcessBuilder.prepareDesktopRelaunch(): ProcessBuilder =
+fun ProcessBuilder.prepareDesktopRelaunch(): ProcessBuilder =
     apply {
         environment().remove("_JPACKAGE_LAUNCHER")
     }

@@ -10,7 +10,7 @@ import java.awt.Desktop
 import java.io.File
 import java.util.concurrent.TimeUnit
 
-internal fun registerDesktopDiscordCallback(displayName: String): Boolean =
+fun registerDesktopDiscordCallback(displayName: String): Boolean =
     runCatching {
         val launcher =
             System.getProperty("jpackage.app-path") ?: ProcessHandle

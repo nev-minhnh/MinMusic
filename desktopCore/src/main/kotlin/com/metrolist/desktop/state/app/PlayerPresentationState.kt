@@ -4,7 +4,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 
-internal class PlayerPresentationState {
+class PlayerPresentationState {
     var isExpanded by mutableStateOf(false)
         private set
     var isFullscreen by mutableStateOf(false)

@@ -9,6 +9,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.metrolist.core.bridge.CoreNotifier
 import com.metrolist.desktop.state.app.AppState
 import com.metrolist.desktop.state.app.DesktopNavigation
 import com.metrolist.desktop.state.playback.DiscordRpcState
@@ -398,7 +399,7 @@ object ArtistState {
                         artistInfo.thumbnail,
                     )
                 },
-                onError = { AppState.snackbarHostState.showSnackbar(getString(Res.string.error_occurred)) },
+                onError = { CoreNotifier.show(getString(Res.string.error_occurred)) },
             )?.let { artistSubscriptionJob = it }
     }
 
@@ -429,7 +430,7 @@ object ArtistState {
                 val songs =
                     GlobalYouTubeRepository.instance.getArtistSongs(artist.id, page) {
                         ensureActive()
-                        AppState.snackbarHostState.showSnackbar(getString(Res.string.error_occurred))
+                        CoreNotifier.show(getString(Res.string.error_occurred))
                     }
                 ensureActive()
                 if (shuffle) {

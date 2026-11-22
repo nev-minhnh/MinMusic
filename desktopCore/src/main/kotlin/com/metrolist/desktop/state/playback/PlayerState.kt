@@ -14,14 +14,14 @@ import com.metrolist.desktop.history.HistoryEntry
 import com.metrolist.desktop.history.HistoryRepository
 import com.metrolist.desktop.history.HistoryStat
 import com.metrolist.desktop.playback.PlaybackErrorReporter
-import com.metrolist.desktop.state.app.AppState
+import com.metrolist.core.bridge.ArtworkCache
+import com.metrolist.core.bridge.CoreNotifier
+import com.metrolist.core.bridge.WindowHost
 import com.metrolist.desktop.state.app.UiState
 import com.metrolist.desktop.state.auth.AuthState
 import com.metrolist.desktop.storage.DownloadManager
 import com.metrolist.desktop.storage.SongCacheManager
 import com.metrolist.desktop.utils.AppLogger
-import com.metrolist.desktop.utils.ComposeTrayManager
-import com.metrolist.desktop.window.playbackWindowVisibility
 import com.metrolist.innertubex.extraction.AudioQuality
 import com.metrolist.innertubex.extraction.ContentHints
 import com.metrolist.innertubex.extraction.strategy.PlaybackClientCatalog
@@ -166,7 +166,7 @@ import kotlin.time.Instant
 private val WINDOWS_ABSOLUTE_PATH = Regex("^[A-Za-z]:[\\\\/].*")
 private val URI_SCHEME_PREFIX = Regex("^[A-Za-z][A-Za-z0-9+.-]*:")
 
-internal fun validatedLocalMediaUrl(
+fun validatedLocalMediaUrl(
     value: String?,
     relativeTo: Path? = null,
 ): String? {
@@ -726,8 +726,6 @@ object PlayerState {
     val animatedCoverSongId: String? get() = artwork.animatedCoverSongId
     val animatedCoverUrl: String? get() = artwork.animatedCoverUrl
     val currentArtworkUrl: String? get() = currentTrack?.previewThumbnailUrl
-    internal var artworkPreview by mutableStateOf(PlayerArtworkPreview())
-        private set
     var isPlaying by mutableStateOf(false)
         private set
     private var isPlaybackResolving by mutableStateOf(false)
@@ -737,15 +735,15 @@ object PlayerState {
         private set
     var bufferedProgress by mutableStateOf(0f)
         private set
-    internal val playbackUiVisible = playbackWindowVisibility().stateIn(scope, SharingStarted.Eagerly, false)
-    internal val mediaPositionDiscontinuities = MutableSharedFlow<Long>(extraBufferCapacity = 1)
+    internal val playbackUiVisible = WindowHost.playbackVisibility().stateIn(scope, SharingStarted.Eagerly, false)
+    val mediaPositionDiscontinuities =MutableSharedFlow<Long>(extraBufferCapacity = 1)
     val playbackPosition = MutableStateFlow(0L)
     val playbackBufferedPosition = MutableStateFlow(0L)
     val playbackDuration = MutableStateFlow(0L)
     private var localVolume by Settings.shared::volume
     private var remoteVolume by mutableStateOf<Float?>(null)
     val volume: Float get() = remoteVolume ?: localVolume
-    internal val volumeState = MutableStateFlow(volume)
+    val volumeState =MutableStateFlow(volume)
     var previousVolume by Settings.shared::previousVolume
     var crossfadeEnabled by Settings.shared::crossfadeEnabled
     var crossfadeDuration by Settings.shared::crossfadeDuration
@@ -843,7 +841,7 @@ object PlayerState {
             Settings.shared.musicVideoPlaybackEnabled && !deviceConnect.isFollowing && currentTrack != null &&
                 shouldPresentDesktopVideo(videoWindowVisible, UiState.showVideoViewer, UiState.showVideoFullscreen, isExpanded)
 
-    internal fun setVideoWindowVisible(visible: Boolean) {
+    fun setVideoWindowVisible(visible: Boolean) {
         videoWindowVisible = visible
     }
 
@@ -1248,7 +1246,7 @@ object PlayerState {
         startArtworkFetch: Boolean = true,
     ) {
         currentTrack = newTrack?.let(SongMetadataState::apply)
-        artworkPreview = artworkPreview.forTrack(currentTrack?.id, currentArtworkUrl)
+        ArtworkCache.onTrackArtwork(currentTrack?.id, currentArtworkUrl)
         artwork.updateTrack(currentTrack, startArtworkFetch)
     }
 
@@ -1267,7 +1265,7 @@ object PlayerState {
                 },
                 seekTo = ::seekToPosition,
                 onSkipped = {
-                    scope.launch { AppState.snackbarHostState.showSnackbar(getString(Res.string.sponsorblock_skipped)) }
+                    scope.launch { CoreNotifier.show(getString(Res.string.sponsorblock_skipped)) }
                 },
             )
         }
@@ -1286,7 +1284,7 @@ object PlayerState {
             }
         }
         scope.launch {
-            snapshotFlow { ComposeTrayManager.windowVisible }.collect(playbackNetworkMonitor::setForegroundActive)
+            WindowHost.visible.collect(playbackNetworkMonitor::setForegroundActive)
         }
         playbackNetworkMonitor.setPlaybackActive(false)
         playbackNetworkMonitor.start()
@@ -2455,7 +2453,7 @@ object PlayerState {
 
     private val history = DesktopPlaybackHistory()
 
-    internal val mediaControls =
+    val mediaControls =
         combine(
             snapshotFlow { Triple(currentTrack, isPlaybackResolving, isListenTogetherGuest()) },
             queue.state,
@@ -4022,7 +4020,7 @@ object PlayerState {
         seekToPosition(newPos)
     }
 
-    internal fun currentMediaPositionMs(): Long =
+    fun currentMediaPositionMs(): Long =
         when {
             castManager.state.value.isConnected -> castManager.state.value.positionMs
             else -> pendingResumePosition?.second ?: player.currentPlaybackPositionMs()

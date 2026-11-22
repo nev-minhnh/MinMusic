@@ -42,20 +42,6 @@ val targetArchitecture =
         .lowercase()
 require(targetArchitecture in setOf("aarch64", "arm64", "x86_64", "amd64")) { "Unsupported desktop architecture: $targetArchitecture" }
 val isArm64 = targetArchitecture.contains("aarch64") || targetArchitecture.contains("arm64")
-val platformClassifier =
-    when {
-        currentOperatingSystem.isWindows -> "win"
-        currentOperatingSystem.isMacOsX -> if (isArm64) "mac-aarch64" else "mac"
-        currentOperatingSystem.isLinux -> if (isArm64) "linux-aarch64" else "linux"
-        else -> error("Unknown OS")
-    }
-val sqliteNativePath =
-    when {
-        currentOperatingSystem.isWindows -> "Windows/${if (isArm64) "aarch64" else "x86_64"}"
-        currentOperatingSystem.isMacOsX -> "Mac/${if (isArm64) "aarch64" else "x86_64"}"
-        currentOperatingSystem.isLinux -> "Linux/${if (isArm64) "aarch64" else "x86_64"}"
-        else -> error("Unknown OS")
-    }
 val platform =
     when {
         currentOperatingSystem.isWindows -> "win"
@@ -76,6 +62,9 @@ plugins {
     kotlin("plugin.serialization")
     id("org.jetbrains.kotlin.plugin.compose")
 }
+
+// :desktopCore (headless state, storage, history, backup ...) is configured first: it owns platformSqliteJdbc.
+evaluationDependsOn(":desktopCore")
 
 compose {
     dependencyCompatibility {
@@ -143,29 +132,8 @@ val desktopLowMemoryJvmArgs =
 
 val desktopMemoryJvmArgs = if (platform == "win") desktopWindowsJvmArgs else desktopLowMemoryJvmArgs
 
-interface ArchiveOps {
-    @get:Inject
-    val archiveOperations: ArchiveOperations
-}
-val archiveOps = objects.newInstance<ArchiveOps>().archiveOperations
-
-val sqliteJdbcSource = configurations.create("sqliteJdbcSource") { isTransitive = false }
-dependencies.add(sqliteJdbcSource.name, libs.sqlite.jdbc)
-val sqliteJdbcSourceJar = sqliteJdbcSource.elements.map { files -> files.single().asFile }
-val platformSqliteJdbc =
-    tasks.register<Jar>("platformSqliteJdbc") {
-        archiveFileName.set("sqlite-jdbc-${libs.versions.sqliteJdbc.get()}-$platformClassifier.jar")
-        destinationDirectory.set(layout.buildDirectory.dir("platform-libs"))
-        isPreserveFileTimestamps = false
-        isReproducibleFileOrder = true
-        manifest.attributes["Multi-Release"] = "true"
-        from(sqliteJdbcSourceJar.map(archiveOps::zipTree)) {
-            exclude("META-INF/MANIFEST.MF", "META-INF/*.SF", "META-INF/*.RSA", "META-INF/*.DSA", "org/sqlite/native/**")
-        }
-        from(sqliteJdbcSourceJar.map(archiveOps::zipTree)) {
-            include("org/sqlite/native/$sqliteNativePath/**")
-        }
-    }
+// The platform-trimmed sqlite-jdbc jar is built by :desktopCore (task platformSqliteJdbc); this module consumes its output.
+val platformSqliteJdbc = project(":desktopCore").tasks.named("platformSqliteJdbc")
 
 val jnaPlatform =
     when (platform) {
@@ -310,6 +278,7 @@ kotlin {
 
         getByName("jvmMain") {
             dependencies {
+                api(project(":desktopCore"))
                 implementation(project(":shared")) {
                     exclude(group = "org.xerial", module = "sqlite-jdbc")
                 }

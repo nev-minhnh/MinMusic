@@ -1,5 +1,6 @@
 package com.metrolist.desktop.crash
 
+import com.metrolist.core.bridge.CrashHooks
 import com.metrolist.desktop.update.DesktopUpdateManager
 import com.metrolist.desktop.utils.desktopRestartCommand
 import com.metrolist.desktop.utils.prepareDesktopRelaunch
@@ -94,7 +95,7 @@ object DesktopCrashRecovery {
                     letItCrash,
                 )
             val dialog = pane.createDialog(null, label(Res.string.crash_imminent_title))
-            installCrashScreenshotHint(dialog, onCopy = { copy(report) }, onShare = { share(report) })
+            CrashHooks.crashHintInstaller(dialog, { copy(report) }, { share(report) })
             dialog.pack()
             try {
                 dialog.addWindowListener(
@@ -117,7 +118,7 @@ object DesktopCrashRecovery {
         EventQueue.invokeLater {
             val frame = JFrame(label(Res.string.crash_title))
             frame.defaultCloseOperation = WindowConstants.EXIT_ON_CLOSE
-            installCrashScreenshotHint(frame, onCopy = { copy(report) }, onShare = { share(report) })
+            CrashHooks.crashHintInstaller(frame, { copy(report) }, { share(report) })
             frame.add(
                 JScrollPane(
                     JTextArea(report).apply {

@@ -5,17 +5,11 @@
 
 package com.metrolist.desktop.state.content
 
-import androidx.compose.foundation.lazy.LazyListState
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
+import com.metrolist.core.bridge.ArtworkCache
 import com.metrolist.desktop.state.app.AppState
-import com.metrolist.desktop.utils.DesktopImageLoader
 import com.metrolist.shared.api.musicvideo.MusicVideoResolver
 import com.metrolist.shared.db.MusicDatabase
 import com.metrolist.shared.model.AlbumItem
@@ -78,26 +72,7 @@ object HomeState {
 
     fun restoreListScroll(key: String): Pair<Int, Int> = listScrollPositions.getOrPut(key) { 0 to 0 }
 
-    @Composable
-    fun rememberListState(key: String): LazyListState {
-        val (savedIndex, savedOffset) = restoreListScroll(key)
-        val state = remember(key) { LazyListState(savedIndex, savedOffset) }
-
-        LaunchedEffect(state) {
-            snapshotFlow { state.firstVisibleItemIndex to state.firstVisibleItemScrollOffset }
-                .collect { (index, offset) ->
-                    saveListScroll(key, index, offset)
-                }
-        }
-
-        DisposableEffect(key) {
-            onDispose {
-                saveListScroll(key, state.firstVisibleItemIndex, state.firstVisibleItemScrollOffset)
-            }
-        }
-
-        return state
-    }
+    // rememberListState(key) builds a Compose LazyListState from these two ints; it is an extension in desktopApp.
 
     private fun <T> boundedStateCache() =
         object : LinkedHashMap<String, T>(MAX_SCROLL_STATES, 0.75f, true) {
@@ -138,8 +113,8 @@ object HomeState {
     fun refetchSongMetadata(song: SongItem) {
         AppState.scope.launch {
             val refreshed = refetchSongMetadataFromYouTube(database, musicVideoResolver, song) ?: return@launch
-            DesktopImageLoader.evictArtwork(song.thumbnail)
-            DesktopImageLoader.evictArtwork(refreshed.thumbnail)
+            ArtworkCache.evict(song.thumbnail)
+            ArtworkCache.evict(refreshed.thumbnail)
             homeViewModel.updateSongMetadata(refreshed)
         }
     }

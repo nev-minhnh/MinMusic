@@ -5,8 +5,7 @@
 
 package com.metrolist.desktop.state.app
 
-import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.SnackbarResult
+import com.metrolist.core.bridge.CoreNotifier
 import com.metrolist.desktop.state.content.SearchState
 import com.metrolist.desktop.update.DesktopUpdateManager
 import com.metrolist.desktop.update.GitHubDesktopRelease
@@ -46,8 +45,7 @@ import kotlin.time.Duration.Companion.hours
 object AppState {
     val directCanvasProvider by lazy { DirectCanvasProvider(GlobalYouTube.client) }
     val animatedArtworkService by lazy { AnimatedArtworkService(GlobalYouTube.client) }
-    internal val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
-    val snackbarHostState = SnackbarHostState()
+    val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
 
     private var updateDownloadJob: Job? = null
 
@@ -121,12 +119,12 @@ object AppState {
         if (!Settings.shared.updateNotifications || Settings.shared.lastNotifiedUpdateVersion == release.updateKey) return
         scope.launch {
             Settings.shared.lastNotifiedUpdateVersion = release.updateKey
-            val result =
-                snackbarHostState.showSnackbar(
-                    message = getString(Res.string.updates_available_title, release.version),
-                    actionLabel = getString(Res.string.updates_title),
+            val actionPerformed =
+                CoreNotifier.showWithAction(
+                    getString(Res.string.updates_available_title, release.version),
+                    getString(Res.string.updates_title),
                 )
-            if (result == SnackbarResult.ActionPerformed) {
+            if (actionPerformed) {
                 UiState.selectedSettingsPage = SettingsPageId.UPDATES
                 UiState.showSettings = true
             }
@@ -137,7 +135,7 @@ object AppState {
         try {
             val sel = StringSelection(text)
             Toolkit.getDefaultToolkit().systemClipboard.setContents(sel, sel)
-            scope.launch { snackbarHostState.showSnackbar(getString(Res.string.copied)) }
+            scope.launch { CoreNotifier.show(getString(Res.string.copied)) }
         } catch (_: Exception) {
         }
     }
@@ -196,7 +194,7 @@ object AppState {
                 scope.launch {
                     val message = getString(Res.string.update_failed)
                     UiState.updateDownloadError = message
-                    snackbarHostState.showSnackbar(message)
+                    CoreNotifier.show(message)
                 }
             }
         }

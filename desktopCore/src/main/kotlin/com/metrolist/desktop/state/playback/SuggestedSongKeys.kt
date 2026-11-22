@@ -2,7 +2,7 @@ package com.metrolist.desktop.state.playback
 
 import com.metrolist.shared.model.SongItem
 
-internal class SuggestedSongKeys {
+class SuggestedSongKeys {
     private var nextKey = -1L
     private var keys = emptyMap<Pair<String, Int>, Long>()
 

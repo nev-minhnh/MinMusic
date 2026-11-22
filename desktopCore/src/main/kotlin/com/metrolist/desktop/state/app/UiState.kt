@@ -8,29 +8,12 @@ package com.metrolist.desktop.state.app
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.graphics.Color
 import com.metrolist.desktop.state.playback.PlayerState
 import com.metrolist.desktop.update.GitHubDesktopRelease
-import com.metrolist.desktop.utils.MatugenColors
-import com.metrolist.desktop.utils.resolveDesktopSeedColor
-import com.metrolist.shared.settings.Settings
 import com.metrolist.shared.ui.settings.SettingsPageId
-import com.metrolist.shared.ui.theme.resolveThemeSeedColor
 
+// The theme seed colours (Compose Color, Matugen, system accent) live in desktopApp's UiColors: the headless core has no UI colours.
 object UiState {
-    internal var artworkSeedColor by mutableStateOf<Color?>(null)
-    val seedColor: Color
-        get() =
-            MatugenColors.palette?.sourceColor ?: resolveDesktopSeedColor(
-                configured =
-                    resolveThemeSeedColor(
-                        materialYouEnabled = Settings.shared.materialYouEnabled,
-                        songArtworkColorsEnabled = Settings.shared.dynamicTheme,
-                        selectedThemeColor = Settings.shared.selectedThemeColor,
-                        artworkSeedColor = artworkSeedColor,
-                    ),
-                useSystemAccent = Settings.shared.materialYouEnabled && (!Settings.shared.dynamicTheme || artworkSeedColor == null),
-            )
     var isWindowFocused by mutableStateOf(false)
     var isMaximized by mutableStateOf(false)
     var isNativeFullscreen by mutableStateOf(false)
@@ -61,7 +44,7 @@ object UiState {
     var showPlayerBackgroundStyleDialog by mutableStateOf(false)
     var showLayoutDialog by mutableStateOf(false)
     var showPlayerSettings by mutableStateOf(false)
-    internal val playerPanels = PlayerPanelState()
+    val playerPanels = PlayerPanelState()
     var showPersistentPlayerDrawer: Boolean
         get() = playerPanels.showQueue
         set(value) {
@@ -77,14 +60,14 @@ object UiState {
     var showDeviceConnectPanel by mutableStateOf(false)
     var isDeviceConnectPanelModal by mutableStateOf(false)
     var showVideoViewer by mutableStateOf(false)
-    internal val playerPresentation = PlayerPresentationState()
+    val playerPresentation = PlayerPresentationState()
     var showVideoFullscreen: Boolean
         get() = playerPresentation.showVideoFullscreen
         set(value) {
             playerPresentation.showVideoFullscreen = value
         }
     var videoFullscreenObscuresPlayer by mutableStateOf(false)
-    internal val videoFullscreenPanels = PlayerPanelState()
+    val videoFullscreenPanels = PlayerPanelState()
     var showVideoFullscreenQueue: Boolean
         get() = videoFullscreenPanels.showQueue
         set(value) {

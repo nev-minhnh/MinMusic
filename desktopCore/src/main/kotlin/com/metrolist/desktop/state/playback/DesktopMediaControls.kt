@@ -2,7 +2,7 @@ package com.metrolist.desktop.state.playback
 
 import com.metrolist.shared.model.RepeatMode
 
-internal data class DesktopMediaControls(
+data class DesktopMediaControls(
     val playPause: Boolean = false,
     val previous: Boolean = false,
     val next: Boolean = false,

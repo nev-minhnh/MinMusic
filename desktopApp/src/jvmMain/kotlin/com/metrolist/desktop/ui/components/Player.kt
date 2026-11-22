@@ -113,6 +113,7 @@ import com.metrolist.desktop.state.content.PlaylistAlbumState
 import com.metrolist.desktop.state.playback.ListenTogetherState
 import com.metrolist.desktop.state.playback.LyricsState
 import com.metrolist.desktop.state.playback.PlayerState
+import com.metrolist.desktop.state.playback.artworkPreview
 import com.metrolist.desktop.ui.layouts.LocalDesktopLayoutMetrics
 import com.metrolist.shared.db.MusicDatabase
 import com.metrolist.shared.generated.resources.Res

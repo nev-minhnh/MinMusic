@@ -135,6 +135,7 @@ import com.metrolist.desktop.state.content.SearchState
 import com.metrolist.desktop.state.playback.ListenTogetherState
 import com.metrolist.desktop.state.playback.LyricsState
 import com.metrolist.desktop.state.playback.PlayerState
+import com.metrolist.desktop.state.playback.artworkPreview
 import com.metrolist.desktop.storage.DownloadManager
 import com.metrolist.desktop.storage.DownloadState
 import com.metrolist.desktop.storage.downloadQueueSummary

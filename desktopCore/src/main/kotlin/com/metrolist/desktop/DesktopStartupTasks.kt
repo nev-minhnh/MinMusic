@@ -8,7 +8,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-internal fun CoroutineScope.launchVisitorDataFetch(
+fun CoroutineScope.launchVisitorDataFetch(
     shouldFetch: Boolean,
     dispatcher: CoroutineDispatcher = Dispatchers.IO,
     fetch: suspend () -> String?,

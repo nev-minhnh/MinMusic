@@ -66,6 +66,7 @@ import com.metrolist.desktop.state.content.PlaylistAlbumState
 import com.metrolist.desktop.state.playback.ListenTogetherState
 import com.metrolist.desktop.state.playback.LyricsState
 import com.metrolist.desktop.state.playback.PlayerState
+import com.metrolist.desktop.state.playback.artworkPreview
 import com.metrolist.shared.generated.resources.Res
 import com.metrolist.shared.generated.resources.cd_playback_position
 import com.metrolist.shared.generated.resources.more

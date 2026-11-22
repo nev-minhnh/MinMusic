@@ -24,3 +24,11 @@ internal class PlayerArtworkPreview(
         }
     }
 }
+
+/** Holder of the current preview; desktopCore's PlayerState reports track changes through ArtworkCache.onTrackArtwork. */
+internal object PlayerArtworkPreviews {
+    var current by mutableStateOf(PlayerArtworkPreview())
+}
+
+/** The old `PlayerState.artworkPreview` member (it holds a Coil Image, so it cannot live in the headless core). */
+internal val PlayerState.artworkPreview: PlayerArtworkPreview get() = PlayerArtworkPreviews.current

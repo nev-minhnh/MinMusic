@@ -86,7 +86,7 @@ internal fun cancelDownloadJobs(
     songIds.forEach { songId -> jobs.remove(songId)?.cancel() }
 }
 
-internal fun playlistDownloadState(
+fun playlistDownloadState(
     songs: List<SongItem>,
     states: Map<String, DownloadState>,
 ): DownloadState {
@@ -99,7 +99,7 @@ internal fun playlistDownloadState(
     }
 }
 
-internal fun playlistDownloadProgress(
+fun playlistDownloadProgress(
     songs: List<SongItem>,
     states: Map<String, DownloadState>,
     progress: Map<String, Float>,
@@ -1230,7 +1230,7 @@ object DownloadManager {
         }
     }
 
-    internal suspend fun deleteDownloadsAndAwait(songIds: Collection<String>) {
+    suspend fun deleteDownloadsAndAwait(songIds: Collection<String>) {
         val ids = songIds.filter(::isValidDownloadSongId).toSet()
         if (ids.isEmpty()) return
         withContext(Dispatchers.IO) { deleteStoredDownloads(ids) }

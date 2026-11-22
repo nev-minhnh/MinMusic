@@ -21,7 +21,7 @@ internal fun desktopSongOfflineSnapshot(
         cachedIds = cachedIds.filterTo(mutableSetOf()) { cachePath(it) != null },
     )
 
-internal fun desktopSongOfflineAvailability(
+fun desktopSongOfflineAvailability(
     database: MusicDatabase,
     downloads: () -> List<DownloadedFile> = { DownloadManager.downloadedFiles.value },
     cachedIds: () -> Set<String> = { SongCacheManager.cachedSongIds.value },

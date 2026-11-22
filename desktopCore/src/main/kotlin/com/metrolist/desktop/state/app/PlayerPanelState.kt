@@ -4,7 +4,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 
-internal class PlayerPanelState {
+class PlayerPanelState {
     private var queueVisible by mutableStateOf(false)
     private var lyricsVisible by mutableStateOf(false)
     private var lyricsOpenedLast = false

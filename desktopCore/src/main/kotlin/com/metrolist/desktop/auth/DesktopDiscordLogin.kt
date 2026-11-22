@@ -15,7 +15,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-internal object DesktopDiscordLogin {
+object DesktopDiscordLogin {
     val flow =
         DesktopDiscordLoginFlow(
             sessions = DiscordAuthSessionStore(),
@@ -32,7 +32,7 @@ internal object DesktopDiscordLogin {
         )
 }
 
-internal class DesktopDiscordLoginFlow(
+class DesktopDiscordLoginFlow(
     private val sessions: DiscordAuthSessionStore,
     private val scope: CoroutineScope,
     private val exchangeCode: suspend (DiscordAuthSession, String) -> Unit,

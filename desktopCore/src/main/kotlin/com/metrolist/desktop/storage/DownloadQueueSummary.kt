@@ -1,6 +1,6 @@
 package com.metrolist.desktop.storage
 
-internal data class DownloadQueueSummary(
+data class DownloadQueueSummary(
     val completed: Int,
     val active: Int,
     val failed: Int,
@@ -9,7 +9,7 @@ internal data class DownloadQueueSummary(
     val total: Int get() = completed + active + failed
 }
 
-internal fun downloadQueueSummary(
+fun downloadQueueSummary(
     states: Map<String, DownloadState>,
     progresses: Map<String, Float>,
     completed: Int,

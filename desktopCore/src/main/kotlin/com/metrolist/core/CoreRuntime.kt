@@ -1,5 +1,6 @@
 package com.metrolist.core
 
+import com.metrolist.core.bridge.CoreBridge
 import com.metrolist.desktop.backup.DesktopBackupRestoreManager
 import com.metrolist.desktop.deviceconnect.DesktopDeviceConnect
 import com.metrolist.desktop.di.headlessStateModule
@@ -94,6 +95,7 @@ object CoreBackend {
         private set
 
     fun start() {
+        CoreBridge.install(scope)
         scope.launch(Dispatchers.IO) {
             val begin = System.nanoTime()
             try {

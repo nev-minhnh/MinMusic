@@ -6,7 +6,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import java.util.concurrent.atomic.AtomicBoolean
 
-internal class DiscordLoginNavigation(
+class DiscordLoginNavigation(
     private val session: DiscordAuthSession,
     private val scope: CoroutineScope,
     private val exchangeCode: suspend (String) -> Unit,

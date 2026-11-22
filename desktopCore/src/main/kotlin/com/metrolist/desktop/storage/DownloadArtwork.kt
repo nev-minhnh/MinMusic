@@ -8,14 +8,17 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import okhttp3.Request
-import org.jetbrains.skia.EncodedImageFormat
-import org.jetbrains.skia.Paint
-import org.jetbrains.skia.Rect
-import org.jetbrains.skia.SamplingMode
-import org.jetbrains.skia.Surface
+import java.awt.RenderingHints
+import java.awt.image.BufferedImage
+import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
 import java.io.File
+import javax.imageio.IIOImage
+import javax.imageio.ImageIO
+import javax.imageio.ImageWriteParam
+import javax.imageio.stream.MemoryCacheImageInputStream
+import javax.imageio.stream.MemoryCacheImageOutputStream
 import kotlin.math.roundToInt
-import org.jetbrains.skia.Image as SkiaImage
 
 /** Builds the embedded cover of downloaded and exported files: a JPEG of at most [MAX_PX] px on its longer side. */
 internal object DownloadArtwork {
@@ -56,33 +59,45 @@ internal object DownloadArtwork {
         }
     }
 
-    private fun encode(bytes: ByteArray): DownloadCover? {
-        val image = SkiaImage.makeFromEncoded(bytes)
+    /**
+     * Decodes [bytes], scales the longer side down to [MAX_PX] (never up) with bilinear filtering and re-encodes a JPEG.
+     * javax.imageio instead of Skia, so the headless core never loads Skiko. Formats ImageIO cannot read give null.
+     */
+    internal fun encode(bytes: ByteArray): DownloadCover? {
+        val image = ImageIO.read(MemoryCacheImageInputStream(ByteArrayInputStream(bytes))) ?: return null
         try {
             if (image.width <= 0 || image.height <= 0) return null
             val scale = minOf(1f, MAX_PX.toFloat() / maxOf(image.width, image.height))
             val width = (image.width * scale).roundToInt().coerceAtLeast(1)
             val height = (image.height * scale).roundToInt().coerceAtLeast(1)
-            val jpeg =
-                Surface.makeRasterN32Premul(width, height).use { surface ->
-                    Paint().use { paint ->
-                        paint.isAntiAlias = true
-                        surface.canvas.drawImageRect(
-                            image,
-                            Rect.makeWH(image.width.toFloat(), image.height.toFloat()),
-                            Rect.makeWH(width.toFloat(), height.toFloat()),
-                            SamplingMode.LINEAR,
-                            paint,
-                            true,
-                        )
+            val canvas = BufferedImage(width, height, BufferedImage.TYPE_INT_RGB)
+            val graphics = canvas.createGraphics()
+            try {
+                graphics.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR)
+                graphics.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY)
+                graphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON)
+                graphics.drawImage(image, 0, 0, width, height, null)
+            } finally {
+                graphics.dispose()
+            }
+            val writer = ImageIO.getImageWritersByFormatName("jpeg").asSequence().firstOrNull() ?: return null
+            try {
+                val params =
+                    writer.defaultWriteParam.apply {
+                        compressionMode = ImageWriteParam.MODE_EXPLICIT
+                        compressionQuality = JPEG_QUALITY / 100f
                     }
-                    surface.makeImageSnapshot().use { snapshot ->
-                        snapshot.encodeToData(EncodedImageFormat.JPEG, JPEG_QUALITY)?.use { it.bytes }
-                    }
-                } ?: return null
-            return DownloadCover(jpeg, width, height)
+                val out = ByteArrayOutputStream()
+                MemoryCacheImageOutputStream(out).use { stream ->
+                    writer.output = stream
+                    writer.write(null, IIOImage(canvas, null, null), params)
+                }
+                return DownloadCover(out.toByteArray(), width, height)
+            } finally {
+                writer.dispose()
+            }
         } finally {
-            image.close()
+            image.flush()
         }
     }
 }

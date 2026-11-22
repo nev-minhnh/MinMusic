@@ -5,6 +5,7 @@
 
 package com.metrolist.desktop.utils
 
+import com.metrolist.core.bridge.WindowHost
 import com.metrolist.desktop.auth.DesktopDiscordLogin
 import com.metrolist.desktop.auth.parseDiscordLoginCallback
 import com.metrolist.desktop.state.app.DesktopNavigation
@@ -117,7 +118,7 @@ object DesktopUrlHandler {
     }
 
     private fun executeOpenUrl(url: String) {
-        ComposeTrayManager.showWindow()
+        WindowHost.showWindow()
         if (parseDiscordLoginCallback(url) != null && DesktopDiscordLogin.flow.handleCallback(url)) return
 
         val roomCode = extractListenTogetherRoomCode(url)

@@ -75,6 +75,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.metrolist.desktop.state.app.UiState
 import com.metrolist.desktop.state.playback.PlayerState
+import com.metrolist.desktop.state.playback.artworkPreview
 import com.metrolist.desktop.ui.layouts.DesktopLayoutRules
 import com.metrolist.shared.generated.resources.Res
 import com.metrolist.shared.generated.resources.close_fullscreen_player

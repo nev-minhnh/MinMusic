@@ -113,7 +113,7 @@ object DiscordRpcState {
         }.also { cachedLabels = it }
     }
 
-    internal fun updateDiscordRpc() {
+    fun updateDiscordRpc() {
         if (!PlayerState.externalReportingEnabled || !discordRpcEnabled) {
             DiscordRpcManager.clear()
             return

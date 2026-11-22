@@ -442,7 +442,7 @@ internal fun readLogTail(
         bytes.array().decodeToString().takeLast(maxChars)
     }
 
-internal fun readLogPreview(files: List<File>): String =
+fun readLogPreview(files: List<File>): String =
     files
         .asSequence()
         .mapNotNull { file ->
