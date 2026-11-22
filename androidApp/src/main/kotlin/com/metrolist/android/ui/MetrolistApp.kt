@@ -125,6 +125,7 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.customActions
@@ -169,6 +170,7 @@ import com.metrolist.android.LocalPlaylistAdder
 import com.metrolist.android.LocalSaveToFolder
 import com.metrolist.android.LocalStartupPresentation
 import com.metrolist.android.MainActivity
+import com.metrolist.android.R
 import com.metrolist.android.deviceconnect.AndroidDeviceConnect
 import com.metrolist.android.extensions.findActivity
 import com.metrolist.android.listentogether.AndroidListenTogetherManager
@@ -199,9 +201,8 @@ import com.metrolist.android.ui.components.DesktopCaptionBar
 import com.metrolist.android.ui.components.DesktopMiniPlayerHeight
 import com.metrolist.android.ui.components.MiniPlayer
 import com.metrolist.android.ui.components.TabletPlayerBar
-import com.metrolist.android.ui.components.TabletPlayerBarCompactHeight
-import com.metrolist.android.ui.components.TabletPlayerBarHeight
 import com.metrolist.android.ui.components.calculateMiniPlayerInsets
+import com.metrolist.android.ui.components.rememberTabletPlayerBarHeight
 import com.metrolist.android.ui.components.calculateNavigationContentInset
 import com.metrolist.android.ui.components.shouldUseDesktopCaption
 import com.metrolist.android.ui.components.shouldUseDesktopMiniPlayer
@@ -839,6 +840,9 @@ fun MetrolistApp(
         val tabletNavWidth = tabletNavigationWidth(tabletSidebar)
         // Owner decision: tablets dock the player bar across the window bottom; the floating bar is a setting.
         val dockedPlayerBar = useTabletNavigation && !Settings.shared.tabletFloatingPlayerBar
+        // The MinMusic mini player type is the tablet player bar; Expressive, Modern and Vintage keep the user's
+        // chosen mini player on tablets too (docked or floating like the bar), as on phones.
+        val useTabletPlayerBar = useTabletNavigation && Settings.shared.miniPlayerType == MiniPlayerType.MINMUSIC
         val tabTopBarHeight =
             if (useTabletNavigation) tabletTopBarHeight(LocalConfiguration.current.screenHeightDp.dp) else TabTopBarHeight
         // Tablets keep their navigation on every screen, like the desktop sidebar.
@@ -913,7 +917,7 @@ fun MetrolistApp(
             when {
                 dockedPlayerBar -> 0.dp
                 // Floating tablet bar: 8 dp above the gesture area (tablet spec 5.5).
-                useTabletNavigation -> 8.dp
+                useTabletPlayerBar -> 8.dp
                 isExpressiveMiniPlayer -> ModernMiniPlayerBottomSpacing
                 isModernMiniPlayer -> ModernMiniPlayerBottomSpacing
                 else -> 0.dp
@@ -930,9 +934,11 @@ fun MetrolistApp(
         // the full layout from 840 dp window width.
         val tabletBarShortHeight = useTabletNavigation && LocalConfiguration.current.screenHeightDp < 480
         val tabletBarFullLayout = useTabletNavigation && !tabletBarShortHeight && LocalConfiguration.current.screenWidthDp >= 840
+        // At least 72/64 dp; taller only when the slider style/thickness or the font scale needs it, so it never clips.
+        val tabletPlayerBarHeight = rememberTabletPlayerBarHeight(tabletBarFullLayout, tabletBarShortHeight)
         val miniPlayerHeight =
-            if (useTabletNavigation) {
-                if (tabletBarShortHeight) TabletPlayerBarCompactHeight else TabletPlayerBarHeight
+            if (useTabletPlayerBar) {
+                tabletPlayerBarHeight
             } else if (useDesktopMiniPlayer) {
                 DesktopMiniPlayerHeight
             } else if (isExpressiveMiniPlayer) {
@@ -1590,7 +1596,10 @@ fun MetrolistApp(
                                                     if (navigationState.topLevelRoute == Screen.Home && !hasPendingUpdate) {
                                                         // MinMusic Home header: 32 dp logo tile + time-of-day greeting.
                                                         // Tablets show the logo in the rail/sidebar brand row on the same line.
-                                                        MmGreetingTitle(showLogo = !useTabletNavigation)
+                                                        MmGreetingTitle(
+                                                            showLogo = !useTabletNavigation,
+                                                            logo = painterResource(R.drawable.minmusic_logo_tile),
+                                                        )
                                                     } else {
                                                         AppTitleWithUpdateWarning(
                                                             title =
@@ -2128,8 +2137,9 @@ fun MetrolistApp(
                                                 val child = measurable.measure(constraints.offset(horizontal = -start))
                                                 layout(child.width + start, child.height) { child.placeRelative(start, 0) }
                                             }
-                                    if (useTabletNavigation) {
-                                        // Tablets: the real player bar (spec 5.5), docked or floating; phones keep the mini player.
+                                    if (useTabletPlayerBar) {
+                                        // Tablets: the real player bar (spec 5.5), docked or floating; phones and the other
+                                        // mini player types keep the mini player.
                                         TabletPlayerBar(
                                             fullLayout = tabletBarFullLayout,
                                             docked = dockedPlayerBar,

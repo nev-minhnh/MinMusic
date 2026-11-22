@@ -12,6 +12,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -40,6 +41,8 @@ private fun greetingFor(hour: Int): StringResource =
 fun MmGreetingTitle(
     modifier: Modifier = Modifier,
     showLogo: Boolean = true,
+    // The coloured brand tile from the platform (Android launcher icon); the monochrome glyph otherwise.
+    logo: Painter? = null,
 ) {
     val greeting =
         remember {
@@ -53,7 +56,7 @@ fun MmGreetingTitle(
         // Tablets already show the logo in the navigation brand row on the same line.
         if (showLogo) {
             Image(
-                painter = painterResource(Res.drawable.logo),
+                painter = logo ?: painterResource(Res.drawable.logo),
                 contentDescription = null,
                 modifier = Modifier.size(32.dp).clip(RoundedCornerShape(8.dp)),
             )

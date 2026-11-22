@@ -42,6 +42,9 @@ interface LyricsFetcher {
 
     /** False for a provider this build cannot use (Lyprio without its endpoint/key), so lookups skip it at once. */
     fun isProviderAvailable(provider: LyricsProvider): Boolean = true
+
+    /** The song's own lyrics from its source (Zing MP3, NhacCuaTui) for ids of those sources, else null. */
+    suspend fun sourceLyrics(id: String): LyricsWithProvider? = null
 }
 
 class LyricsClient(
@@ -180,7 +183,7 @@ class LyricsClient(
             }
         }
 
-    private suspend fun sourceLyrics(id: String): LyricsWithProvider? {
+    override suspend fun sourceLyrics(id: String): LyricsWithProvider? {
         val source = sourceRegistry?.available(sourceOf(id))?.takeIf { SourceCapability.LYRICS in it.capabilities } ?: return null
         val lyrics =
             try {

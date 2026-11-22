@@ -2,6 +2,7 @@ package com.metrolist.shared.db
 
 import androidx.sqlite.execSQL
 import com.metrolist.shared.api.lyrics.LyricsFetcher
+import com.metrolist.shared.api.lyrics.LyricsMatch
 import com.metrolist.shared.api.lyrics.LyricsTranslationClient
 import com.metrolist.shared.api.lyrics.MlxBuilder
 import com.metrolist.shared.api.lyrics.MlxWord
@@ -30,7 +31,13 @@ class LegacyLyricsProtectionTest {
         runBlocking {
             val directory = Files.createTempDirectory("legacy-lyrics-protection").toFile()
             val client = HttpClient(MockEngine { error("No translation expected") })
-            val fetched = MlxBuilder().meta("Lyprio").line(1_000, 2_000, words = listOf(MlxWord("Replacement", 1_000, 2_000))).build()
+            // The provider reports the song it matched, so the automatic lookup accepts it.
+            val fetched =
+                MlxBuilder()
+                    .meta("Lyprio")
+                    .song(title = "Synthetic song", artist = "Synthetic artist")
+                    .line(1_000, 2_000, words = listOf(MlxWord("Replacement", 1_000, 2_000)))
+                    .build()
             Settings.replaceSharedForTest(Settings(MapSettings()))
             try {
                 for (version in listOf(38, 65)) {
@@ -116,13 +123,13 @@ class LegacyLyricsProtectionTest {
                                 "Synthetic song",
                                 "Synthetic artist",
                                 null,
-                                preferredProviders = listOf(LyricsProvider.LYPRIO),
+                                preferredProviders = listOf(LyricsProvider.LRCLIB),
                                 skipCache = true,
                             )
-                        assertEquals(fetched, result?.lyrics)
+                        assertEquals(LyricsMatch.withMatchCheck(fetched), result?.lyrics)
                         assertEquals(1, fetcher.calls)
                         val row = requireNotNull(database.dao().cachedLyrics("song"))
-                        assertEquals(fetched, row.lyrics)
+                        assertEquals(LyricsMatch.withMatchCheck(fetched), row.lyrics)
                         assertFalse(row.isLegacyProtected)
                         assertNull(row.userLyrics)
                         assertEquals(425, row.offsetMs)
@@ -204,7 +211,7 @@ class LegacyLyricsProtectionTest {
             isVideoContext: Boolean,
         ): LyricsWithProvider {
             calls++
-            return LyricsWithProvider(lyrics, "Lyprio")
+            return LyricsWithProvider(lyrics, if (provider == LyricsProvider.LRCLIB) "LrcLib" else "Lyprio")
         }
     }
 }

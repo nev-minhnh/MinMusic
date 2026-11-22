@@ -52,15 +52,16 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.metrolist.android.R
 import com.metrolist.shared.db.MusicDatabase
 import com.metrolist.shared.db.entities.PlaylistEntity
 import com.metrolist.shared.generated.resources.Res
 import com.metrolist.shared.generated.resources.app_name
 import com.metrolist.shared.generated.resources.equalizer
 import com.metrolist.shared.generated.resources.liked_songs
-import com.metrolist.shared.generated.resources.logo
 import com.metrolist.shared.generated.resources.mm_library_downloaded
 import com.metrolist.shared.generated.resources.mm_tablet_nav_collapse
 import com.metrolist.shared.generated.resources.mm_tablet_nav_expand
@@ -75,7 +76,6 @@ import com.metrolist.shared.ui.icons.MetrolistIcons
 import com.metrolist.shared.ui.navigation.AdaptiveNavigationItem
 import com.metrolist.shared.ui.navigation.Navigator
 import com.metrolist.shared.ui.navigation.Screen
-import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
 
@@ -224,8 +224,9 @@ private fun TabletNavigationBrand(
     overlayMenu: Boolean,
 ) {
     val logo: @Composable () -> Unit = {
+        // The coloured brand tile (launcher icon): gradient m and white note on the dark tile, never a tinted glyph.
         Image(
-            painter = painterResource(Res.drawable.logo),
+            painter = painterResource(R.drawable.minmusic_logo_tile),
             contentDescription = null,
             modifier = Modifier.size(32.dp).clip(RoundedCornerShape(8.dp)),
         )

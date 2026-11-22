@@ -53,16 +53,19 @@ class LrcLibLyricsProvider(
                 ?: return null
 
         val synced = best.syncedLyrics?.takeIf { it.isNotBlank() }
-        return if (synced != null) {
-            lrcToMlx(synced, title, artist, source = "LrcLib", sourceId = best.id.toString())
-        } else {
-            val plain = best.plainLyrics?.takeIf { it.isNotBlank() } ?: return null
-            MlxBuilder()
-                .meta("LrcLib", sourceId = best.id.toString())
-                .song(title = title, artist = artist)
-                .apply { plain.lines().forEach { line -> if (line.isNotBlank()) unsyncedLine(line.trim()) } }
-                .build()
-        }
+        val mlx =
+            if (synced != null) {
+                lrcToMlx(synced, title, artist, source = "LrcLib", sourceId = best.id.toString())
+            } else {
+                val plain = best.plainLyrics?.takeIf { it.isNotBlank() } ?: return null
+                MlxBuilder()
+                    .meta("LrcLib", sourceId = best.id.toString())
+                    .song(title = title, artist = artist)
+                    .apply { plain.lines().forEach { line -> if (line.isNotBlank()) unsyncedLine(line.trim()) } }
+                    .build()
+            }
+        // The recording LrcLib matched, so the lookup can check it against the playing track.
+        return mlx?.let { LyricsMatch.withMatchedSong(it, best.name, best.artistName, (best.duration * 1000).toLong()) }
     }
 
     private suspend fun searchBestCandidate(
