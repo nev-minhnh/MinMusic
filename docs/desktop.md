@@ -118,6 +118,14 @@ In Compose 1.13.0-rc01, Foundation recognizes fractional wheel rotation as preci
 
 Mouse drags continue scrolling at the release velocity with the container's fling behavior. This also applies to Linux touchscreens that report touches as mouse input. Lists, grids and scroll columns use Compose's default deceleration; carousels and pagers keep their snap behavior. Movement thresholds and direction locking preserve taps and gestures handled by child controls. Precise touchpad input must track the gesture directly.
 
+### Smooth wheel on Windows
+
+Foundation animates each wheel notch on its own: a linear tween of at most 100 ms that stops before the next notch, which usually arrives 80-150 ms later. The list moves, stops and moves again, so many presented frames repeat the same position even at a steady frame rate. `SmoothWheelScroll.kt` takes over classic notches on Windows in the window's event queue. Each notch moves a target, and a critically damped spring (22 rad/s) follows it, advanced once per rendered frame from the frame clock. Each frame step goes back to Compose as a fractional wheel event, which Foundation applies at once through normal hit testing and nested scrolling. The distance per notch stays Foundation's (3/20 of the viewport). Touchpads, high-resolution wheels, Ctrl+wheel and page scrolling pass through unchanged. `-Dminmusic.wheel.smooth=false` restores Foundation's behavior.
+
+### Frame trace
+
+`-Dminmusic.debug.frameTrace=<file>` (or `JAVA_TOOL_OPTIONS` for the packaged launcher) makes the window render every vsync and logs each drawn frame with its time, window size and the distance scrolled so far (summed from nested scrolling at the root), plus each wheel event. Frames that repeat a position while a scroll is in progress are the stalls the eye sees, which FPS counters hide. Without the property the trace is not composed.
+
 ### Horizontal scrolling
 
 Horizontal Home rows show arrow buttons at each edge that has more content. The buttons fade at the scroll limits and animate scrolling. Artwork and video shelves use Material carousel snapping; Speed Dial and song grids scroll freely. Home chips and moods use the same controls. Android and iOS do not show these buttons.
@@ -127,6 +135,14 @@ Compose 1.13.0-rc01's `CarouselState` inherits scroll flags that always return t
 Desktop category pages such as Moods & genres fit as many columns as the available width allows, with a minimum chip width of 240 dp. Chips in the final row share its full width. Category-only pages use 6 dp gaps in both directions.
 
 Scrolling changes need checks with physical wheel, touchpad and touchscreen input, including Shift+wheel and rows nested in vertical pages, on each desktop platform.
+
+## Lookahead-safe link text
+
+The desktop wraps the whole window in one `SharedTransitionLayout`, so every layout runs a lookahead pass. Compose's `Text` with `LinkAnnotation` adds a child layout node per link and measures those nodes inside its placement block once the new text layout is known. When a resize changes the text width, the lookahead pass can skip a link node that the main pass then places, which throws `LookaheadDelegate has not been measured yet when measureResult is requested` (seen with artist links in song subtitles while dragging the window edge with the queue pane open). `LinkText` draws links as styled spans and hit-tests hover and clicks against the text layout, so the text stays one layout node. Use it instead of `Text` for any annotated string with links.
+
+## Artwork edge cost
+
+`mmArtworkEdge` fades artwork edges with an offscreen layer and two `DstIn` gradients. On Windows that layer is redrawn on every frame, so a screen of Speed Dial tiles on a large window costs several offscreen passes per frame and the GPU missed vsync while scrolling. Where artwork sits straight on the content surface (`ArtworkOnPageBackground`: Speed Dial and Home card rows), the fade is painted as a surface-coloured gradient instead. Over that surface the pixels are the same, without the offscreen pass. Elsewhere, and on Android, the offscreen version stays.
 
 ## Hyprland rendering
 
