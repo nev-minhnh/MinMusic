@@ -100,6 +100,7 @@ import com.metrolist.desktop.storage.DownloadManager
 import com.metrolist.desktop.storage.DownloadState
 import com.metrolist.desktop.storage.SongCacheManager
 import com.metrolist.desktop.ui.DesktopDensityProvider
+import com.metrolist.desktop.ui.DesktopFrameTraceHost
 import com.metrolist.desktop.ui.components.DesktopMenuBar
 import com.metrolist.desktop.ui.components.DesktopPlayerVisibility
 import com.metrolist.desktop.ui.components.FloatingSearchOverlay
@@ -286,7 +287,9 @@ fun WindowScope.App(
     ) {
         // MinMusic: width / height classes for the whole window (desktop-layout-spec section 2).
         ProvideDesktopLayoutMetrics {
-            AppContent(navigator, onMaximized, toggleWindowFullscreen, checkDarkMode, isLinux)
+            DesktopFrameTraceHost {
+                AppContent(navigator, onMaximized, toggleWindowFullscreen, checkDarkMode, isLinux)
+            }
         }
     }
 }

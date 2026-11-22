@@ -11,6 +11,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.key.Key
@@ -31,6 +32,7 @@ import com.metrolist.shared.ui.playback.LocalPlaybackKeyFocus
 import com.metrolist.shared.ui.playback.PlaybackKeyFocus
 import com.metrolist.shared.ui.utils.desktopScrollEvent
 import com.metrolist.shared.utils.OsUtil
+import kotlinx.coroutines.CoroutineScope
 import java.awt.AWTEvent
 import java.awt.Component
 import java.awt.Dialog
@@ -100,6 +102,8 @@ fun DesktopShortcutLayer(
                 }
             }
         }
+    // Runs on this window's frame clock so smooth wheel steps line up with rendered frames.
+    val wheelScope = rememberCoroutineScope()
     DisposableEffect(Unit) {
         val dispatcher =
             installGlobalShortcutDispatcher(
@@ -109,6 +113,7 @@ fun DesktopShortcutLayer(
                 { toggleFullscreen() },
                 { forward() },
                 { clearFocus() },
+                wheelScope.takeIf { smoothWheelEnabled },
             )
         onDispose { dispatcher.close() }
     }
@@ -129,6 +134,7 @@ private fun installGlobalShortcutDispatcher(
     toggleWindowFullscreen: () -> Unit,
     onForward: () -> Unit,
     clearPointerFocus: () -> Unit,
+    wheelScope: CoroutineScope?,
 ): AutoCloseable {
     val keyboardFocusManager = KeyboardFocusManager.getCurrentKeyboardFocusManager()
     val pressed = ShortcutPressTracker()
@@ -161,6 +167,7 @@ private fun installGlobalShortcutDispatcher(
     val toolkit = Toolkit.getDefaultToolkit()
     val backButton = backMouseButton(toolkit.javaClass.name)
     val forwardButton = forwardMouseButton(toolkit.javaClass.name)
+    var smoothWheel: SmoothWheelScroller? = null
     val mouseEventQueue =
         object : EventQueue() {
             override fun dispatchEvent(event: AWTEvent) {
@@ -173,6 +180,7 @@ private fun installGlobalShortcutDispatcher(
                         super.dispatchEvent(scrollEvent)
                         return
                     }
+                    if (smoothWheel?.intercept(event) { dispatchEvent(it) } == true) return
                 }
                 // Compose handles consumed AWT events; replace Back before it can also dismiss a popup.
                 if (event is MouseEvent &&
@@ -197,6 +205,7 @@ private fun installGlobalShortcutDispatcher(
 
             fun close() = pop()
         }
+    smoothWheel = wheelScope?.let { scope -> SmoothWheelScroller(scope) { mouseEventQueue.postEvent(it) } }
 
     keyboardFocusManager.addPropertyChangeListener("activeWindow", focusListener)
     keyboardFocusManager.addKeyEventDispatcher(dispatcher)
