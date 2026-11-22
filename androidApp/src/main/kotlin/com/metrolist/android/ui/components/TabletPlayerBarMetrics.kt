@@ -19,6 +19,9 @@ val TabletPlayerBarCompactHeight = 64.dp
 internal val TabletBarFullControlSize = 40.dp
 internal val TabletBarFullVerticalPadding = 4.dp
 
+/** Full layout: space between the controls row and the seek row (owner, 1.0.6). */
+internal val TabletBarFullSeekGap = 16.dp
+
 /** Compact layout: play 48 r16 and 44 dp icon buttons (laid out at the 48 dp touch target). */
 internal val TabletBarCompactControlSize = 48.dp
 internal val TabletBarCompactVerticalPadding = 8.dp
@@ -78,11 +81,13 @@ internal fun tabletPlayerBarHeight(
     shortHeight: Boolean,
     seekRowHeight: Dp,
     songZoneHeight: Dp,
+    seekGap: Dp = 0.dp,
 ): Dp {
     val base = if (shortHeight) TabletPlayerBarCompactHeight else TabletPlayerBarHeight
+    val gap = if (seekRowHeight > 0.dp) seekGap else 0.dp
     val content =
         if (fullLayout) {
-            maxOf(TabletBarFullControlSize + seekRowHeight, songZoneHeight) + TabletBarFullVerticalPadding * 2
+            maxOf(TabletBarFullControlSize + gap + seekRowHeight, songZoneHeight) + TabletBarFullVerticalPadding * 2
         } else {
             maxOf(TabletBarCompactControlSize, songZoneHeight) + TabletBarCompactVerticalPadding * 2
         }

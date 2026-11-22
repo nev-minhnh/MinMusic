@@ -185,6 +185,7 @@ fun rememberTabletPlayerBarHeight(
                 shortHeight = shortHeight,
                 seekRowHeight = seekRow,
                 songZoneHeight = tabletSongZoneHeight(lineHeightDp(typography.titleSmall), lineHeightDp(typography.labelSmall)),
+                seekGap = TabletBarFullSeekGap,
             )
         }
     }
@@ -600,6 +601,7 @@ private fun TabletBarFullLayout(
                     )
                 }
                 if (Settings.shared.showExpressiveMiniPlayerProgress) {
+                    Spacer(Modifier.height(TabletBarFullSeekGap))
                     TabletBarSeekRow(
                         player = player,
                         songId = song.id,

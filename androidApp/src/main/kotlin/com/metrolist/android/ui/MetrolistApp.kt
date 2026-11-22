@@ -957,8 +957,9 @@ fun MetrolistApp(
                         navigationBarBottomPadding
                     } else if (useTabletNavigation) {
                         // Tablets: the bar sits just above the system navigation (gesture handle or 3-button bar),
-                        // so the handle never covers the bar's controls (owner, 1.0.5).
-                        navigationBarBottomPadding
+                        // so the handle never covers the bar's controls (owner, 1.0.5); 1.0.6 adds half of that
+                        // again as breathing room above the handle.
+                        navigationBarBottomPadding * 1.5f
                     } else {
                         safeBottomPadding
                     },
