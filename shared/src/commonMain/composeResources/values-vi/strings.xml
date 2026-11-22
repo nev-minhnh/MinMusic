@@ -2667,4 +2667,15 @@
     <string name="mm_lyrics_unsynced_hint">Lời chưa đồng bộ</string>
     <string name="mm_desktop_lyrics_peek_hint">Bấm để mở</string>
     <string name="source_nct_privacy_token_desktop">Chỉ lưu mã đăng nhập, mã hoá trên máy này và không nằm trong bản sao lưu. Đăng xuất là xoá ngay.</string>
+    <string name="mm_desk_zing_window_title">Đăng nhập Zing MP3 — MinMusic</string>
+    <string name="mm_desk_zing_read_only">Chỉ đọc</string>
+    <string name="mm_desk_zing_waiting">Đang chờ đăng nhập…</string>
+    <string name="mm_desk_open_in_browser">Mở bằng trình duyệt</string>
+    <string name="mm_desk_lyrics_fullscreen">Lời bài hát toàn màn hình</string>
+    <string name="mm_desk_lyrics_fullscreen_exit">Thoát lời bài hát toàn màn hình</string>
+    <string name="mm_desk_collapse_sidebar">Thu gọn thanh bên</string>
+    <string name="mm_desk_go_forward">Tiến tới</string>
+    <string name="mm_desk_nav_yours">CỦA BẠN</string>
+    <string name="mm_desk_recently_played">Nghe gần đây</string>
+    <string name="mm_desk_search_placeholder">Tìm bài hát, nghệ sĩ, album, lời bài hát…</string>
 </resources>

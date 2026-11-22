@@ -5801,4 +5801,15 @@
     <string name="mm_desktop_lyrics_peek_hint">Click to open</string>
     <!-- Translators: Privacy note in the NhacCuaTui sign-in dialog on Windows. -->
     <string name="source_nct_privacy_token_desktop">Only the sign-in token is kept, encrypted on this computer and left out of backups. Signing out deletes it at once.</string>
+    <string name="mm_desk_zing_window_title">Sign in to Zing MP3 — MinMusic</string>
+    <string name="mm_desk_zing_read_only">Read only</string>
+    <string name="mm_desk_zing_waiting">Waiting for sign-in…</string>
+    <string name="mm_desk_open_in_browser">Open in browser</string>
+    <string name="mm_desk_lyrics_fullscreen">Full-screen lyrics</string>
+    <string name="mm_desk_lyrics_fullscreen_exit">Exit full-screen lyrics</string>
+    <string name="mm_desk_collapse_sidebar">Collapse sidebar</string>
+    <string name="mm_desk_go_forward">Go forward</string>
+    <string name="mm_desk_nav_yours">YOURS</string>
+    <string name="mm_desk_recently_played">Recently played</string>
+    <string name="mm_desk_search_placeholder">Search songs, artists, albums, lyrics…</string>
 </resources>

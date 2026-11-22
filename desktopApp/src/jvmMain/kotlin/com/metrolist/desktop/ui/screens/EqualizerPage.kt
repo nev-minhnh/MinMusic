@@ -8,11 +8,13 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.MaterialTheme
@@ -24,6 +26,8 @@ import androidx.compose.ui.unit.dp
 import com.metrolist.desktop.state.app.UiState
 import com.metrolist.desktop.ui.components.LocalCaptionBarInsets
 import com.metrolist.desktop.ui.components.rememberMetroEqProfilePicker
+import com.metrolist.desktop.ui.layouts.DesktopLayoutRules
+import com.metrolist.desktop.ui.layouts.LocalDesktopLayoutMetrics
 import com.metrolist.shared.ui.equalizer.MetroEqScreen
 
 /**
@@ -47,11 +51,26 @@ fun DesktopEqualizerPage(onBack: () -> Unit = { UiState.showEqualizer = false })
                 ).windowInsetsPadding(LocalCaptionBarInsets.current.only(WindowInsetsSides.Top)),
         contentAlignment = Alignment.TopCenter,
     ) {
-        Box(Modifier.widthIn(max = 960.dp).fillMaxWidth().fillMaxHeight()) {
-            MetroEqScreen(
-                rememberProfilePicker = { onPicked -> rememberMetroEqProfilePicker(onPicked) },
-                onBack = onBack,
-            )
+        // Desktop layout spec section 7: Expanded with >= 1000 of content -> graph + bands | 400 effects column,
+        // otherwise the phone's single column with Bands / Effects tabs.
+        val metrics = LocalDesktopLayoutMetrics.current
+        BoxWithConstraints(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+            val twoColumns =
+                DesktopLayoutRules.equalizerTwoColumns(metrics.widthClass, maxWidth - metrics.gutter * 2)
+            Box(
+                Modifier
+                    .widthIn(max = if (twoColumns) DesktopLayoutRules.ContentMaxWidth else 960.dp)
+                    .fillMaxWidth()
+                    .fillMaxHeight()
+                    .padding(horizontal = if (twoColumns) metrics.gutter - 16.dp else 0.dp),
+            ) {
+                MetroEqScreen(
+                    rememberProfilePicker = { onPicked -> rememberMetroEqProfilePicker(onPicked) },
+                    onBack = onBack,
+                    wideLayout = twoColumns,
+                    graphHeight = metrics.eqGraphHeight,
+                )
+            }
         }
     }
 }

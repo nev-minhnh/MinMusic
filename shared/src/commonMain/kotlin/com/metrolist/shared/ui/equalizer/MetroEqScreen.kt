@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -32,6 +33,7 @@ import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -101,6 +103,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.round
@@ -281,6 +284,10 @@ fun MetroEqScreen(
     initialAutoEqQuery: String = "",
     onBack: (() -> Unit)? = null,
     onOpenSystemEqualizer: (() -> Unit)? = null,
+    // Desktop only: graph + bands on the left, a 400 dp effects column on the right (full-screen route only).
+    wideLayout: Boolean = false,
+    // Desktop only: graph canvas height for the window's height class; null keeps the phone heights.
+    graphHeight: Dp? = null,
 ) {
     val fullScreen = onBack != null
     var searchingAutoEq by remember { mutableStateOf(initialAutoEqSearch) }
@@ -335,6 +342,8 @@ fun MetroEqScreen(
                         } else {
                             null
                         },
+                    wideLayout = wideLayout && fullScreen,
+                    graphHeight = graphHeight,
                 )
             }
         }
@@ -352,6 +361,8 @@ private fun ProfilesPage(
     onOpenSystemEqualizer: (() -> Unit)?,
     onImportFile: (() -> Unit)?,
     onSearchAutoEq: (() -> Unit)?,
+    wideLayout: Boolean = false,
+    graphHeight: Dp? = null,
 ) {
     val fullScreen = onBack != null
     var tab by remember { mutableStateOf(EqualizerTab.BANDS) }
@@ -557,10 +568,47 @@ private fun ProfilesPage(
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
             )
         }
+        // Per-output-device profile card: in the main column, or below the effects in the wide desktop layout.
+        val deviceCard: @Composable () -> Unit = {
+            EqualizerProfiles.outputDevice?.let { device ->
+                val deviceName = outputDeviceName(device)
+                Surface(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                    shape = RoundedCornerShape(20.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainer,
+                ) {
+                    Row(
+                        Modifier.fillMaxWidth().padding(start = 16.dp, end = 12.dp, top = 12.dp, bottom = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(Modifier.weight(1f).padding(end = 12.dp)) {
+                            Text(
+                                stringResource(Res.string.metroeq_output_device, deviceName),
+                                style = MaterialTheme.typography.titleSmall,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                            Text(
+                                stringResource(Res.string.metroeq_use_for_device, deviceName),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        // Only saved profiles can be restored when the device reconnects.
+                        ExpressiveSwitch(
+                            checked = activeId != null && EqualizerProfiles.deviceProfileId(device.key) == activeId,
+                            enabled = savedProfile,
+                            onCheckedChange = { use -> EqualizerProfiles.setDeviceProfile(device.key, activeId?.takeIf { use }) },
+                        )
+                    }
+                }
+            }
+        }
+        Row(Modifier.fillMaxWidth().weight(1f)) {
         Column(
             Modifier
-                .fillMaxWidth()
                 .weight(1f)
+                .fillMaxHeight()
                 .verticalScroll(rememberScrollState())
                 // Keeps the last controls clear of the mini player on the settings page and the full-screen route.
                 .padding(top = if (fullScreen) 8.dp else 16.dp, bottom = 16.dp + LocalSettingsPageBottomPadding.current),
@@ -645,39 +693,7 @@ private fun ProfilesPage(
                     }
                 }
             }
-            EqualizerProfiles.outputDevice?.let { device ->
-                val deviceName = outputDeviceName(device)
-                Surface(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                    shape = RoundedCornerShape(20.dp),
-                    color = MaterialTheme.colorScheme.surfaceContainer,
-                ) {
-                    Row(
-                        Modifier.fillMaxWidth().padding(start = 16.dp, end = 12.dp, top = 12.dp, bottom = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Column(Modifier.weight(1f).padding(end = 12.dp)) {
-                            Text(
-                                stringResource(Res.string.metroeq_output_device, deviceName),
-                                style = MaterialTheme.typography.titleSmall,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                            Text(
-                                stringResource(Res.string.metroeq_use_for_device, deviceName),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                        // Only saved profiles can be restored when the device reconnects.
-                        ExpressiveSwitch(
-                            checked = activeId != null && EqualizerProfiles.deviceProfileId(device.key) == activeId,
-                            enabled = savedProfile,
-                            onCheckedChange = { use -> EqualizerProfiles.setDeviceProfile(device.key, activeId?.takeIf { use }) },
-                        )
-                    }
-                }
-            }
+            if (!wideLayout) deviceCard()
             error?.let {
                 Text(
                     stringResource(it),
@@ -700,14 +716,21 @@ private fun ProfilesPage(
                     profile = activeProfile,
                     rate = meter.sampleRate,
                     levels = meter.levels,
-                    compact = tab == EqualizerTab.EFFECTS,
-                    tabs = {
-                        EqualizerTabs(
-                            selected = tab,
-                            bandCount = activeProfile?.bands?.size ?: 0,
-                            onSelect = { tab = it },
-                        )
-                    },
+                    compact = !wideLayout && tab == EqualizerTab.EFFECTS,
+                    graphHeight = graphHeight,
+                    // The wide desktop layout shows the effects in their own column, so it needs no tabs.
+                    tabs =
+                        if (wideLayout) {
+                            null
+                        } else {
+                            {
+                                EqualizerTabs(
+                                    selected = tab,
+                                    bandCount = activeProfile?.bands?.size ?: 0,
+                                    onSelect = { tab = it },
+                                )
+                            }
+                        },
                     bandActions = {
                         onSearchAutoEq?.let { search ->
                             OutlinedButton(onClick = { changeProfile { search() } }, shapes = ButtonDefaults.shapes()) {
@@ -721,7 +744,7 @@ private fun ProfilesPage(
                         }
                     },
                 )
-                if (tab == EqualizerTab.EFFECTS) {
+                if (!wideLayout && tab == EqualizerTab.EFFECTS) {
                     activeProfile?.let { ToneControls(it) }
                     PreampControl(activeProfile, meter.gainReductionDb)
                 }
@@ -795,6 +818,27 @@ private fun ProfilesPage(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 24.dp),
             )
+        }
+        if (wideLayout) {
+            // Desktop "Effects" column (desktop-layout-spec section 7): tone and spatial, output gain, then device profiles.
+            Column(
+                Modifier
+                    .width(400.dp)
+                    .fillMaxHeight()
+                    .verticalScroll(rememberScrollState())
+                    .padding(top = 8.dp, bottom = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                Text(
+                    stringResource(Res.string.metroeq_tab_effects),
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.padding(horizontal = 24.dp),
+                )
+                activeProfile?.let { ToneControls(it) }
+                PreampControl(activeProfile, meter.gainReductionDb)
+                deviceCard()
+            }
+        }
         }
     }
     PopupVisibility(visible = namingProfile) {
@@ -1019,6 +1063,8 @@ private fun EqualizerGraph(
     tabs: (@Composable () -> Unit)? = null,
     // Extra buttons under the band controls (AutoEQ, import) on the full-screen route.
     bandActions: (@Composable () -> Unit)? = null,
+    // Desktop: canvas height per window height class; null keeps the phone heights.
+    graphHeight: Dp? = null,
 ) {
     var selectedBand by remember(profile?.id) { mutableIntStateOf(0) }
     var editingQ by remember(profile?.id, selectedBand) { mutableStateOf(false) }
@@ -1196,6 +1242,7 @@ private fun EqualizerGraph(
     val canvasHeight =
         when {
             compact -> 104.dp
+            graphHeight != null -> graphHeight
             tabs != null -> 184.dp
             else -> 224.dp
         }

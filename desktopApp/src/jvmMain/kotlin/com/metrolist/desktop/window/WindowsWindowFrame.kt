@@ -67,7 +67,7 @@ import androidx.compose.ui.window.WindowState
 import androidx.compose.ui.zIndex
 import com.metrolist.desktop.state.app.UiState
 import com.metrolist.desktop.state.playback.PlayerState
-import com.metrolist.desktop.ui.components.DesktopTitleBarHeight
+import com.metrolist.desktop.ui.layouts.DesktopLayoutMetricsState
 import com.metrolist.desktop.utils.AppLogger
 import com.metrolist.desktop.window.jna.ComposeWindowProcedure
 import com.metrolist.desktop.window.jna.User32Extend
@@ -393,7 +393,8 @@ fun FrameWindowScope.WindowsWindowFrame(
     val captionHitTest = remember { WindowsCaptionHitTester() }
     val layoutHitTestOwner = rememberLayoutHitTestOwner()
     val contentPaddingInset = remember { MutableWindowInsets() }
-    val captionHeight = if (PlayerState.isExpanded) captionBarHeight else DesktopTitleBarHeight
+    // MinMusic: the title bar is 48, or 40 when the window is Short (desktop-layout-spec 2.2).
+    val captionHeight = if (PlayerState.isExpanded) captionBarHeight else DesktopLayoutMetricsState.current.titleBarHeight
 
     val procedure =
         remember(window) {

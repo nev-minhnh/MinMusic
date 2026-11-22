@@ -4,27 +4,29 @@ package com.metrolist.desktop.ui.components
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.CubicBezierEasing
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
@@ -33,6 +35,7 @@ import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -40,27 +43,32 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.metrolist.desktop.state.app.AppState
 import com.metrolist.desktop.state.app.UiState
 import com.metrolist.desktop.state.playback.LyricsState
 import com.metrolist.desktop.state.playback.PlayerState
+import com.metrolist.desktop.ui.layouts.DesktopLayoutRules
+import com.metrolist.desktop.ui.layouts.LocalDesktopLayoutMetrics
 import com.metrolist.desktop.utils.SkiaCacheCleaner
 import com.metrolist.desktop.utils.saveImage
 import com.metrolist.shared.api.lyrics.LyricsUtils
 import com.metrolist.shared.generated.resources.Res
+import com.metrolist.shared.generated.resources.close
 import com.metrolist.shared.generated.resources.close_fullscreen_player
 import com.metrolist.shared.generated.resources.copy
 import com.metrolist.shared.generated.resources.local
+import com.metrolist.shared.generated.resources.lyrics
 import com.metrolist.shared.generated.resources.lyrics_auto_scroll_btn
 import com.metrolist.shared.generated.resources.lyrics_provided_by
 import com.metrolist.shared.generated.resources.lyrics_share_filename
 import com.metrolist.shared.generated.resources.lyrics_share_save_image
+import com.metrolist.shared.generated.resources.mm_desk_lyrics_fullscreen
+import com.metrolist.shared.generated.resources.mm_desk_lyrics_fullscreen_exit
 import com.metrolist.shared.generated.resources.no_lyrics_for_this_track
+import com.metrolist.shared.generated.resources.up_next
 import com.metrolist.shared.model.LyricsTranslationProgress
 import com.metrolist.shared.model.SongItem
 import com.metrolist.shared.model.lyricsCuratorUrl
@@ -72,136 +80,180 @@ import com.metrolist.shared.ui.components.lyrics.LyricsOffsetEditor
 import com.metrolist.shared.ui.components.lyrics.LyricsSelectionState
 import com.metrolist.shared.ui.components.lyrics.LyricsShareDialog
 import com.metrolist.shared.ui.components.lyrics.LyricsView
+import com.metrolist.shared.ui.components.minmusic.MmChip
 import com.metrolist.shared.ui.icons.MetrolistIcons
+import com.metrolist.shared.ui.navigation.NavigationBackHandler
 import com.metrolist.shared.ui.utils.verticalScrollWithDrag
 import org.jetbrains.compose.resources.stringResource
 
+/**
+ * Lyrics fullscreen in the two-pane full player (desktop-layout-spec 3.7): the left pane hides and the lyrics
+ * centre up to 960 wide in the one extra-large size the owner allowed for this mode. F11 or the pane button
+ * toggles it; Esc leaves it first; opening the queue leaves it too.
+ */
+internal object FullPlayerLyricsMode {
+    var fullscreen by mutableStateOf(false)
+
+    fun toggle() {
+        if (!fullscreen) UiState.showPersistentPlayerDrawer = false
+        fullscreen = !fullscreen
+    }
+}
+
+// Relative to the default 36 sp lyrics text size: 28 sp in the pane, 40 sp in lyrics fullscreen.
+private const val PANE_LYRICS_SCALE = 28f / 36f
+private const val FULLSCREEN_LYRICS_SCALE = 40f / 36f
+
+/**
+ * The full player's content. [twoPanes] (window >= 960 x 600): player column | tabbed lyrics / queue pane.
+ * Otherwise one pane: artwork + controls, with lyrics as a full-height layer and the queue as an overlay drawer.
+ */
 @Composable
 fun FullscreenContentLayout(
     currentTrack: SongItem?,
     isPlaying: Boolean,
     availableHeight: Dp,
-    isWide: Boolean,
+    windowWidth: Dp,
+    windowHeight: Dp,
+    twoPanes: Boolean,
     toggleWindowFullscreen: () -> Unit,
     closeExpandedPlayer: () -> Unit,
 ) {
-    val lyricsFraction by animateFloatAsState(
-        targetValue = if (UiState.showLyricsDrawer) 1f else 0f,
-        animationSpec = tween(450, easing = CubicBezierEasing(0.2f, 0.0f, 0.0f, 1.0f)),
-        label = "lyricsFraction",
-    )
+    if (twoPanes) {
+        FullPlayerTwoPanes(
+            currentTrack = currentTrack,
+            isPlaying = isPlaying,
+            availableHeight = availableHeight,
+            windowWidth = windowWidth,
+            windowHeight = windowHeight,
+            toggleWindowFullscreen = toggleWindowFullscreen,
+        )
+    } else {
+        FullPlayerOnePane(
+            currentTrack = currentTrack,
+            isPlaying = isPlaying,
+            availableHeight = availableHeight,
+            toggleWindowFullscreen = toggleWindowFullscreen,
+            closeExpandedPlayer = closeExpandedPlayer,
+        )
+    }
+}
 
-    BoxWithConstraints(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center,
+@Composable
+private fun FullPlayerTwoPanes(
+    currentTrack: SongItem?,
+    isPlaying: Boolean,
+    availableHeight: Dp,
+    windowWidth: Dp,
+    windowHeight: Dp,
+    toggleWindowFullscreen: () -> Unit,
+) {
+    val metrics = LocalDesktopLayoutMetrics.current
+    val showQueue = UiState.showPersistentPlayerDrawer
+    val lyricsFullscreen = FullPlayerLyricsMode.fullscreen && !showQueue
+    NavigationBackHandler(enabled = lyricsFullscreen) { FullPlayerLyricsMode.fullscreen = false }
+    LaunchedEffect(showQueue) {
+        if (showQueue) FullPlayerLyricsMode.fullscreen = false
+    }
+    // The pane shows lyrics without the lyrics drawer flag and the lyrics card is hidden, so fetch them here.
+    LaunchedEffect(currentTrack?.id, Settings.shared.lyricsProviderOrder, Settings.shared.lyricsEnabledProviders) {
+        currentTrack?.let { LyricsState.fetchLyrics(it) }
+    }
+    val leftPaneWidth = DesktopLayoutRules.fullPlayerLeftPaneWidth(windowWidth)
+    val artworkSize = DesktopLayoutRules.fullPlayerArtworkSize(leftPaneWidth, windowHeight, metrics.fullPlayerArtCap)
+    // Spacing tightens a little on short windows so art + controls need less scrolling.
+    val scale = (availableHeight / 860.dp).coerceIn(0.7f, 1f)
+    Row(
+        modifier = Modifier.fillMaxSize().padding(horizontal = DesktopLayoutRules.fullPlayerSidePadding(windowWidth)),
     ) {
-        val playerWidth = if (isWide) maxWidth / (1f + lyricsFraction) else maxWidth
-        val scale = fullscreenPlayerScale(playerWidth, availableHeight)
+        if (!lyricsFullscreen) {
+            PlayerContentColumn(
+                currentTrack = currentTrack,
+                isPlaying = isPlaying,
+                availableHeight = availableHeight,
+                scale = scale,
+                modifier = Modifier.width(leftPaneWidth).fillMaxHeight(),
+                toggleWindowFullscreen = toggleWindowFullscreen,
+                artworkSize = artworkSize,
+                showPeekCards = false,
+                verticalPadding = PaddingValues(top = 8.dp, bottom = 32.dp),
+            )
+            Spacer(Modifier.width(DesktopLayoutRules.fullPlayerPaneGap(windowWidth)))
+        }
         Box(
-            modifier =
-                Modifier
-                    .fillMaxSize(),
+            modifier = Modifier.weight(1f).fillMaxHeight(),
+            contentAlignment = Alignment.TopCenter,
         ) {
-            if (isWide) {
-                Row(
-                    modifier = Modifier.fillMaxSize(),
-                ) {
-                    PlayerContentColumn(
-                        currentTrack = currentTrack,
-                        isPlaying = isPlaying,
-                        availableHeight = availableHeight,
-                        scale = scale,
-                        modifier = Modifier.weight(1f).fillMaxHeight().padding(end = 40.dp * scale * lyricsFraction),
-                        toggleWindowFullscreen = toggleWindowFullscreen,
-                    )
+            FullPlayerSidePane(
+                showQueue = showQueue,
+                lyricsFullscreen = lyricsFullscreen,
+                modifier =
+                    Modifier
+                        .then(if (lyricsFullscreen) Modifier.widthIn(max = 960.dp) else Modifier)
+                        .fillMaxWidth()
+                        .fillMaxHeight()
+                        .padding(top = 8.dp, bottom = 32.dp),
+            )
+        }
+    }
+}
 
-                    if (lyricsFraction > 0.001f) {
-                        Box(
-                            modifier =
-                                Modifier
-                                    .weight(lyricsFraction)
-                                    .fillMaxHeight()
-                                    .clipToBounds()
-                                    .graphicsLayer {
-                                        alpha = (lyricsFraction * 1.5f).coerceIn(0f, 1f)
-                                        translationX = (1f - lyricsFraction) * 120.dp.toPx()
-                                    },
-                            contentAlignment = Alignment.CenterStart,
-                        ) {
-                            Box(
-                                modifier =
-                                    Modifier
-                                        .fillMaxHeight()
-                                        .padding(top = 78.dp * scale, bottom = 62.dp * scale, start = 50.dp * scale, end = 50.dp * scale)
-                                        .width(700.dp * scale),
-                            ) {
-                                LyricsSection(textSizeMultiplier = 1.45f * scale.coerceAtLeast(0.8f))
-                            }
-                        }
-                    }
+/** Right pane: "Lyrics / Up next" tabs, the lyrics-fullscreen toggle, then the lyrics (max line width 640) or the queue. */
+@Composable
+private fun FullPlayerSidePane(
+    showQueue: Boolean,
+    lyricsFullscreen: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    val isSolid = Settings.shared.playerBackgroundStyle == PlayerBackgroundStyle.SOLID
+    val iconTint = if (isSolid) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f) else Color.White.copy(alpha = 0.8f)
+    Column(modifier) {
+        Row(
+            modifier = Modifier.fillMaxWidth().height(48.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            MmChip(
+                text = stringResource(Res.string.lyrics),
+                selected = !showQueue,
+                onClick = { UiState.showPersistentPlayerDrawer = false },
+            )
+            MmChip(
+                text = stringResource(Res.string.up_next),
+                selected = showQueue,
+                onClick = { UiState.showPersistentPlayerDrawer = true },
+            )
+            Spacer(Modifier.weight(1f))
+            if (!showQueue) {
+                IconButton(
+                    onClick = FullPlayerLyricsMode::toggle,
+                    shapes = IconButtonDefaults.shapes(),
+                ) {
+                    Icon(
+                        imageVector = if (lyricsFullscreen) MetrolistIcons.Default.FullscreenExit else MetrolistIcons.Default.Fullscreen,
+                        contentDescription =
+                            stringResource(
+                                if (lyricsFullscreen) Res.string.mm_desk_lyrics_fullscreen_exit else Res.string.mm_desk_lyrics_fullscreen,
+                            ),
+                        tint = iconTint,
+                        modifier = Modifier.size(20.dp),
+                    )
                 }
+            }
+        }
+        Spacer(Modifier.height(24.dp))
+        Box(Modifier.weight(1f).fillMaxWidth()) {
+            if (showQueue) {
+                DesktopQueueContent(
+                    onDismiss = { UiState.showPersistentPlayerDrawer = false },
+                    modifier = Modifier.fillMaxSize(),
+                )
             } else {
-                Column(
-                    modifier =
-                        Modifier
-                            .fillMaxSize()
-                            .verticalScrollWithDrag(rememberScrollState()),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    Spacer(Modifier.height(24.dp))
-
-                    IconButton(
-                        onClick = closeExpandedPlayer,
-                        modifier =
-                            Modifier
-                                .align(Alignment.End)
-                                .padding(end = 24.dp)
-                                .size(48.dp),
-                        shapes = IconButtonDefaults.shapes(),
-                    ) {
-                        Icon(
-                            imageVector = MetrolistIcons.Default.Close,
-                            contentDescription = stringResource(Res.string.close_fullscreen_player),
-                            tint = Color.White.copy(alpha = 0.8f),
-                            modifier = Modifier.size(24.dp),
-                        )
-                    }
-
-                    Spacer(Modifier.height(16.dp))
-
-                    PlayerCoreContent(
-                        currentTrack = currentTrack,
-                        isPlaying = isPlaying,
-                        availableHeight = (availableHeight - 144.dp).coerceAtLeast(0.dp),
-                        scale = scale,
-                        toggleWindowFullscreen = toggleWindowFullscreen,
+                Box(Modifier.widthIn(max = if (lyricsFullscreen) 960.dp else 640.dp).fillMaxSize()) {
+                    LyricsSection(
+                        textSizeMultiplier = if (lyricsFullscreen) FULLSCREEN_LYRICS_SCALE else PANE_LYRICS_SCALE,
+                        isVisible = !UiState.videoFullscreenObscuresPlayer,
                     )
-
-                    Spacer(Modifier.height(24.dp))
-
-                    AnimatedVisibility(
-                        visible = UiState.showLyricsDrawer,
-                        enter =
-                            expandVertically(
-                                animationSpec = spring(dampingRatio = 0.8f, stiffness = 380f),
-                            ) + fadeIn(spring(dampingRatio = 0.8f, stiffness = 380f)),
-                        exit =
-                            shrinkVertically(
-                                animationSpec = spring(dampingRatio = 0.88f, stiffness = 450f),
-                            ) + fadeOut(spring(dampingRatio = 0.88f, stiffness = 450f)),
-                    ) {
-                        Box(
-                            modifier =
-                                Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 24.dp)
-                                    .heightIn(min = 200.dp, max = 400.dp),
-                        ) {
-                            LyricsSection()
-                        }
-                    }
-
-                    Spacer(Modifier.height(32.dp))
                 }
             }
         }
@@ -209,7 +261,110 @@ fun FullscreenContentLayout(
 }
 
 @Composable
-private fun LyricsSection(textSizeMultiplier: Float = 1.2f) {
+private fun FullPlayerOnePane(
+    currentTrack: SongItem?,
+    isPlaying: Boolean,
+    availableHeight: Dp,
+    toggleWindowFullscreen: () -> Unit,
+    closeExpandedPlayer: () -> Unit,
+) {
+    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+        val scale = fullscreenPlayerScale(maxWidth, availableHeight)
+        Column(
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .verticalScrollWithDrag(rememberScrollState()),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Spacer(Modifier.height(24.dp))
+
+            IconButton(
+                onClick = closeExpandedPlayer,
+                modifier =
+                    Modifier
+                        .align(Alignment.End)
+                        .padding(end = 24.dp)
+                        .size(48.dp),
+                shapes = IconButtonDefaults.shapes(),
+            ) {
+                Icon(
+                    imageVector = MetrolistIcons.Default.Close,
+                    contentDescription = stringResource(Res.string.close_fullscreen_player),
+                    tint = Color.White.copy(alpha = 0.8f),
+                    modifier = Modifier.size(24.dp),
+                )
+            }
+
+            Spacer(Modifier.height(16.dp))
+
+            PlayerCoreContent(
+                currentTrack = currentTrack,
+                isPlaying = isPlaying,
+                availableHeight = (availableHeight - 144.dp).coerceAtLeast(0.dp),
+                scale = scale,
+                toggleWindowFullscreen = toggleWindowFullscreen,
+            )
+
+            Spacer(Modifier.height(32.dp))
+        }
+
+        // One pane: the lyrics open as a full-height layer over the player; Esc or the close button hides it.
+        AnimatedVisibility(
+            visible = UiState.showLyricsDrawer,
+            enter = fadeIn(tween(200)),
+            exit = fadeOut(tween(150)),
+        ) {
+            val isSolid = Settings.shared.playerBackgroundStyle == PlayerBackgroundStyle.SOLID
+            Column(
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .background(if (isSolid) MaterialTheme.colorScheme.surfaceContainer else Color.Black.copy(alpha = 0.92f))
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = {},
+                        ),
+            ) {
+                IconButton(
+                    onClick = { UiState.showLyricsDrawer = false },
+                    modifier =
+                        Modifier
+                            .align(Alignment.End)
+                            .padding(top = 16.dp, end = 24.dp)
+                            .size(48.dp),
+                    shapes = IconButtonDefaults.shapes(),
+                ) {
+                    Icon(
+                        imageVector = MetrolistIcons.Default.Close,
+                        contentDescription = stringResource(Res.string.close),
+                        tint = if (isSolid) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f) else Color.White.copy(alpha = 0.8f),
+                        modifier = Modifier.size(24.dp),
+                    )
+                }
+                Box(
+                    modifier =
+                        Modifier
+                            .weight(1f)
+                            .fillMaxWidth()
+                            .padding(start = 24.dp, end = 24.dp, bottom = 24.dp),
+                    contentAlignment = Alignment.TopCenter,
+                ) {
+                    Box(Modifier.widthIn(max = 640.dp).fillMaxSize()) {
+                        LyricsSection(textSizeMultiplier = PANE_LYRICS_SCALE)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun LyricsSection(
+    textSizeMultiplier: Float = 1.2f,
+    isVisible: Boolean = UiState.showLyricsDrawer && !UiState.videoFullscreenObscuresPlayer,
+) {
     val colorScheme = MaterialTheme.colorScheme
     val isSolid = Settings.shared.playerBackgroundStyle == PlayerBackgroundStyle.SOLID
     val lyricsTextColor by animateColorAsState(
@@ -221,7 +376,7 @@ private fun LyricsSection(textSizeMultiplier: Float = 1.2f) {
             DesktopLyricsContent(
                 textColor = lyricsTextColor,
                 textSizeMultiplier = textSizeMultiplier,
-                isVisible = UiState.showLyricsDrawer && !UiState.videoFullscreenObscuresPlayer,
+                isVisible = isVisible,
             )
         }
         AnimatedVisibility(

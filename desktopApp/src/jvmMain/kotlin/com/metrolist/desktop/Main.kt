@@ -110,9 +110,11 @@ import com.metrolist.desktop.ui.components.ShortcutsOverlay
 import com.metrolist.desktop.ui.components.TokenLoginDialog
 import com.metrolist.desktop.ui.components.UpdateArtworkTheme
 import com.metrolist.desktop.ui.components.VideoFullscreenOverlay
+import com.metrolist.desktop.ui.layouts.DesktopLayoutRules
 import com.metrolist.desktop.ui.layouts.ExpressLayout
 import com.metrolist.desktop.ui.layouts.FocusedLayout
 import com.metrolist.desktop.ui.layouts.LayoutUtils
+import com.metrolist.desktop.ui.layouts.ProvideDesktopLayoutMetrics
 import com.metrolist.desktop.ui.screens.DesktopEqualizerPage
 import com.metrolist.desktop.ui.screens.DesktopOnboarding
 import com.metrolist.desktop.ui.screens.LastFmArtistBrowser
@@ -282,7 +284,10 @@ fun WindowScope.App(
         LocalMouseScrollFactors provides desktopMouseScrollFactors(LocalDensity.current),
         desktopScrollConfig(),
     ) {
-        AppContent(navigator, onMaximized, toggleWindowFullscreen, checkDarkMode, isLinux)
+        // MinMusic: width / height classes for the whole window (desktop-layout-spec section 2).
+        ProvideDesktopLayoutMetrics {
+            AppContent(navigator, onMaximized, toggleWindowFullscreen, checkDarkMode, isLinux)
+        }
     }
 }
 
@@ -1139,7 +1144,7 @@ private fun runDesktopApp(args: Array<String>) {
             rememberWindowState(
                 placement = windowPlacement,
                 position = savedPosition?.let { WindowPosition(it.x.dp, it.y.dp) } ?: WindowPosition(Alignment.Center),
-                size = DpSize(savedWidth.coerceAtLeast(800).dp, savedHeight.coerceAtLeast(500).dp),
+                size = DpSize(savedWidth.coerceAtLeast(DesktopLayoutRules.MinWindowWidth).dp, savedHeight.coerceAtLeast(DesktopLayoutRules.MinWindowHeight).dp),
             )
 
         var lastFloatingSize by remember { mutableStateOf(windowState.size) }
@@ -1326,7 +1331,8 @@ private fun runDesktopApp(args: Array<String>) {
 
             LaunchedEffect(Unit) {
                 try {
-                    window.minimumSize = java.awt.Dimension(800, 500)
+                    // MinMusic: 640 x 480 (the 64 rail + the 560 primary pane + slack).
+                    window.minimumSize = java.awt.Dimension(DesktopLayoutRules.MinWindowWidth, DesktopLayoutRules.MinWindowHeight)
                 } catch (_: Exception) {
                 }
             }

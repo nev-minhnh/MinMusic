@@ -7,7 +7,6 @@
     ExperimentalMaterial3Api::class,
     androidx.compose.ui.ExperimentalComposeUiApi::class,
     ExperimentalMaterial3ExpressiveApi::class,
-    androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi::class,
     androidx.compose.foundation.ExperimentalFoundationApi::class,
 )
 
@@ -21,9 +20,10 @@ import androidx.compose.animation.expandHorizontally
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkHorizontally
-import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.Image
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
@@ -38,8 +38,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
@@ -47,19 +47,14 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.VerticalDragHandle
-import androidx.compose.material3.WideNavigationRailDefaults
-import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteDefaults
-import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteType
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -67,21 +62,27 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.WindowScope
+import com.metrolist.desktop.input.triggerSearchShortcut
 import com.metrolist.desktop.state.app.DesktopNavigation
 import com.metrolist.desktop.state.app.UiState
 import com.metrolist.desktop.state.content.HomeState
 import com.metrolist.desktop.state.content.LibraryContentState
 import com.metrolist.desktop.state.content.LibraryState
+import com.metrolist.desktop.state.content.PlaylistAlbumState
 import com.metrolist.desktop.state.content.SearchState
 import com.metrolist.desktop.state.playback.PlayerState
+import com.metrolist.desktop.storage.DownloadState
 import com.metrolist.desktop.ui.components.AddToPlaylistDialog
 import com.metrolist.desktop.ui.components.CustomTitleBar
 import com.metrolist.desktop.ui.components.DesktopLyricsContent
@@ -89,43 +90,37 @@ import com.metrolist.desktop.ui.components.DesktopPlayerVisibility
 import com.metrolist.desktop.ui.components.DesktopQueueContent
 import com.metrolist.desktop.ui.components.DeviceConnectModalSideSheet
 import com.metrolist.desktop.ui.components.DeviceConnectSideSheet
-import com.metrolist.desktop.ui.components.LyricsDrawer
-import com.metrolist.desktop.ui.components.PersistentPlayerDrawer
 import com.metrolist.desktop.ui.components.StandardBottomPlayer
 import com.metrolist.desktop.ui.components.TopBarWithPlayer
 import com.metrolist.desktop.ui.components.VideoMiniViewer
 import com.metrolist.desktop.ui.components.deviceConnectSideSheetWidth
 import com.metrolist.shared.generated.resources.Res
-import com.metrolist.shared.generated.resources.app_name
-import com.metrolist.shared.generated.resources.close
 import com.metrolist.shared.generated.resources.desktop_navigation_together
-import com.metrolist.shared.generated.resources.done
-import com.metrolist.shared.generated.resources.edit_sidebar
+import com.metrolist.shared.generated.resources.downloaded
+import com.metrolist.shared.generated.resources.equalizer
 import com.metrolist.shared.generated.resources.filter_library
 import com.metrolist.shared.generated.resources.home
-import com.metrolist.shared.generated.resources.logo
-import com.metrolist.shared.generated.resources.menu_history
+import com.metrolist.shared.generated.resources.liked_songs
+import com.metrolist.shared.generated.resources.lyrics
+import com.metrolist.shared.generated.resources.mm_desk_nav_yours
+import com.metrolist.shared.generated.resources.mm_desk_recently_played
+import com.metrolist.shared.generated.resources.search
+import com.metrolist.shared.generated.resources.settings
 import com.metrolist.shared.generated.resources.statistics
+import com.metrolist.shared.generated.resources.up_next
 import com.metrolist.shared.settings.NavItem
 import com.metrolist.shared.settings.NavigationId
 import com.metrolist.shared.settings.Settings
 import com.metrolist.shared.settings.defaultOpenTabRoot
 import com.metrolist.shared.settings.desktopDefaultOpenTab
 import com.metrolist.shared.ui.icons.MetrolistIcons
-import com.metrolist.shared.ui.navigation.AdaptiveFormFactor
-import com.metrolist.shared.ui.navigation.AdaptiveLayout
-import com.metrolist.shared.ui.navigation.AdaptiveNavigationItem
-import com.metrolist.shared.ui.navigation.AdaptiveNavigationScaffold
-import com.metrolist.shared.ui.navigation.AdaptiveWidthBreakpoint
 import com.metrolist.shared.ui.navigation.LocalNavigator
 import com.metrolist.shared.ui.navigation.Screen
-import com.metrolist.shared.ui.navigation.currentAdaptiveLayout
-import com.metrolist.shared.ui.navigation.isNavigationBar
 import com.metrolist.shared.ui.navigation.navigationId
 import com.metrolist.shared.ui.navigation.screenForNavigationId
-import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 import java.awt.Cursor
+import kotlin.math.roundToInt
 
 data class LayoutState(
     val searchText: String,
@@ -141,7 +136,6 @@ private var selectedNavId by
     mutableStateOf(
         if (defaultOpenTabRoot(Settings.shared.desktopDefaultOpenTab()) == "LIBRARY") NavigationId.LIBRARY else NavigationId.HOME,
     )
-private var isSidebarExpanded by mutableStateOf(false)
 
 private fun currentSelectedNavIndex(
     visibleItems: List<NavItem>,
@@ -169,16 +163,6 @@ private fun refreshActionFor(route: Screen): (() -> Unit)? =
         }
     }
 
-private fun navIcons(navId: String): Pair<ImageVector, ImageVector> =
-    when (navId) {
-        NavigationId.HOME -> MetrolistIcons.Outlined.Home to MetrolistIcons.Default.Home
-        NavigationId.LIBRARY -> MetrolistIcons.Outlined.LibraryMusic to MetrolistIcons.Default.LibraryMusic
-        NavigationId.HISTORY -> MetrolistIcons.Outlined.MusicHistory to MetrolistIcons.Filled.MusicHistory
-        NavigationId.STATISTICS -> MetrolistIcons.Outlined.SsidChart to MetrolistIcons.Filled.SsidChart
-        NavigationId.LISTEN_TOGETHER -> MetrolistIcons.Outlined.Group to MetrolistIcons.Filled.Groups
-        else -> MetrolistIcons.Default.QuestionMark to MetrolistIcons.Default.QuestionMark
-    }
-
 internal fun reorderSidebarNavItems(
     items: List<NavItem>,
     orderedIds: List<String>,
@@ -190,188 +174,186 @@ internal fun reorderSidebarNavItems(
     }
 }
 
-@Composable
-private fun DesktopNavigationScaffold(
-    layoutState: LayoutState,
-    adaptiveLayout: AdaptiveLayout,
-    colorScheme: ColorScheme,
+/** Selects a top-level destination the same way the old navigation scaffold did. */
+private fun selectNavigationId(
+    id: String,
     onLibraryReselect: () -> Unit,
-    modifier: Modifier = Modifier,
-    content: @Composable (isNavigationRail: Boolean) -> Unit,
 ) {
-    val isNavigationRail = !adaptiveLayout.navigationSuiteType.isNavigationBar
-    val allItems =
-        LibraryState.sidebarNavItems.mapNotNull { item ->
-            if (item.id == NavigationId.LISTEN_TOGETHER && !Settings.shared.listenTogetherEnabled) return@mapNotNull null
-            val icons = navIcons(item.id)
-            val labelResource =
-                when (item.id) {
-                    NavigationId.HOME -> Res.string.home
-                    NavigationId.LIBRARY -> Res.string.filter_library
-                    NavigationId.HISTORY -> Res.string.menu_history
-                    NavigationId.STATISTICS -> Res.string.statistics
-                    NavigationId.LISTEN_TOGETHER -> Res.string.desktop_navigation_together
-                    else -> return@mapNotNull null
-                }
-            AdaptiveNavigationItem(
-                key = item.id,
-                label = stringResource(labelResource),
-                icon = icons.first,
-                selectedIcon = icons.second,
-                visible = item.visible,
-            )
-        }
-
-    AdaptiveNavigationScaffold(
-        layout = adaptiveLayout,
-        items = allItems,
-        selectedKey = selectedNavId,
-        onSelect = { id ->
-            val destination = screenForNavigationId(id) ?: return@AdaptiveNavigationScaffold
-            val reselectLibrary =
-                destination == Screen.Library && DesktopNavigation.navigator.state.topLevelRoute == Screen.Library
-            selectedNavId = id
-            searchText = ""
-            DesktopNavigation.navigate(destination)
-            if (reselectLibrary) onLibraryReselect()
-        },
-        modifier = modifier.fillMaxSize(),
-        navigationSuiteColors =
-            NavigationSuiteDefaults.colors(
-                wideNavigationRailColors =
-                    WideNavigationRailDefaults.colors(
-                        containerColor = colorScheme.surfaceContainer,
-                    ),
-            ),
-        containerColor = colorScheme.background,
-        itemModifier = {
-            if (isNavigationRail) {
-                Modifier.fillMaxWidth().padding(horizontal = 4.dp)
-            } else {
-                Modifier
-            }
-        },
-        isSidebarExpanded = isSidebarExpanded || LibraryState.isEditingSidebar,
-        isSidebarExpandable = true,
-        onToggleSidebar = {
-            if (LibraryState.isEditingSidebar) {
-                LibraryState.isEditingSidebar = false
-            }
-            isSidebarExpanded = !isSidebarExpanded
-        },
-        navigationHeader = { type ->
-            if (type == NavigationSuiteType.WideNavigationRailExpanded) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                ) {
-                    IconButton(
-                        onClick = {
-                            if (LibraryState.isEditingSidebar) {
-                                LibraryState.isEditingSidebar = false
-                            }
-                            isSidebarExpanded = false
-                        },
-                        modifier = Modifier.size(48.dp),
-                        shapes = IconButtonDefaults.shapes(),
-                    ) {
-                        Icon(
-                            imageVector = MetrolistIcons.AutoMirrored.Filled.MenuOpen,
-                            contentDescription = stringResource(Res.string.close),
-                            tint = colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(24.dp),
-                        )
-                    }
-
-                    // MinMusic: logo tile and wordmark at the top of the expanded sidebar.
-                    Row(
-                        modifier = Modifier.weight(1f).padding(horizontal = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        MinMusicSidebarLogo(size = 28.dp)
-                        Text(
-                            text = stringResource(Res.string.app_name),
-                            style = MaterialTheme.typography.titleSmall,
-                            color = colorScheme.onSurface,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.padding(start = 10.dp),
-                        )
-                    }
-
-                    IconButton(
-                        onClick = { LibraryState.isEditingSidebar = !LibraryState.isEditingSidebar },
-                        modifier = Modifier.size(36.dp),
-                        shapes = IconButtonDefaults.shapes(),
-                    ) {
-                        Icon(
-                            imageVector = if (LibraryState.isEditingSidebar) MetrolistIcons.Default.Check else MetrolistIcons.Default.Edit,
-                            contentDescription =
-                                stringResource(
-                                    if (LibraryState.isEditingSidebar) Res.string.done else Res.string.edit_sidebar,
-                                ),
-                            tint = if (LibraryState.isEditingSidebar) colorScheme.primary else colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(18.dp),
-                        )
-                    }
-                }
-            } else {
-                Column(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    // MinMusic: logo tile above the collapsed rail.
-                    MinMusicSidebarLogo(size = 32.dp, modifier = Modifier.padding(top = 4.dp, bottom = 8.dp))
-                    IconButton(
-                        onClick = {
-                            LibraryState.isEditingSidebar = !LibraryState.isEditingSidebar
-                            if (LibraryState.isEditingSidebar) {
-                                isSidebarExpanded = true
-                            }
-                        },
-                        modifier = Modifier.size(36.dp),
-                        shapes = IconButtonDefaults.shapes(),
-                    ) {
-                        Icon(
-                            imageVector = if (LibraryState.isEditingSidebar) MetrolistIcons.Default.Check else MetrolistIcons.Default.Edit,
-                            contentDescription =
-                                stringResource(
-                                    if (LibraryState.isEditingSidebar) Res.string.done else Res.string.edit_sidebar,
-                                ),
-                            tint = if (LibraryState.isEditingSidebar) colorScheme.primary else colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(18.dp),
-                        )
-                    }
-                }
-            }
-        },
-        isEditing = LibraryState.isEditingSidebar,
-        onReorderFinished = { order ->
-            LibraryState.saveSidebarNavItems(reorderSidebarNavItems(LibraryState.sidebarNavItems, order))
-        },
-        onToggleVisibility = { id ->
-            val newList =
-                LibraryState.sidebarNavItems.map {
-                    if (it.id == id) it.copy(visible = !it.visible) else it
-                }
-            LibraryState.saveSidebarNavItems(newList)
-        },
-    ) {
-        content(isNavigationRail)
-    }
+    val destination = screenForNavigationId(id) ?: return
+    val reselectLibrary =
+        destination == Screen.Library && DesktopNavigation.navigator.state.topLevelRoute == Screen.Library
+    selectedNavId = id
+    searchText = ""
+    UiState.showOverlaySidebar = false
+    DesktopNavigation.navigate(destination)
+    if (reselectLibrary) onLibraryReselect()
 }
 
-/** The owner's logo tile (rounded square, never recoloured) for the sidebar header (design-system section 8). */
+/**
+ * The sidebar model (section 3.1): Trang chủ / Tìm kiếm / Thư viện, then "CỦA BẠN" (liked, downloaded, recently
+ * played, statistics and Listen Together when enabled in the sidebar settings, Equalizer), then Cài đặt.
+ */
 @Composable
-private fun MinMusicSidebarLogo(
-    size: Dp,
-    modifier: Modifier = Modifier,
-) {
-    Image(
-        painter = painterResource(Res.drawable.logo),
-        contentDescription = stringResource(Res.string.app_name),
-        modifier = modifier.size(size).clip(RoundedCornerShape(size / 4)),
+private fun rememberDesktopNavModel(
+    route: Screen,
+    onLibraryReselect: () -> Unit,
+): DesktopNavModel {
+    val homeLabel = stringResource(Res.string.home)
+    val searchLabel = stringResource(Res.string.search)
+    val libraryLabel = stringResource(Res.string.filter_library)
+    val likedLabel = stringResource(Res.string.liked_songs)
+    val downloadedLabel = stringResource(Res.string.downloaded)
+    val historyLabel = stringResource(Res.string.mm_desk_recently_played)
+    val statisticsLabel = stringResource(Res.string.statistics)
+    val togetherLabel = stringResource(Res.string.desktop_navigation_together)
+    val equalizerLabel = stringResource(Res.string.equalizer)
+    val settingsLabel = stringResource(Res.string.settings)
+    val yoursLabel = stringResource(Res.string.mm_desk_nav_yours)
+    val downloadedCount by remember {
+        derivedStateOf { LibraryState.downloadStates.count { it.value == DownloadState.DOWNLOADED } }
+    }
+    val sidebarItems = LibraryState.sidebarNavItems
+    val listenTogetherEnabled = Settings.shared.listenTogetherEnabled
+    val autoPlaylistType = (route as? Screen.AutoPlaylist)?.type
+    val routeNavigationId = route.navigationId
+    val equalizerOpen = UiState.showEqualizer
+    val settingsOpen = UiState.showSettings
+
+    fun visible(id: String): Boolean = sidebarItems.firstOrNull { it.id == id }?.visible ?: true
+
+    val primary =
+        listOf(
+            DesktopNavEntry(
+                key = NavigationId.HOME,
+                label = homeLabel,
+                icon = MetrolistIcons.Outlined.Home,
+                selectedIcon = MetrolistIcons.Filled.Home,
+                selected = routeNavigationId == NavigationId.HOME && autoPlaylistType == null,
+                onClick = { selectNavigationId(NavigationId.HOME, onLibraryReselect) },
+            ),
+            DesktopNavEntry(
+                key = "search",
+                label = searchLabel,
+                icon = MetrolistIcons.Outlined.Search,
+                selectedIcon = MetrolistIcons.Filled.Search,
+                selected = route == Screen.Search,
+                onClick = {
+                    UiState.showOverlaySidebar = false
+                    triggerSearchShortcut()
+                },
+                shortcut = "Ctrl K",
+            ),
+            DesktopNavEntry(
+                key = NavigationId.LIBRARY,
+                label = libraryLabel,
+                icon = MetrolistIcons.Outlined.LibraryMusic,
+                selectedIcon = MetrolistIcons.Filled.LibraryMusic,
+                selected = routeNavigationId == NavigationId.LIBRARY,
+                onClick = { selectNavigationId(NavigationId.LIBRARY, onLibraryReselect) },
+            ),
+        )
+    val yours =
+        buildList {
+            add(
+                DesktopNavEntry(
+                    key = "liked",
+                    label = likedLabel,
+                    icon = MetrolistIcons.Outlined.FavoriteBorder,
+                    selectedIcon = MetrolistIcons.Filled.Favorite,
+                    selected = autoPlaylistType == LayoutConstants.PlaylistTypes.LIKED,
+                    onClick = {
+                        UiState.showOverlaySidebar = false
+                        LibraryState.navigateToAutoPlaylist(LayoutConstants.PlaylistTypes.LIKED)
+                    },
+                ),
+            )
+            add(
+                DesktopNavEntry(
+                    key = "downloaded",
+                    label = downloadedLabel,
+                    icon = MetrolistIcons.Outlined.Download,
+                    selectedIcon = MetrolistIcons.Filled.Download,
+                    selected = autoPlaylistType == LayoutConstants.PlaylistTypes.DOWNLOADED,
+                    onClick = {
+                        UiState.showOverlaySidebar = false
+                        LibraryState.navigateToAutoPlaylist(LayoutConstants.PlaylistTypes.DOWNLOADED)
+                    },
+                    badge = downloadedCount.takeIf { it > 0 }?.toString(),
+                ),
+            )
+            if (visible(NavigationId.HISTORY)) {
+                add(
+                    DesktopNavEntry(
+                        key = NavigationId.HISTORY,
+                        label = historyLabel,
+                        icon = MetrolistIcons.Outlined.MusicHistory,
+                        selectedIcon = MetrolistIcons.Filled.MusicHistory,
+                        selected = routeNavigationId == NavigationId.HISTORY,
+                        onClick = { selectNavigationId(NavigationId.HISTORY, onLibraryReselect) },
+                    ),
+                )
+            }
+            if (visible(NavigationId.STATISTICS)) {
+                add(
+                    DesktopNavEntry(
+                        key = NavigationId.STATISTICS,
+                        label = statisticsLabel,
+                        icon = MetrolistIcons.Outlined.SsidChart,
+                        selectedIcon = MetrolistIcons.Filled.SsidChart,
+                        selected = routeNavigationId == NavigationId.STATISTICS,
+                        onClick = { selectNavigationId(NavigationId.STATISTICS, onLibraryReselect) },
+                    ),
+                )
+            }
+            if (listenTogetherEnabled && visible(NavigationId.LISTEN_TOGETHER)) {
+                add(
+                    DesktopNavEntry(
+                        key = NavigationId.LISTEN_TOGETHER,
+                        label = togetherLabel,
+                        icon = MetrolistIcons.Outlined.Group,
+                        selectedIcon = MetrolistIcons.Filled.Groups,
+                        selected = routeNavigationId == NavigationId.LISTEN_TOGETHER,
+                        onClick = { selectNavigationId(NavigationId.LISTEN_TOGETHER, onLibraryReselect) },
+                    ),
+                )
+            }
+            add(
+                DesktopNavEntry(
+                    key = "equalizer",
+                    label = equalizerLabel,
+                    icon = MetrolistIcons.Outlined.Equalizer,
+                    selectedIcon = MetrolistIcons.Outlined.Equalizer,
+                    selected = equalizerOpen,
+                    onClick = {
+                        UiState.showOverlaySidebar = false
+                        UiState.openEqualizer()
+                    },
+                    shortcut = "Ctrl E",
+                ),
+            )
+        }
+    val settings =
+        DesktopNavEntry(
+            key = "settings",
+            label = settingsLabel,
+            icon = MetrolistIcons.Outlined.Settings,
+            selectedIcon = MetrolistIcons.Filled.Settings,
+            selected = settingsOpen,
+            onClick = {
+                UiState.showOverlaySidebar = false
+                UiState.showSettings = true
+            },
+            shortcut = "Ctrl ,",
+        )
+    return DesktopNavModel(
+        primary = primary,
+        yours = yours,
+        yoursLabel = yoursLabel,
+        settings = settings,
+        onOpenUserAlbum = { album ->
+            UiState.showOverlaySidebar = false
+            PlaylistAlbumState.fetchPlaylistData(album.id, album.customThumbnailUrl ?: album.thumbnailUrl)
+        },
     )
 }
 
@@ -403,6 +385,11 @@ fun WindowScope.FocusedLayout(
     )
 }
 
+/**
+ * The MinMusic window (spec sections 1-3): an L-shaped chrome around a quiet stage. The sidebar / rail (surface1)
+ * runs from the top of the window down to the player bar; the title bar and the content share `bg`.
+ * Width drives navigation (rail 64 / rail 80 + overlay sidebar / docked sidebar 256), height drives density.
+ */
 @Composable
 private fun WindowScope.AdaptiveDesktopLayout(
     onMaximized: () -> Unit,
@@ -411,6 +398,7 @@ private fun WindowScope.AdaptiveDesktopLayout(
     playerInTopBar: Boolean,
 ) {
     val colorScheme = MaterialTheme.colorScheme
+    val metrics = LocalDesktopLayoutMetrics.current
     val visibleItems by LayoutUtils.rememberVisibleNavItems()
     val navigator = LocalNavigator.current
     val libraryGridState = rememberLazyGridState()
@@ -419,11 +407,16 @@ private fun WindowScope.AdaptiveDesktopLayout(
     val routeNavigationId = route.navigationId
     val currentNavIndex = currentSelectedNavIndex(visibleItems, routeNavigationId ?: selectedNavId)
     val currentTitle by LayoutUtils.rememberCurrentTitle(route, visibleItems, currentNavIndex)
-    val adaptiveLayout = currentAdaptiveLayout(AdaptiveFormFactor.DESKTOP, Settings.shared.forceBottomNavBar)
 
     LaunchedEffect(route) {
         routeNavigationId?.let { selectedNavId = it }
         if ((routeNavigationId != null) && (route != Screen.Search)) searchText = ""
+        // The overlay sidebar closes on navigating.
+        UiState.showOverlaySidebar = false
+    }
+    // The overlay sidebar only exists in the Medium layout.
+    LaunchedEffect(metrics.widthClass) {
+        if (!metrics.isMedium) UiState.showOverlaySidebar = false
     }
 
     val layoutState =
@@ -444,59 +437,195 @@ private fun WindowScope.AdaptiveDesktopLayout(
             selectedNavIndex = currentNavIndex,
         )
 
-    Column(Modifier.fillMaxSize()) {
-        if (playerInTopBar) {
-            TopBarWithPlayer(
-                colorScheme = colorScheme,
-                searchText = layoutState.searchText,
-                onSearchChange = layoutState.onSearchChange,
-                onSearchFocusChange = layoutState.onSearchFocusChange,
-                onMaximized = onMaximized,
-                toggleWindowFullscreen = toggleWindowFullscreen,
-                showSearchInTopBar = true,
-                onRefresh = refreshActionFor(route),
-            )
-        } else {
-            CustomTitleBar(
-                requestBackgroundFocus = requestBackgroundFocus,
-                title = currentTitle,
-                colorScheme = colorScheme,
-                searchText = layoutState.searchText,
-                onSearchChange = layoutState.onSearchChange,
-                onSearchFocusChange = layoutState.onSearchFocusChange,
-                onMaximize = onMaximized,
-                selectedNavIndex = layoutState.selectedNavIndex,
-                hideSearch = adaptiveLayout.widthBreakpoint < AdaptiveWidthBreakpoint.MEDIUM,
-                onRefresh = refreshActionFor(route),
-            )
-        }
-
-        DesktopNavigationScaffold(
-            layoutState = layoutState,
-            adaptiveLayout = adaptiveLayout,
-            colorScheme = colorScheme,
+    val navModel =
+        rememberDesktopNavModel(
+            route = route,
             onLibraryReselect = { activeLibraryGridState.requestScrollToItem(0) },
-            modifier = Modifier.weight(1f).fillMaxWidth(),
-        ) { _ ->
-            Column(Modifier.fillMaxSize()) {
-                MainLayoutContent(
-                    layoutState = layoutState,
-                    colorScheme = colorScheme,
-                    route = route,
-                    libraryGridState = libraryGridState,
-                    onLibraryScrollStateChange = { activeLibraryGridState = it },
-                )
-
-                AddToPlaylistDialog()
-            }
-        }
-
-        if (!playerInTopBar && PlayerState.currentTrack != null) {
-            DesktopPlayerVisibility(visible = !PlayerState.isExpanded) {
-                StandardBottomPlayer(colorScheme, toggleWindowFullscreen)
-            }
-        }
+        )
+    val sidebarDocked = metrics.isExpanded && Settings.shared.desktopSidebarDocked
+    val density = LocalDensity.current
+    var sidebarWidth by remember {
+        mutableStateOf(
+            Settings.shared.desktopSidebarWidth.dp
+                .coerceIn(DesktopLayoutRules.SidebarMinWidth, DesktopLayoutRules.SidebarMaxWidth),
+        )
     }
+    val hasTrack = PlayerState.currentTrack != null
+    val floatingPlayerBar = Settings.shared.desktopFloatingPlayerBar
+
+    Box(Modifier.fillMaxSize().background(colorScheme.background)) {
+        Column(Modifier.fillMaxSize()) {
+            Row(Modifier.weight(1f).fillMaxWidth()) {
+                if (sidebarDocked) {
+                    DesktopSidebar(
+                        model = navModel,
+                        width = sidebarWidth,
+                        titleBarHeight = metrics.titleBarHeight,
+                        onCollapse = { Settings.shared.desktopSidebarDocked = false },
+                    )
+                    SidebarResizeHandle(
+                        onDrag = { deltaPx ->
+                            val deltaDp = with(density) { deltaPx.toDp() }
+                            sidebarWidth =
+                                (sidebarWidth + deltaDp).coerceIn(DesktopLayoutRules.SidebarMinWidth, DesktopLayoutRules.SidebarMaxWidth)
+                        },
+                        onDragStopped = { Settings.shared.desktopSidebarWidth = sidebarWidth.value.roundToInt() },
+                        onReset = {
+                            sidebarWidth = DesktopLayoutRules.SidebarWidth
+                            Settings.shared.desktopSidebarWidth = DesktopLayoutRules.SidebarWidth.value.roundToInt()
+                        },
+                    )
+                } else {
+                    DesktopNavRail(
+                        model = navModel,
+                        compact = metrics.isCompact,
+                        titleBarHeight = metrics.titleBarHeight,
+                        onOpenSidebar =
+                            when {
+                                metrics.isExpanded -> {
+                                    { Settings.shared.desktopSidebarDocked = true }
+                                }
+
+                                metrics.isMedium -> {
+                                    { UiState.showOverlaySidebar = true }
+                                }
+
+                                else -> {
+                                    null
+                                }
+                            },
+                    )
+                }
+
+                Column(Modifier.weight(1f).fillMaxHeight()) {
+                    if (playerInTopBar) {
+                        TopBarWithPlayer(
+                            colorScheme = colorScheme,
+                            searchText = layoutState.searchText,
+                            onSearchChange = layoutState.onSearchChange,
+                            onSearchFocusChange = layoutState.onSearchFocusChange,
+                            onMaximized = onMaximized,
+                            toggleWindowFullscreen = toggleWindowFullscreen,
+                            showSearchInTopBar = true,
+                            onRefresh = refreshActionFor(route),
+                        )
+                    } else {
+                        CustomTitleBar(
+                            requestBackgroundFocus = requestBackgroundFocus,
+                            title = currentTitle,
+                            colorScheme = colorScheme,
+                            searchText = layoutState.searchText,
+                            onSearchChange = layoutState.onSearchChange,
+                            onSearchFocusChange = layoutState.onSearchFocusChange,
+                            onMaximize = onMaximized,
+                            selectedNavIndex = layoutState.selectedNavIndex,
+                            hideSearch = metrics.isCompact,
+                            onRefresh = refreshActionFor(route),
+                        )
+                    }
+
+                    MainLayoutContent(
+                        layoutState = layoutState,
+                        colorScheme = colorScheme,
+                        route = route,
+                        libraryGridState = libraryGridState,
+                        onLibraryScrollStateChange = { activeLibraryGridState = it },
+                    )
+
+                    if (!playerInTopBar && hasTrack && floatingPlayerBar) {
+                        DesktopPlayerVisibility(visible = !PlayerState.isExpanded) {
+                            StandardBottomPlayer(colorScheme, toggleWindowFullscreen, floating = true)
+                        }
+                    }
+
+                    AddToPlaylistDialog()
+                }
+            }
+
+            if (!playerInTopBar && hasTrack && !floatingPlayerBar) {
+                DesktopPlayerVisibility(visible = !PlayerState.isExpanded) {
+                    StandardBottomPlayer(colorScheme, toggleWindowFullscreen, floating = false)
+                }
+            }
+        }
+
+        OverlaySidebar(
+            visible = UiState.showOverlaySidebar && metrics.isMedium,
+            model = navModel,
+            titleBarHeight = metrics.titleBarHeight,
+        )
+    }
+}
+
+/** Medium layout: the full 256 sidebar over the content with a 32 % scrim; Esc, a click outside or navigating closes it. */
+@Composable
+private fun OverlaySidebar(
+    visible: Boolean,
+    model: DesktopNavModel,
+    titleBarHeight: Dp,
+) {
+    AnimatedVisibility(
+        visible = visible,
+        enter = fadeIn(animationSpec = tween(120)),
+        exit = fadeOut(animationSpec = tween(120)),
+    ) {
+        Box(
+            Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.32f))
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                ) { UiState.showOverlaySidebar = false },
+        )
+    }
+    AnimatedVisibility(
+        visible = visible,
+        enter = slideInHorizontally(animationSpec = tween(200)) { -it } + fadeIn(animationSpec = tween(120)),
+        exit = slideOutHorizontally(animationSpec = tween(160)) { -it } + fadeOut(animationSpec = tween(120)),
+    ) {
+        DesktopSidebar(
+            model = model,
+            width = DesktopLayoutRules.SidebarWidth,
+            titleBarHeight = titleBarHeight,
+            onCollapse = { UiState.showOverlaySidebar = false },
+            modifier =
+                Modifier.clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                ) {},
+        )
+    }
+}
+
+/** Invisible 6 dp drag zone on the sidebar's edge (216-320); double-click resets to 256. */
+@Composable
+private fun SidebarResizeHandle(
+    onDrag: (Float) -> Unit,
+    onDragStopped: () -> Unit,
+    onReset: () -> Unit,
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val resizeCursor = remember { PointerIcon(Cursor.getPredefinedCursor(Cursor.E_RESIZE_CURSOR)) }
+    Box(
+        modifier =
+            Modifier
+                .fillMaxHeight()
+                .width(6.dp)
+                .background(MaterialTheme.colorScheme.surfaceContainerLow)
+                .pointerHoverIcon(resizeCursor)
+                .combinedClickable(
+                    interactionSource = interactionSource,
+                    indication = null,
+                    onDoubleClick = onReset,
+                    onClick = {},
+                ).draggable(
+                    orientation = Orientation.Horizontal,
+                    interactionSource = interactionSource,
+                    state = rememberDraggableState { delta -> onDrag(delta) },
+                    onDragStopped = { onDragStopped() },
+                ),
+    )
 }
 
 @Composable
@@ -532,6 +661,11 @@ private fun PaneResizeHandle(
     }
 }
 
+/**
+ * Content plus the "Tiếp theo / Lời bài hát" supporting pane (section 3.5): one pane with tabs, 336 wide (drag
+ * 280-480). It docks to the right when the content keeps >= 760 beside it, otherwise it overlays from the right
+ * edge without a scrim (Esc or a click outside closes it); in Compact it covers the whole content area.
+ */
 @Composable
 private fun ColumnScope.MainLayoutContent(
     layoutState: LayoutState,
@@ -540,48 +674,32 @@ private fun ColumnScope.MainLayoutContent(
     libraryGridState: LazyGridState,
     onLibraryScrollStateChange: (LazyGridState) -> Unit,
 ) {
-    BoxWithConstraints(modifier = Modifier.weight(1f).fillMaxSize()) {
-        val availableSupportingWidth = (maxWidth - LayoutConstants.MinimumPrimaryPaneWidth).coerceAtLeast(0.dp)
-        val playerDrawersOverlayContent = availableSupportingWidth < 280.dp
-        val overlayWidth = maxWidth
+    val metrics = LocalDesktopLayoutMetrics.current
+    BoxWithConstraints(modifier = Modifier.weight(1f).fillMaxWidth()) {
         val deviceConnectWidth = deviceConnectSideSheetWidth(maxWidth)
         val deviceConnectOverlaysContent = maxWidth - deviceConnectWidth < LayoutConstants.MinimumPrimaryPaneWidth
+        val density = LocalDensity.current
+        var paneWidth by remember { mutableStateOf(DesktopLayoutRules.SupportingPaneWidth) }
+        val maxPaneWidth =
+            (maxWidth - LayoutConstants.MinimumSupportingPaneWidth)
+                .coerceIn(DesktopLayoutRules.SupportingPaneMinWidth, DesktopLayoutRules.SupportingPaneMaxWidth)
+        val effectivePaneWidth = paneWidth.coerceIn(DesktopLayoutRules.SupportingPaneMinWidth, maxPaneWidth)
+        val paneDocked = DesktopLayoutRules.dockSupportingPane(metrics.widthClass, maxWidth, effectivePaneWidth)
+
+        val hasTrack = PlayerState.currentTrack != null
+        val isPaneOpen = hasTrack && (UiState.showPersistentPlayerDrawer || UiState.showLyricsDrawer)
 
         SideEffect {
+            // One pane with tabs: queue and lyrics never show side by side.
             if (!PlayerState.isExpanded) {
-                UiState.playerPanels.canShowBoth = availableSupportingWidth >= 560.dp
+                UiState.playerPanels.canShowBoth = false
             }
             UiState.isDeviceConnectPanelModal = deviceConnectOverlaysContent
+            UiState.supportingPaneOverlays = !paneDocked
         }
 
-        val isQueueOpen = UiState.showPersistentPlayerDrawer && PlayerState.currentTrack != null
-        val isLyricsOpen = UiState.showLyricsDrawer && PlayerState.currentTrack != null
-        val density = LocalDensity.current
-
-        var queuePaneWidth by remember { mutableStateOf(360.dp) }
-        var lyricsPaneWidth by remember { mutableStateOf(360.dp) }
-
-        val maxQueueWidth =
-            if (isQueueOpen && isLyricsOpen) {
-                (availableSupportingWidth - lyricsPaneWidth).coerceAtLeast(280.dp)
-            } else {
-                availableSupportingWidth.coerceAtLeast(280.dp)
-            }
-        val maxLyricsWidth =
-            if (isQueueOpen && isLyricsOpen) {
-                (availableSupportingWidth - queuePaneWidth).coerceAtLeast(280.dp)
-            } else {
-                availableSupportingWidth.coerceAtLeast(280.dp)
-            }
-
         Box(Modifier.fillMaxSize()) {
-            Row(
-                modifier =
-                    Modifier
-                        .fillMaxSize()
-                        .background(colorScheme.surfaceContainer)
-                        .padding(8.dp),
-            ) {
+            Row(modifier = Modifier.fillMaxSize()) {
                 StandardContentSurface(
                     route = route,
                     layoutState = layoutState,
@@ -591,86 +709,31 @@ private fun ColumnScope.MainLayoutContent(
                     modifier = Modifier.weight(1f).fillMaxHeight(),
                 )
 
-                if (!playerDrawersOverlayContent) {
+                if (paneDocked) {
                     AnimatedVisibility(
-                        visible = isQueueOpen,
+                        visible = isPaneOpen,
                         enter =
                             expandHorizontally(
                                 expandFrom = Alignment.End,
-                                animationSpec =
-                                    spring(
-                                        dampingRatio = Spring.DampingRatioNoBouncy,
-                                        stiffness = Spring.StiffnessMediumLow,
-                                    ),
+                                animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow),
                             ) + fadeIn(animationSpec = tween(200)),
                         exit =
                             shrinkHorizontally(
                                 shrinkTowards = Alignment.End,
-                                animationSpec =
-                                    spring(
-                                        dampingRatio = Spring.DampingRatioNoBouncy,
-                                        stiffness = Spring.StiffnessMedium,
-                                    ),
+                                animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMedium),
                             ) + fadeOut(animationSpec = tween(150)),
                     ) {
                         Row(modifier = Modifier.fillMaxHeight()) {
                             PaneResizeHandle(
                                 onDrag = { deltaPx ->
                                     val deltaDp = with(density) { -deltaPx.toDp() }
-                                    queuePaneWidth = (queuePaneWidth + deltaDp).coerceIn(280.dp, maxQueueWidth)
+                                    paneWidth = (paneWidth + deltaDp).coerceIn(DesktopLayoutRules.SupportingPaneMinWidth, maxPaneWidth)
                                 },
-                                onReset = { queuePaneWidth = 360.dp },
+                                onReset = { paneWidth = DesktopLayoutRules.SupportingPaneWidth },
                             )
-                            DesktopQueueContent(
-                                onDismiss = { UiState.showPersistentPlayerDrawer = false },
+                            SupportingPane(
                                 colorScheme = colorScheme,
-                                modifier =
-                                    Modifier
-                                        .width(
-                                            queuePaneWidth.coerceIn(280.dp, maxQueueWidth),
-                                        ).fillMaxHeight(),
-                            )
-                        }
-                    }
-
-                    AnimatedVisibility(
-                        visible = isLyricsOpen,
-                        enter =
-                            expandHorizontally(
-                                expandFrom = Alignment.End,
-                                animationSpec =
-                                    spring(
-                                        dampingRatio = Spring.DampingRatioNoBouncy,
-                                        stiffness = Spring.StiffnessMediumLow,
-                                    ),
-                            ) + fadeIn(animationSpec = tween(200)),
-                        exit =
-                            shrinkHorizontally(
-                                shrinkTowards = Alignment.End,
-                                animationSpec =
-                                    spring(
-                                        dampingRatio = Spring.DampingRatioNoBouncy,
-                                        stiffness = Spring.StiffnessMedium,
-                                    ),
-                            ) + fadeOut(animationSpec = tween(150)),
-                    ) {
-                        Row(modifier = Modifier.fillMaxHeight()) {
-                            PaneResizeHandle(
-                                onDrag = { deltaPx ->
-                                    val deltaDp = with(density) { -deltaPx.toDp() }
-                                    lyricsPaneWidth = (lyricsPaneWidth + deltaDp).coerceIn(280.dp, maxLyricsWidth)
-                                },
-                                onReset = { lyricsPaneWidth = 360.dp },
-                            )
-                            DesktopLyricsContent(
-                                onClose = { UiState.showLyricsDrawer = false },
-                                colorScheme = colorScheme,
-                                modifier =
-                                    Modifier
-                                        .width(
-                                            lyricsPaneWidth.coerceIn(280.dp, maxLyricsWidth),
-                                        ).fillMaxHeight(),
-                                isVisible = !PlayerState.isExpanded && !UiState.videoFullscreenObscuresPlayer,
+                                modifier = Modifier.width(effectivePaneWidth).fillMaxHeight().padding(top = 0.dp, end = 8.dp, bottom = 8.dp),
                             )
                         }
                     }
@@ -681,10 +744,38 @@ private fun ColumnScope.MainLayoutContent(
                 }
             }
 
-            if (playerDrawersOverlayContent) {
-                Row(Modifier.align(Alignment.CenterEnd).fillMaxHeight()) {
-                    PersistentPlayerDrawer(colorScheme = colorScheme, availableWidth = overlayWidth)
-                    LyricsDrawer(colorScheme = colorScheme, availableWidth = overlayWidth)
+            if (!paneDocked) {
+                // Click outside closes the overlaying pane; no scrim.
+                if (isPaneOpen && !metrics.isCompact) {
+                    Box(
+                        Modifier.fillMaxSize().clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                        ) {
+                            UiState.showPersistentPlayerDrawer = false
+                            UiState.showLyricsDrawer = false
+                        },
+                    )
+                }
+                AnimatedVisibility(
+                    visible = isPaneOpen,
+                    modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight(),
+                    enter = slideInHorizontally(animationSpec = tween(220)) { it } + fadeIn(animationSpec = tween(150)),
+                    exit = slideOutHorizontally(animationSpec = tween(180)) { it } + fadeOut(animationSpec = tween(120)),
+                ) {
+                    SupportingPane(
+                        colorScheme = colorScheme,
+                        modifier =
+                            Modifier
+                                .then(if (metrics.isCompact) Modifier.fillMaxWidth() else Modifier.width(effectivePaneWidth))
+                                .fillMaxHeight()
+                                .padding(end = 8.dp, bottom = 8.dp, start = if (metrics.isCompact) 8.dp else 0.dp)
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null,
+                                ) {},
+                        elevated = true,
+                    )
                 }
             }
 
@@ -695,6 +786,88 @@ private fun ColumnScope.MainLayoutContent(
     }
 }
 
+/** The tabbed "Tiếp theo / Lời bài hát" pane: a surface1 card, radius 20, inset 8 from the window edge. */
+@Composable
+private fun SupportingPane(
+    colorScheme: ColorScheme,
+    modifier: Modifier = Modifier,
+    elevated: Boolean = false,
+) {
+    val showingLyrics = UiState.showLyricsDrawer
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(20.dp),
+        color = colorScheme.surfaceContainerLow,
+        shadowElevation = if (elevated) 8.dp else 0.dp,
+    ) {
+        Column(Modifier.fillMaxSize()) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                PaneTab(
+                    label = stringResource(Res.string.up_next),
+                    selected = !showingLyrics,
+                    onClick = { UiState.showPersistentPlayerDrawer = true },
+                )
+                PaneTab(
+                    label = stringResource(Res.string.lyrics),
+                    selected = showingLyrics,
+                    onClick = { UiState.showLyricsDrawer = true },
+                )
+            }
+            Box(Modifier.weight(1f).fillMaxWidth()) {
+                if (showingLyrics) {
+                    DesktopLyricsContent(
+                        onClose = { UiState.showLyricsDrawer = false },
+                        colorScheme = colorScheme,
+                        modifier = Modifier.fillMaxSize(),
+                        isVisible = !PlayerState.isExpanded && !UiState.videoFullscreenObscuresPlayer,
+                    )
+                } else {
+                    DesktopQueueContent(
+                        onDismiss = { UiState.showPersistentPlayerDrawer = false },
+                        colorScheme = colorScheme,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** Segmented tab: 32 high chip, selected = ink fill (not gradient), hover = ink 6 %. */
+@Composable
+private fun PaneTab(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    val colorScheme = MaterialTheme.colorScheme
+    Box(
+        modifier =
+            Modifier
+                .height(32.dp)
+                .clip(RoundedCornerShape(16.dp))
+                .background(if (selected) colorScheme.onSurface else Color.Transparent)
+                .clickable(onClick = onClick)
+                .padding(horizontal = 14.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp, lineHeight = 20.sp),
+            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+            color = if (selected) colorScheme.surface else colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
+}
+
+/** The content stage: flat `bg` shared with the title bar (no inset card). */
 @Composable
 private fun StandardContentSurface(
     route: Screen,
@@ -704,27 +877,21 @@ private fun StandardContentSurface(
     onLibraryScrollStateChange: (LazyGridState) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Surface(
-        modifier = modifier,
-        shape = RoundedCornerShape(16.dp),
-        color = colorScheme.surface,
-    ) {
-        Box(modifier = Modifier.fillMaxSize()) {
-            AppContentHost(
-                route = route,
-                onSearchChange = layoutState.onSearchChange,
-                colorScheme = colorScheme,
-                libraryGridState = libraryGridState,
-                onLibraryScrollStateChange = onLibraryScrollStateChange,
-                modifier = Modifier.fillMaxSize(),
-            )
-            VideoMiniViewer(
-                colorScheme = colorScheme,
-                modifier =
-                    Modifier
-                        .align(Alignment.BottomEnd)
-                        .padding(end = 16.dp, bottom = 16.dp),
-            )
-        }
+    Box(modifier = modifier.background(colorScheme.background)) {
+        AppContentHost(
+            route = route,
+            onSearchChange = layoutState.onSearchChange,
+            colorScheme = colorScheme,
+            libraryGridState = libraryGridState,
+            onLibraryScrollStateChange = onLibraryScrollStateChange,
+            modifier = Modifier.fillMaxSize(),
+        )
+        VideoMiniViewer(
+            colorScheme = colorScheme,
+            modifier =
+                Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(end = 16.dp, bottom = 16.dp),
+        )
     }
 }
