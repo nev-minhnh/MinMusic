@@ -10,7 +10,7 @@ import java.util.jar.JarFile
  * classes directory in unit tests), instantiates the Kotlin object and merges the handler and topic maps.
  */
 object ApiRegistry {
-    private val MODULE_ENTRY = Regex("^com/metrolist/core/api/[A-Za-z0-9_]+/[A-Za-z0-9_]+Module\.class$")
+    private val MODULE_ENTRY = Regex("^com/metrolist/core/api/[A-Za-z0-9_]+/[A-Za-z0-9_]+Module\\.class$")
 
     fun load(): Pair<Map<String, Handler>, Map<String, Topic>> {
         val location = File(ApiRegistry::class.java.protectionDomain.codeSource.location.toURI())
