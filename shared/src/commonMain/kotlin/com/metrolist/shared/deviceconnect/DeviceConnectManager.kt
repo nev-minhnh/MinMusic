@@ -190,7 +190,7 @@ class DeviceConnectManager
         private var accountIdentity: AccountIdentitySnapshot? = null
 
         init {
-            val identity = identityProvider()
+            val identity = pairingIdentity()
             accountIdentity = identity
             _state.value =
                 _state.value.copy(
@@ -230,7 +230,7 @@ class DeviceConnectManager
                     previousMembers = members
                     if (added.isNotEmpty()) {
                         try {
-                            val identity = accountIdentity ?: identityProvider()
+                            val identity = accountIdentity ?: pairingIdentity()
                             pairStoreMutex.withLock { pairStore.recordUsage(added, identity) }
                             refreshPairedDevices()
                         } catch (error: Exception) {
@@ -477,7 +477,7 @@ class DeviceConnectManager
                 if (settings.deviceConnectDefaultDeviceId == deviceId) {
                     remote.cancelPendingDefaultPlayback()
                 }
-                val identity = stateMutex.withLock { accountIdentity ?: identityProvider() }
+                val identity = stateMutex.withLock { accountIdentity ?: pairingIdentity() }
 
                 suspend fun closeMatchingSessions() {
                     val sessions = stateMutex.withLock { connections.values.filter { it.device.id == deviceId } }
@@ -1069,7 +1069,7 @@ class DeviceConnectManager
                 scope.launch {
                     stateMutex.withLock { discoveryRetry.reset(nowMs()) }
                     while (isActive && _state.value.serverRunning) {
-                        val identity = accountIdentity ?: identityProvider()
+                        val identity = accountIdentity ?: pairingIdentity()
                         val failed = discoveryFailed.value
                         val hasPeers =
                             stateMutex.withLock {
@@ -1081,7 +1081,7 @@ class DeviceConnectManager
                             combine(
                                 _state,
                                 PlaybackNetworkStateStore.state,
-                                snapshotFlow { identityProvider() to settings.deviceConnectPairedDevices },
+                                snapshotFlow { pairingIdentity() to settings.deviceConnectPairedDevices },
                                 discoveryFailed,
                             ) { state, currentNetwork, account, currentFailure ->
                                 !state.serverRunning || currentFailure != failed || currentNetwork != network ||
@@ -1656,18 +1656,21 @@ class DeviceConnectManager
                         return
                     }
                 val transcript = transcriptHash ?: return
-                if (!identity.resolved || !payload.resolved) {
+                val codePairing = local.supportsCodePairing && payload.supportsCodePairing
+                if (!codePairing && (!identity.resolved || !payload.resolved)) {
                     logWarn("$logTag account identity is unresolved; pairing was rejected.")
                     notifyPeerState(peer.deviceId, device.name, PeerState.ACCOUNT_UNRESOLVED)
                     rejectAndClose(REJECT_ACCOUNT_UNRESOLVED)
                     return
                 }
-                val sameMode = payload.anonymous == identity.anonymous
                 val sameFingerprint = payload.fingerprint == identity.fingerprint
-                val codePairing = local.supportsCodePairing && payload.supportsCodePairing
+                // Code-capable peers authorize pairs by mutual code approval, so a device without a resolved
+                // account pairs with any other; two signed-in devices must still share one account.
+                val bothSignedIn = !identity.anonymous && identity.resolved && !payload.anonymous && payload.resolved
+                val sameMode = codePairing || payload.anonymous == identity.anonymous
                 val proofValid =
                     if (codePairing) {
-                        identity.resolved && payload.resolved
+                        !bothSignedIn || sameFingerprint
                     } else if (identity.anonymous) {
                         payload.accountProof.isEmpty() && payload.fingerprint.isEmpty() && payload.resolved
                     } else {
@@ -1682,7 +1685,7 @@ class DeviceConnectManager
                                 transcriptHash = transcript,
                             )
                     }
-                if (!sameMode || !sameFingerprint || !proofValid) {
+                if (!sameMode || (!codePairing && !sameFingerprint) || !proofValid) {
                     logWarn("$logTag account mismatch; pairing was rejected.")
                     notifyPeerState(peer.deviceId, device.name, PeerState.ACCOUNT_MISMATCH)
                     rejectAndClose(REJECT_ACCOUNT_MISMATCH)
@@ -2076,7 +2079,7 @@ class DeviceConnectManager
             }
 
             private fun ensureSessionIdentityCurrent(): Boolean {
-                if (isCurrentDeviceConnectIdentity(identity, identityProvider())) return true
+                if (isCurrentDeviceConnectIdentity(identity, pairingIdentity())) return true
                 logWarn("$logTag account identity changed during pairing; session was suspended.")
                 close()
                 scope.launch { refreshAccountIdentity() }
@@ -2329,7 +2332,7 @@ class DeviceConnectManager
                 if (closing) return
                 val notifyPeer =
                     sendBye && device.state == PeerState.CONNECTED &&
-                        isCurrentDeviceConnectIdentity(identity, identityProvider())
+                        isCurrentDeviceConnectIdentity(identity, pairingIdentity())
                 closing = true
                 playbackOutbox.close()
                 if (!notifyPeer) collectJob?.cancel()
@@ -2553,7 +2556,7 @@ class DeviceConnectManager
             }
 
         private suspend fun refreshPairedDevices() {
-            val identity = accountIdentity ?: identityProvider()
+            val identity = accountIdentity ?: pairingIdentity()
             val pairedDevices = pairedDevicesFor(identity)
             stateMutex.withLock {
                 _state.value = _state.value.copy(pairedDevices = pairedDevices)
@@ -2606,8 +2609,10 @@ class DeviceConnectManager
             }
         }
 
+        private fun pairingIdentity(): AccountIdentitySnapshot = identityProvider().forDeviceConnectPairing()
+
         private suspend fun refreshAccountIdentity(): AccountIdentitySnapshot {
-            val current = identityProvider()
+            val current = pairingIdentity()
             val pairedDevices = pairedDevicesFor(current)
             var changed = false
             val sessions =

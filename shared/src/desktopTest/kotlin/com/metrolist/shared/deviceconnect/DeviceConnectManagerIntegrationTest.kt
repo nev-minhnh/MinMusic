@@ -1223,80 +1223,47 @@ class DeviceConnectManagerIntegrationTest {
         }
 
     @Test
-    fun unresolvedAccountsRemainVisibleAndCanPairAfterIdentityRecovery() =
-        runTest {
-            val dispatcher = StandardTestDispatcher(testScheduler)
-            val resolved = signedIdentity("same-account")
+    fun devicesWithoutASharedSignedInAccountPairOnlyByMutualCodeApproval() =
+        runBlocking {
             val unresolved = AccountIdentitySnapshot("unresolved", "", anonymous = false, resolved = false)
-            for ((initialLeft, initialRight) in listOf(unresolved to resolved, resolved to unresolved, unresolved to unresolved)) {
-                var leftIdentity = initialLeft
-                var rightIdentity = initialRight
+            val cases =
+                listOf(
+                    unresolved to signedIdentity("right-account"),
+                    signedIdentity("left-account") to unresolved,
+                    unresolved to AccountIdentitySnapshot("unresolved-b", "", anonymous = false, resolved = false),
+                    signedIdentity("left-account") to anonymousIdentity(),
+                    anonymousIdentity() to anonymousIdentity(),
+                )
+            for ((leftIdentity, rightIdentity) in cases) {
                 val leftSettings = Settings(MapSettings())
                 val rightSettings = Settings(MapSettings())
-                val left = manager(leftSettings, { leftIdentity }, LEFT_INFO, dispatcher = dispatcher)
-                val right = manager(rightSettings, { rightIdentity }, RIGHT_INFO, dispatcher = dispatcher)
+                val left = manager(leftSettings, { leftIdentity }, LEFT_INFO)
+                val right = manager(rightSettings, { rightIdentity }, RIGHT_INFO)
                 try {
-                    val link = MemoryLink(leftRemoteHost = "192.168.1.10", rightRemoteHost = "192.168.1.11")
-                    val discoveryReady = CompletableDeferred<Unit>()
-                    val rightChannel =
-                        object : DeviceChannel by link.right {
-                            override suspend fun send(text: String) {
-                                discoveryReady.await()
-                                link.right.send(text)
-                            }
-                        }
-                    left.attachChannelForTest(link.left, isIncoming = false, expectedPeerId = RIGHT_ID)
-                    right.attachChannelForTest(rightChannel, isIncoming = true)
-                    val rightDevice = DiscoveredDevice("right-service", RIGHT_ID, "Right", "192.168.1.10", 40_000)
-                    left.reportDiscoveredDeviceForTest(rightDevice)
-                    right.reportDiscoveredDeviceForTest(DiscoveredDevice("left-service", LEFT_ID, "Left", "192.168.1.11", 40_001))
-                    discoveryReady.complete(Unit)
-                    link.awaitClosed()
-                    left.awaitSessionClosed(RIGHT_ID)
-                    right.awaitSessionClosed(LEFT_ID)
-                    assertEquals(
-                        DeviceConnectManager.PeerState.ACCOUNT_UNRESOLVED,
-                        right.state.value.peers
-                            .single { it.id == LEFT_ID }
-                            .state,
-                        right.state.value.log
-                            .toString(),
-                    )
-                    left.reportDiscoveredDeviceForTest(rightDevice)
-                    assertEquals(
-                        DeviceConnectManager.PeerState.ACCOUNT_UNRESOLVED,
-                        left.state.value.peers
-                            .single { it.id == RIGHT_ID }
-                            .state,
-                    )
-                    assertTrue(
-                        left.state.value.pairingRequests
-                            .isEmpty(),
-                    )
-                    assertTrue(
-                        right.state.value.pairingRequests
-                            .isEmpty(),
-                    )
-                    assertTrue(DevicePairStore(leftSettings).pairsFor(resolved).isEmpty())
-                    assertTrue(DevicePairStore(rightSettings).pairsFor(resolved).isEmpty())
+                    val link = connect(left, right)
+                    val leftRequest = left.awaitPairingRequest(RIGHT_ID, requiresApproval = true)
+                    val rightRequest = right.awaitPairingRequest(LEFT_ID, requiresApproval = true)
+                    assertTrue(leftRequest.sas.matches(SAS_PATTERN))
+                    assertEquals(leftRequest.sas, rightRequest.sas)
+                    assertFalse(left.isConnectedTo(RIGHT_ID))
+                    assertTrue(link.sentFrames.none { it.type == DcMessageTypes.DEVICE_INFO || it.type == DcMessageTypes.PLAYBACK })
+                    assertTrue(DevicePairStore(leftSettings).pairsFor(leftIdentity.forDeviceConnectPairing()).isEmpty())
 
-                    leftIdentity = resolved
-                    rightIdentity = resolved
-                    left.refreshPairingState()
-                    right.refreshPairingState()
-                    pairAndAwaitPlaybackLink(left, right)
+                    left.approvePairing(leftRequest.requestId)
+                    assertFalse(left.isConnectedTo(RIGHT_ID))
+                    right.approvePairing(rightRequest.requestId)
+                    left.awaitConnectedAndPaired(RIGHT_ID)
+                    right.awaitConnectedAndPaired(LEFT_ID)
+                    assertTrue(DevicePairStore(leftSettings).pairsFor(leftIdentity.forDeviceConnectPairing()).isNotEmpty())
+                    assertTrue(DevicePairStore(rightSettings).pairsFor(rightIdentity.forDeviceConnectPairing()).isNotEmpty())
                 } finally {
-                    try {
-                        left.release()
-                    } finally {
-                        right.release()
-                    }
+                    release(left, right)
                 }
             }
         }
 
     @Test
-    fun newPairingRejectsDifferentAndMixedAccountStates() =
+    fun newPairingRejectsDifferentSignedInAccounts() =
         runBlocking {
             val cases =
                 listOf(
@@ -1313,11 +1280,6 @@ class DeviceConnectManagerIntegrationTest {
                             anonymous = false,
                             resolved = true,
                         ),
-                    signedIdentity("left-account") to anonymousIdentity(),
-                    AccountIdentitySnapshot("unresolved", "", anonymous = false, resolved = false) to
-                        signedIdentity("right-account"),
-                    AccountIdentitySnapshot("unresolved-a", "", anonymous = false, resolved = false) to
-                        AccountIdentitySnapshot("unresolved-b", "", anonymous = false, resolved = false),
                 )
             for ((leftIdentity, rightIdentity) in cases) {
                 val leftSettings = Settings(MapSettings())
@@ -1326,13 +1288,9 @@ class DeviceConnectManagerIntegrationTest {
                 val right = manager(rightSettings, { rightIdentity }, RIGHT_INFO)
                 try {
                     connect(left, right).awaitClosed()
-                    val expected =
-                        if (!leftIdentity.resolved || !rightIdentity.resolved) {
-                            DeviceConnectManager.PeerState.ACCOUNT_UNRESOLVED
-                        } else {
-                            DeviceConnectManager.PeerState.ACCOUNT_MISMATCH
-                        }
-                    left.awaitState { state -> state.peers.any { it.id == RIGHT_ID && it.state == expected } }
+                    left.awaitState { state ->
+                        state.peers.any { it.id == RIGHT_ID && it.state == DeviceConnectManager.PeerState.ACCOUNT_MISMATCH }
+                    }
                     assertTrue(DevicePairStore(leftSettings).pairsFor(leftIdentity).isEmpty())
                     assertTrue(DevicePairStore(rightSettings).pairsFor(rightIdentity).isEmpty())
                     assertTrue(
