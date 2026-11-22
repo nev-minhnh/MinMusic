@@ -63,7 +63,8 @@ actual fun AsyncImage(
 
     val saturationFilter =
         remember(saturation) {
-            ColorFilter.colorMatrix(ColorMatrix().apply { setToSaturation(saturation) })
+            // Full saturation is the identity matrix: skip the per-draw colour filter.
+            if (saturation == 1f) null else ColorFilter.colorMatrix(ColorMatrix().apply { setToSaturation(saturation) })
         }
 
     // MinMusic (Windows too): soft edge (zoom + fade) on artwork; fallback/error painters keep the plain clip.

@@ -94,7 +94,32 @@ group = "com.metrolist"
 val appVersion = providers.gradleProperty("appVersion").get()
 version = appVersion
 
-val desktopMemoryJvmArgs =
+// MinMusic (Windows): the low-memory profile below runs the JIT in C1-only mode on a 384 MB heap, which made
+// scrolling and navigation janky (about three 5-14 ms G1 pauses per second while scrolling, C1-only code for
+// composition and layout). Windows builds trade some RAM for smoothness: full tiered JIT and a larger heap that is
+// allowed to stay grown between bursts. Other platforms keep the upstream profile.
+val desktopWindowsJvmArgs =
+    listOf(
+        "-XX:MaxDirectMemorySize=256m",
+        "-Xms128m",
+        "-Xmx1g",
+        "-XX:+UseG1GC",
+        "-XX:MinHeapFreeRatio=40",
+        "-XX:MaxHeapFreeRatio=70",
+        "-XX:+ExplicitGCInvokesConcurrent",
+        "-XX:ParallelGCThreads=4",
+        "-XX:ConcGCThreads=2",
+        // Caps the one-off C2 warm-up burst (8 compiler threads by default on 16 hardware threads).
+        "-XX:CICompilerCount=4",
+        "-XX:ReservedCodeCacheSize=128m",
+        "-XX:+UseCompactObjectHeaders",
+        "-Djdk.nio.maxCachedBufferSize=262144",
+        "-Dskiko.gpu.resourceCacheLimit=128m",
+        "-Dorg.bytedeco.javacpp.maxPhysicalBytes=0",
+        "-Dorg.bytedeco.javacpp.maxBytes=0",
+    )
+
+val desktopLowMemoryJvmArgs =
     listOf(
         "-XX:MaxDirectMemorySize=128m",
         "-Xms32m",
@@ -115,6 +140,8 @@ val desktopMemoryJvmArgs =
         "-Dorg.bytedeco.javacpp.maxPhysicalBytes=0",
         "-Dorg.bytedeco.javacpp.maxBytes=0",
     )
+
+val desktopMemoryJvmArgs = if (platform == "win") desktopWindowsJvmArgs else desktopLowMemoryJvmArgs
 
 interface ArchiveOps {
     @get:Inject
@@ -860,7 +887,13 @@ afterEvaluate {
         if (name == "packageReleaseAppImage") {
             runtimeImage.set(tasks.named<AbstractJLinkTask>("createReleaseRuntimeImage").flatMap { it.destinationDir })
         }
-        if (name.startsWith("createReleaseDistributable") || name.startsWith("packageRelease")) {
+        if (platform == "win" && (name.startsWith("createReleaseDistributable") || name.startsWith("packageRelease"))) {
+            // MinMusic (Windows): no dynamic AppCDS. While -XX:+AutoCreateSharedArchive has no valid archive the JVM
+            // records every class for the exit-time dump, and class definition became so slow that the first frame
+            // took ~45 s instead of ~3 s. The archive is only written on a clean exit (tray quit), is keyed by build,
+            // and was therefore missing on most launches. The jlinked runtime keeps its base CDS archive.
+            launcherJvmArgs.add("-Xshare:auto")
+        } else if (name.startsWith("createReleaseDistributable") || name.startsWith("packageRelease")) {
             launcherJvmArgs.addAll(
                 "-Dmetrolist.cds.cache=$cdsCache",
                 "-Xshare:auto",

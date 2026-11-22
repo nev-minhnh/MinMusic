@@ -194,7 +194,7 @@ make flatpak-bundle
 
 ## Runtime and CDS
 
-`desktopApp/build.gradle.kts` defines launcher options. Packaging generates a Java 25 base CDS archive with the target jlinked VM, without running the app. [AutoCreateSharedArchive](https://docs.oracle.com/en/java/javase/25/docs/specs/man/java.html#creating-dynamic-cds-archive-file-with--xxautocreatesharedarchive) saves an optional `appcds-<bundle-id>.jsa` dynamic archive on normal exit and reuses it on later launches.
+`desktopApp/build.gradle.kts` defines launcher options. Packaging generates a Java 25 base CDS archive with the target jlinked VM, without running the app. [AutoCreateSharedArchive](https://docs.oracle.com/en/java/javase/25/docs/specs/man/java.html#creating-dynamic-cds-archive-file-with--xxautocreatesharedarchive) saves an optional `appcds-<bundle-id>.jsa` dynamic archive on normal exit and reuses it on later launches. MinMusic for Windows does not use the dynamic archive (launches without a valid archive took ~45 s to the first frame) and runs with tiered C2 and a 1 GB heap instead of the low-memory C1-only profile; see `desktopWindowsJvmArgs`.
 
 JVM packages include `jdk.accessibility` so Windows can load Java Access Bridge when assistive technology is enabled. Native-image builds use the full GraalVM JDK and the existing AWT AccessBridge metadata rather than a jlink module list.
 

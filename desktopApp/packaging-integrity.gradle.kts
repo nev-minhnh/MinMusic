@@ -239,12 +239,19 @@ private class VerifyReleaseDistributableAction(
             "Release distributable must contain a base CDS archive"
         }
         val launcherConfig = root.walkTopDown().single { it.name == "MinMusic.cfg" }.readText()
-        listOf(
-            "-Xshare:auto",
-            "-XX:+VerifySharedSpaces",
-            "-XX:+AutoCreateSharedArchive",
-            "-XX:SharedArchiveFile=",
-            "-Dmetrolist.cds.cache=",
+        // MinMusic: Windows launchers use only the base CDS archive (see the launcherJvmArgs note in build.gradle.kts).
+        (
+            if (platform == "win") {
+                listOf("-Xshare:auto")
+            } else {
+                listOf(
+                    "-Xshare:auto",
+                    "-XX:+VerifySharedSpaces",
+                    "-XX:+AutoCreateSharedArchive",
+                    "-XX:SharedArchiveFile=",
+                    "-Dmetrolist.cds.cache=",
+                )
+            }
         ).forEach { option ->
             check(launcherConfig.contains("java-options=$option")) { "Release launcher is missing $option" }
         }

@@ -1301,6 +1301,8 @@ object PlayerState {
             }
         }
         scope.launch(Dispatchers.IO) {
+            // PlayerState can start before the backend has called startKoin; the database lives in Koin.
+            while (GlobalContext.getOrNull() == null) delay(500L)
             runCatching { HistoryRepository.clearQueuedScrobbles() }
                 .onFailure { AppLogger.warning("PlayerState", "Failed to clear legacy queued scrobbles", it) }
         }
