@@ -138,6 +138,8 @@ data class SharedSettingsHost(
     val customPageIcons: Map<SettingsPageId, @Composable (Color) -> Unit> = emptyMap(),
     val pageContent: @Composable (SettingsPageId, onBack: () -> Unit, onNavigate: (SettingsPageId) -> Unit) -> Unit = { _, _, _ -> },
     val rememberMetroEqProfilePicker: (@Composable (onPicked: (fileName: String, content: String) -> Unit) -> () -> Unit)? = null,
+    // MinMusic: Device Connect ("Connect devices") as a top-level settings page; hidden when null.
+    val deviceConnect: DeviceConnectSettingsHost? = null,
 )
 
 enum class SettingsControl {

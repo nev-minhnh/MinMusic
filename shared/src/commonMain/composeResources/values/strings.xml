@@ -5796,4 +5796,31 @@
     <string name="mm_charts_song_count">%1$d songs</string>
     <!-- Shown with lyrics that have no timing, so they cannot follow playback. -->
     <string name="mm_lyrics_unsynced_hint">Lyrics not synced</string>
+    <string name="device_connect_settings_group">Devices</string>
+    <string name="device_connect_explainer">Use your phone as a remote for MinMusic on your PC, or the other way round. Both devices must be on the same Wi-Fi or LAN, or on the same VPN such as Tailscale, OpenVPN or WireGuard. Connections are encrypted, and each new device needs a matching code approved on both devices. No Google sign-in is needed.</string>
+    <string name="device_connect_listening_title">Waiting for connections</string>
+    <string name="device_connect_listening">Listening on port %1$d · %2$d address(es) below</string>
+    <string name="device_connect_port_busy">Port %1$d is in use by another app, so this session listens on port %2$d. Share the address below or choose another port.</string>
+    <string name="device_connect_addresses_title">This device's addresses</string>
+    <string name="device_connect_addresses_empty">No LAN or VPN address found. Connect to Wi-Fi, a LAN or a VPN such as Tailscale.</string>
+    <string name="device_connect_address_lan">Wi-Fi, LAN or VPN (OpenVPN, WireGuard)</string>
+    <string name="device_connect_address_tailscale">Tailscale or another 100.x VPN</string>
+    <string name="device_connect_address_ipv6">IPv6, LAN or VPN</string>
+    <string name="device_connect_copy_address">Copy %1$s</string>
+    <string name="device_connect_qr_description">QR code to connect to this device</string>
+    <string name="device_connect_qr_hint">On your phone, scan this code with the camera and open it in MinMusic, or enter one of the addresses above under Connect by IP address. Use a Tailscale address when the phone is away from home.</string>
+    <string name="device_connect_port_title">Listening port</string>
+    <string name="device_connect_port_description">A fixed port lets devices on a VPN connect with an address that does not change. Default %1$d; 0 picks a free port each time.</string>
+    <string name="device_connect_direct_address_or_host">Address, IP or hostname</string>
+    <string name="device_connect_direct_hint_vpn">Enter an address shown on the other device under This device's addresses, e.g. 192.168.1.20:47821, a Tailscale IP such as 100.101.102.103:47821, or a Tailscale MagicDNS name such as my-pc. Without a port, %1$d is used. Only LAN and VPN addresses are allowed. Compare the pairing code on both devices.</string>
+    <string name="device_connect_manual_saved">Saved to reconnect automatically after pairing</string>
+    <string name="device_connect_link_offer_group">Connection link</string>
+    <string name="device_connect_link_offer_title">Connect to %1$s?</string>
+    <string name="device_connect_pair_hint_settings">To pair a new device, open Settings › Devices.</string>
+    <string name="device_connect_controlling_overline">Controlling</string>
+    <string name="device_connect_controlling">Controlling: %1$s</string>
+    <string name="device_connect_controlling_hint">The controls here play on that device</string>
+    <string name="device_connect_play_here">Play on this device</string>
+    <string name="device_connect_disconnect">Disconnect</string>
+    <string name="device_connect_source_disabled">%1$s is turned off on this device, so this song was skipped. Turn it on in Settings › Sources.</string>
 </resources>
