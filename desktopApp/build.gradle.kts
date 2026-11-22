@@ -109,6 +109,8 @@ val desktopWindowsJvmArgs =
         "-XX:+ExplicitGCInvokesConcurrent",
         "-XX:ParallelGCThreads=4",
         "-XX:ConcGCThreads=2",
+        // Caps the one-off C2 warm-up burst (8 compiler threads by default on 16 hardware threads).
+        "-XX:CICompilerCount=4",
         "-XX:ReservedCodeCacheSize=128m",
         "-XX:+UseCompactObjectHeaders",
         "-Djdk.nio.maxCachedBufferSize=262144",
