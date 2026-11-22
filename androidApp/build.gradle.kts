@@ -230,7 +230,7 @@ android {
         applicationId = "com.nevminhnh.minmusic"
         minSdk = 24
         targetSdk = 37
-        versionCode = 5
+        versionCode = 6
         versionName = appVersion
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"

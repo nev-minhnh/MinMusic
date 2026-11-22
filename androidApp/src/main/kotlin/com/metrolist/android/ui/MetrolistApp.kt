@@ -956,9 +956,9 @@ fun MetrolistApp(
                     if (!shouldRenderMiniPlayer) {
                         navigationBarBottomPadding
                     } else if (useTabletNavigation) {
-                        // Tablets: flush with the bottom edge under gesture navigation (content may sit under the
-                        // gesture handle); stay above a real 3-button navigation bar.
-                        if (navigationBarBottomPadding >= 40.dp) navigationBarBottomPadding else 0.dp
+                        // Tablets: the bar sits just above the system navigation (gesture handle or 3-button bar),
+                        // so the handle never covers the bar's controls (owner, 1.0.5).
+                        navigationBarBottomPadding
                     } else {
                         safeBottomPadding
                     },
@@ -1544,10 +1544,10 @@ fun MetrolistApp(
                                 tabletNavigation = useTabletNavigation,
                                 tabletSidebar = tabletSidebar,
                                 // The rail/sidebar ends above the docked player bar (L-shaped frame).
-                                // Use the bar's real collapsed top (height + its bottom offset) plus a small gap, so the
-                                // rail's menu button always sits above the bar and drops back when the bar is closed.
+                                // Use the bar's real collapsed top (height + its bottom offset) with no gap, so the rail
+                                // meets the bar exactly and drops back to the bottom when the bar is closed.
                                 tabletNavigationBottomInset =
-                                    if (dockedPlayerBar && shouldRenderMiniPlayer) miniPlayerCollapsedBound + 8.dp else 0.dp,
+                                    if (dockedPlayerBar && shouldRenderMiniPlayer) miniPlayerCollapsedBound else 0.dp,
                                 onToggleTabletSidebar =
                                     if (tabletSidebarAvailable) {
                                         { Settings.shared.tabletSidebarExpanded = !tabletSidebarPreferred }
