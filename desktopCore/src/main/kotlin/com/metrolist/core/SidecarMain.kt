@@ -36,6 +36,7 @@ fun main(args: Array<String>) {
     System.getProperties().putIfAbsent("java.net.useSystemProxies", "true")
     System.setProperty("org.bytedeco.javacpp.maxPhysicalBytes", "0")
     System.setProperty("org.bytedeco.javacpp.maxBytes", "0")
+    com.metrolist.core.bridge.HeadlessResources.install()
 
     // READY goes to the real stdout; AppLogger later replaces System.out with a tee.
     val stdout = PrintStream(FileOutputStream(FileDescriptor.out), true, "UTF-8")
