@@ -4,7 +4,7 @@
 
 Device Connect uses authenticated encrypted JSON under `shared/src/commonMain/kotlin/com/metrolist/shared/deviceconnect/`. It does not use Listen Together protobufs. The audible target owns playback; controllers send commands and display state.
 
-Android and desktop expose it in Integrations and the player device picker. It defaults off. Disabling stops discovery, listeners, sessions and retries without deleting paired devices. iOS does not expose it because its cryptography is unimplemented.
+Android and desktop expose it as a top-level Settings page (Devices), in Integrations and in the player device picker (the MinMusic player's output chip on Android, the device button on the desktop player bar). It defaults off. Disabling stops discovery, listeners, sessions and retries without deleting paired devices. iOS does not expose it because its cryptography is unimplemented.
 
 Connection and pairing changes update the open settings page. Activate a paired device's row to forget it, including with a TV remote. Choose the playback target in the player device picker; pairing alone does not move audio.
 
@@ -16,13 +16,15 @@ Desktop opens at most one IPv4 and one IPv6 mDNS instance per LAN interface, pre
 
 ## Direct connections
 
-Connect by IP address accepts the listener's current ephemeral port with `IPv4:port` or `[IPv6]:port`. It supports private IPv4, shared IPv4 space `100.64.0.0/10` and local IPv6. Public addresses and hostnames are blocked. Multicast discovery is unnecessary, but the firewall/VPN must permit peer traffic. Re-enter the endpoint after losing a manual connection.
+The listener binds every interface on a fixed port, `47821` by default (Settings `deviceConnectPort`; `0` picks a free port). A busy port falls back to a free one and the page says so. The page lists every dialable local address with the port (LAN, Tailscale `100.64.0.0/10`, OpenVPN/WireGuard private ranges, unique-local IPv6) with copy buttons; desktop also shows a QR code of `metrolist://device-connect?a=<IPv4:port,...>&n=<name>`. mDNS still skips virtual and tunnel adapters.
+
+Connect by IP address accepts `IPv4:port`, `[IPv6]:port`, a bare address (default port) or a hostname such as a Tailscale MagicDNS name. Hostnames are resolved and only resolved private IPv4, `100.64.0.0/10` or local IPv6 addresses are dialled; public addresses stay blocked. A pasted or scanned link only offers the connection; the user accepts it, then approves the pairing code. Typed endpoints are remembered (`deviceConnectManualEndpoints`) and retried with backoff from 30 seconds to 10 minutes while a paired device is disconnected; unpaired peers reached this way are closed without a pairing request. Multicast discovery is unnecessary, but the firewall/VPN must permit peer traffic. On Windows the first listen triggers the Defender Firewall prompt for MinMusic.exe; the page reads the inbound rules for that executable and links to Allowed apps.
 
 The same identity handshake, pairing proofs and encryption apply. A default playback device is used only when its authenticated connection is available and there is no active session. Unavailable defaults and local-file queues play locally. Cast and room ownership take precedence. Discovery alone never moves playback.
 
 ## Trust and playback ownership
 
-Pairing is mutual and non-transitive. Each new pair needs approval, even within one account. Code-capable peers compare and approve the same code on both devices within a monotonic five-minute deadline. The account fingerprint is a discovery filter, not authorization.
+Pairing is mutual and non-transitive. Each new pair needs approval, even within one account. Code-capable peers compare and approve the same code on both devices within a monotonic five-minute deadline. No Google sign-in is needed: when either device is signed out or has no resolved channel, the code approval alone authorizes the pair. Two signed-in, resolved devices must still share the account fingerprint. The account fingerprint is a discovery filter, not authorization.
 
 Before transferring to a new target, release existing controllers. They retain paused queues and must connect directly to that target. Release messages apply only to their matching session.
 
@@ -36,7 +38,7 @@ Peers need playback version 4. Version 3 cannot join playback sessions. Authenti
 
 Send `PITCH` only to a capable target. Snapshots and scalar updates may carry pitch from 0.5 to 2; absence preserves the receiver's pitch. Speed changes preserve pitch, and pitch does not affect the clock. Older peers ignore optional JSON fields without a version bump.
 
-Capable peers can send scalar `UPDATE` against an accepted `queueRevision` and nonempty `queueStateId`. Cache misses request full `STATE`. New queues still require occurrence, shareability, scalar and transport-size validation. Preserve duplicate occurrences and revision checks for indexed commands.
+Capable peers can send scalar `UPDATE` against an accepted `queueRevision` and nonempty `queueStateId`. Cache misses request full `STATE`. New queues still require occurrence, shareability, scalar and transport-size validation. YouTube Music, SoundCloud (`sc:`), Zing MP3 (`zing:`) and NhacCuaTui (`nct:`) songs are shareable; local files are not. The target streams foreign songs through its own source registry; when a song's source is off on the target it says which source to enable and skips to the next track, at most 25 times in a row. Preserve duplicate occurrences and revision checks for indexed commands.
 
 Legacy peers receive full state on track/scrobble-session changes and one-second progress. Clock-capable peers use immediate changes and less frequent corrections. Clocks honor speed, pause, buffering and duration. Retain scrobble sessions for transfer.
 
@@ -52,7 +54,9 @@ Outgoing queues are bounded. Coalesce only adjacent redundant clock samples; pre
 
 Normalize personal sync IDs `||account-id` to `account-id` and channel IDs `channel-id||account-id` to `channel-id`. Use one helper for login and pairing. Cache identity by exact cookie and data-sync ID; invalidate on logout or credential changes.
 
-Unresolved account IDs cannot pair. Exchange the `resolved` flag without an account proof so peers can show identity recovery instead of a false account mismatch. Obtain fresh account identity by signing in and selecting the same channel. Never guess a channel or allow unresolved identities. Genuine mismatches stay blocked.
+A signed-in account without a resolved channel pairs like a signed-out device, by code approval, and stores its pairs in the signed-out scope. Legacy peers without code pairing still reject unresolved identities. Exchange the `resolved` flag without an account proof. Never guess a channel. Genuine mismatches between two signed-in accounts stay blocked.
+
+A controller shows "Controlling: <device>" in the player (top bar, output chip and a banner in the lyrics-peek slot) and in the device picker, with Play on this device (pull back) and Disconnect (release the target and leave it playing).
 
 ## Verification
 
