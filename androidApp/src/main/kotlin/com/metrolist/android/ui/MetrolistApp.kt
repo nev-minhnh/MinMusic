@@ -828,10 +828,14 @@ fun MetrolistApp(
         val useTabletNavigation =
             adaptiveFormFactor == AdaptiveFormFactor.TOUCH && !useDesktopUi && useNavigationRail &&
                 LocalConfiguration.current.smallestScreenWidthDp >= 600
-        var tabletSidebarPreferred by rememberSaveable { mutableStateOf(true) }
-        val tabletSidebarAvailable = useTabletNavigation && adaptiveLayout.widthBreakpoint >= AdaptiveWidthBreakpoint.EXPANDED
+        // Owner decision: the rail is the default; expanding to the sidebar is remembered across launches.
+        val tabletSidebarPreferred = Settings.shared.tabletSidebarExpanded
+        // Sidebar from 1024 dp (tablet spec 3.1); narrower expanded windows keep the rail.
+        val tabletSidebarAvailable = useTabletNavigation && LocalConfiguration.current.screenWidthDp >= 1024
         val tabletSidebar = tabletSidebarAvailable && tabletSidebarPreferred
         val tabletNavWidth = tabletNavigationWidth(tabletSidebar)
+        // Owner decision: tablets dock the player bar across the window bottom; the floating bar is a setting.
+        val dockedPlayerBar = useTabletNavigation && !Settings.shared.tabletFloatingPlayerBar
         val tabTopBarHeight =
             if (useTabletNavigation) tabletTopBarHeight(LocalConfiguration.current.screenHeightDp.dp) else TabTopBarHeight
         // Tablets keep their navigation on every screen, like the desktop sidebar.
@@ -904,6 +908,7 @@ fun MetrolistApp(
         val isModernMiniPlayer = Settings.shared.miniPlayerType == MiniPlayerType.MODERN && !useDesktopMiniPlayer
         val miniPlayerBottomSpacing =
             when {
+                dockedPlayerBar -> 0.dp
                 isExpressiveMiniPlayer -> ModernMiniPlayerBottomSpacing
                 isModernMiniPlayer -> ModernMiniPlayerBottomSpacing
                 else -> 0.dp
@@ -964,7 +969,9 @@ fun MetrolistApp(
             maxOf(navigationBottomInset, hiddenMiniPlayerBottomOffset) -
                 if (navigationConsumesSpace) navigationBottomInset else 0.dp
         val miniPlayerRailPadding = {
-            if (useTabletNavigation) {
+            if (dockedPlayerBar) {
+                0.dp
+            } else if (useTabletNavigation) {
                 tabletNavWidth * navigationVisibilityProgress.value
             } else if (
                 adaptiveFormFactor == AdaptiveFormFactor.TOUCH &&
@@ -1502,9 +1509,11 @@ fun MetrolistApp(
                                 onScrollToTop = ::requestScrollToTop,
                                 tabletNavigation = useTabletNavigation,
                                 tabletSidebar = tabletSidebar,
+                                // The rail/sidebar ends above the docked player bar (L-shaped frame).
+                                tabletNavigationBottomInset = if (dockedPlayerBar && shouldRenderMiniPlayer) miniPlayerHeight else 0.dp,
                                 onToggleTabletSidebar =
                                     if (tabletSidebarAvailable) {
-                                        { tabletSidebarPreferred = !tabletSidebarPreferred }
+                                        { Settings.shared.tabletSidebarExpanded = !tabletSidebarPreferred }
                                     } else {
                                         null
                                     },
@@ -1715,7 +1724,7 @@ fun MetrolistApp(
                                                             }
                                                         }
                                                     }
-                                                    if (navigationState.topLevelRoute == Screen.Home && Screen.Settings !in railScreens) {
+                                                    if ((navigationState.topLevelRoute == Screen.Home || useTabletNavigation) && Screen.Settings !in railScreens) {
                                                         TopBarIconButton(
                                                             floating = useFloatingTopBar,
                                                             onClick = { navigator.navigate(Screen.Settings) },
@@ -2003,6 +2012,16 @@ fun MetrolistApp(
                             }
                         }
 
+                        if (dockedPlayerBar && shouldRenderMiniPlayer) {
+                            // Paint the gesture/3-button area under the docked bar in the bar colour (one bottom block).
+                            Box(
+                                Modifier
+                                    .align(Alignment.BottomCenter)
+                                    .fillMaxWidth()
+                                    .height(safeBottomPadding)
+                                    .background(if (pureBlack) Color.Black else MaterialTheme.colorScheme.surfaceContainerLow),
+                            )
+                        }
                         BottomSheet(
                             state = playerBottomSheetState,
                             modifier =
@@ -2079,6 +2098,7 @@ fun MetrolistApp(
                                         },
                                         bottomSheetState = playerBottomSheetState,
                                         cardFocusRequester = miniPlayerFocusRequester,
+                                        docked = dockedPlayerBar,
                                         modifier =
                                             Modifier
                                                 .windowInsetsPadding(horizontalSystemBars.only(WindowInsetsSides.Horizontal))
@@ -2670,6 +2690,7 @@ fun getEntryProvider(
                     filter?.let { Settings.shared.libraryFilter = it }
                     navigator.navigate(Screen.Library)
                 },
+                onNavigateToDownloads = { navigator.navigate(Screen.AutoPlaylist("downloaded")) },
                 onNavigateToBrowse = { browseId, params, title ->
                     navigator.navigate(Screen.Browse(browseId, params, title))
                 },

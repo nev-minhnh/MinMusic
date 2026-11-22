@@ -61,7 +61,6 @@ import com.metrolist.shared.generated.resources.app_name
 import com.metrolist.shared.generated.resources.equalizer
 import com.metrolist.shared.generated.resources.liked_songs
 import com.metrolist.shared.generated.resources.logo
-import com.metrolist.shared.generated.resources.menu_history
 import com.metrolist.shared.generated.resources.mm_library_downloaded
 import com.metrolist.shared.generated.resources.mm_tablet_nav_collapse
 import com.metrolist.shared.generated.resources.mm_tablet_nav_expand
@@ -69,7 +68,6 @@ import com.metrolist.shared.generated.resources.mm_tablet_nav_my_albums
 import com.metrolist.shared.generated.resources.mm_tablet_nav_yours
 import com.metrolist.shared.generated.resources.mm_tablet_search_hint
 import com.metrolist.shared.generated.resources.recognize_music
-import com.metrolist.shared.generated.resources.settings
 import com.metrolist.shared.ui.components.images.AsyncImage
 import com.metrolist.shared.ui.icons.MetrolistIcons
 import com.metrolist.shared.ui.navigation.AdaptiveNavigationItem
@@ -154,7 +152,6 @@ fun TabletNavigation(
                         MetrolistIcons.Outlined.Download,
                         Screen.AutoPlaylist("downloaded"),
                     ),
-                    Triple(stringResource(Res.string.menu_history), MetrolistIcons.Outlined.History, Screen.History),
                     Triple(stringResource(Res.string.equalizer), MetrolistIcons.Outlined.Equalizer, Screen.Equalizer()),
                 )
             shortcuts.forEach { (label, icon, route) ->
@@ -178,24 +175,16 @@ fun TabletNavigation(
             }
             Spacer(Modifier.height(8.dp))
         }
-        HorizontalDivider(
-            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
-            modifier = Modifier.padding(horizontal = if (sidebar) 12.dp else 16.dp),
-        )
-        val settingsLabel = stringResource(Res.string.settings)
-        Box(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = if (sidebar) 12.dp else 0.dp, vertical = 8.dp),
-            contentAlignment = if (sidebar) Alignment.CenterStart else Alignment.Center,
-        ) {
-            if (sidebar) {
-                SidebarItem(
-                    label = settingsLabel,
-                    icon = MetrolistIcons.Outlined.Settings,
-                    selected = selectedKey == Screen.Settings,
-                    onClick = { navigator.navigate(Screen.Settings) },
-                )
-            } else {
-                RailIconButton(label = settingsLabel, icon = MetrolistIcons.Outlined.Settings, onClick = { navigator.navigate(Screen.Settings) })
+        // Settings is the gear in the top bar (tablet spec 5.2). The rail keeps the expand button at its foot.
+        if (!sidebar && onToggleSidebar != null) {
+            Box(Modifier.fillMaxWidth().padding(bottom = 12.dp), contentAlignment = Alignment.Center) {
+                IconButton(onClick = onToggleSidebar) {
+                    Icon(
+                        MetrolistIcons.Filled.Menu,
+                        contentDescription = stringResource(Res.string.mm_tablet_nav_expand),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
         }
     }
@@ -240,21 +229,10 @@ private fun TabletNavigationBrand(
             }
         }
     } else {
-        Column(
-            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Box(Modifier.height(LocalTabTopBarHeight.current), contentAlignment = Alignment.Center) { logo() }
-            if (onToggleSidebar != null) {
-                IconButton(onClick = onToggleSidebar) {
-                    Icon(
-                        MetrolistIcons.Filled.Menu,
-                        contentDescription = stringResource(Res.string.mm_tablet_nav_expand),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
-        }
+        Box(
+            modifier = Modifier.fillMaxWidth().height(LocalTabTopBarHeight.current),
+            contentAlignment = Alignment.Center,
+        ) { logo() }
     }
 }
 
@@ -364,7 +342,7 @@ private fun UserAlbumEntry(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .height(48.dp)
+                    .height(56.dp)
                     .clip(RoundedCornerShape(12.dp))
                     .clickable(role = Role.Button, onClick = onClick)
                     .padding(horizontal = 8.dp),

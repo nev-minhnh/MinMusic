@@ -430,6 +430,11 @@ class Settings(
     // MinMusic: the floating rounded nav bar is the phone default (owner decision); a saved choice still wins.
     var floatingNavBar by preference(FloatingNavBarKey, true)
     var floatingTopBar by preference(FloatingTopBarKey, false)
+
+    // MinMusic tablets: left column expanded to the 240 dp sidebar (default: 72 dp rail) and the player bar style
+    // (default: docked full width; true = the floating rounded bar inside the content column).
+    var tabletSidebarExpanded by preference(false)
+    var tabletFloatingPlayerBar by preference(false)
     var floatingSearch by preference(false)
     var voiceSearchEnabled by preference(VoiceSearchEnabledKey, true)
 

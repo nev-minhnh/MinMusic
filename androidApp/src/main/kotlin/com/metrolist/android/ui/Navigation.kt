@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteDefaults
@@ -133,6 +134,7 @@ fun MetrolistNavigationScaffold(
     tabletNavigation: Boolean = false,
     tabletSidebar: Boolean = false,
     onToggleTabletSidebar: (() -> Unit)? = null,
+    tabletNavigationBottomInset: Dp = 0.dp,
     content: @Composable () -> Unit,
 ) {
     val useDesktopUi = LocalUseDesktopUi.current
@@ -258,6 +260,7 @@ fun MetrolistNavigationScaffold(
                     // surface1 beside the stage; pure black stays black.
                     containerColor = if (containerColor == Color.Black) Color.Black else MaterialTheme.colorScheme.surfaceContainerLow,
                     itemModifier = itemModifier,
+                    modifier = Modifier.padding(bottom = tabletNavigationBottomInset),
                 )
             }
         }

@@ -48,6 +48,7 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -119,7 +120,10 @@ fun AdaptiveModalBottomSheet(
     gesturesEnabled: Boolean = true,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    if (LocalIsTv.current) {
+    val isTv = LocalIsTv.current
+    // Owner decision: windows >= 840 dp show sheets as centred dialogs (width 560, radius 28); phones keep sheets.
+    val wideWindow = !isTv && LocalConfiguration.current.screenWidthDp >= WideDialogMinWidthDp
+    if (isTv || wideWindow) {
         Dialog(onDismissRequest = onDismissRequest) {
             ApplyPlayerImmersiveMode()
             val initialFocusRequester = remember { FocusRequester() }
@@ -133,9 +137,9 @@ fun AdaptiveModalBottomSheet(
                     modifier
                         .ignoreHeldActivationRelease()
                         .fillMaxWidth()
-                        .widthIn(max = sheetMaxWidth)
-                        .heightIn(max = 640.dp),
-                shape = shape,
+                        .widthIn(max = if (wideWindow) WideDialogWidth else sheetMaxWidth)
+                        .heightIn(max = if (wideWindow) wideDialogMaxHeight() else 640.dp),
+                shape = if (wideWindow) WideDialogShape else shape,
                 color = containerColor,
                 contentColor = contentColor,
                 tonalElevation = tonalElevation,
@@ -174,6 +178,14 @@ fun AdaptiveModalBottomSheet(
         )
     }
 }
+
+private const val WideDialogMinWidthDp = 840
+private val WideDialogWidth = 560.dp
+private val WideDialogShape = RoundedCornerShape(28.dp)
+
+/** Wide-window dialogs stop short of the window edges (8" landscape is only 800 dp tall). */
+@Composable
+private fun wideDialogMaxHeight(): Dp = (LocalConfiguration.current.screenHeightDp * 0.86f).dp
 
 @Stable
 class MenuState(
@@ -264,8 +276,9 @@ fun BottomSheetMenu(
 ) {
     val sheetState = rememberBottomSheetState(SheetValue.Hidden)
     val isTv = LocalIsTv.current
+    val wideWindow = !isTv && LocalConfiguration.current.screenWidthDp >= WideDialogMinWidthDp
 
-    if (isTv) {
+    if (isTv || wideWindow) {
         PopupVisibility(visible = state.isVisible) {
             Dialog(onDismissRequest = state::dismiss) {
                 ApplyPlayerImmersiveMode()
@@ -280,9 +293,9 @@ fun BottomSheetMenu(
                         modifier
                             .ignoreHeldActivationRelease()
                             .fillMaxWidth()
-                            .widthIn(max = 720.dp)
-                            .heightIn(max = 640.dp),
-                    shape = ComponentShapes.MenuExteriorShape,
+                            .widthIn(max = if (wideWindow) WideDialogWidth else 720.dp)
+                            .heightIn(max = if (wideWindow) wideDialogMaxHeight() else 640.dp),
+                    shape = if (wideWindow) WideDialogShape else ComponentShapes.MenuExteriorShape,
                     color = background,
                     contentColor = MaterialTheme.colorScheme.onSurface,
                 ) {

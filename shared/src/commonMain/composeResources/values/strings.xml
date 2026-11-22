@@ -5803,4 +5803,9 @@
     <string name="mm_tablet_nav_expand">Expand sidebar</string>
     <string name="mm_tablet_search_hint">Songs, artists, lyrics…</string>
     <string name="mm_home_error_title">Couldn't load Home</string>
+    <string name="mm_home_error_body">Check your connection, then try again. Downloaded music still plays.</string>
+    <string name="mm_error_details">Error details</string>
+    <string name="mm_open_downloads">Open downloads</string>
+    <string name="mm_settings_tablet_floating_player_bar">Floating player bar on tablets</string>
+    <string name="mm_settings_tablet_floating_player_bar_description">Show the rounded floating bar beside the navigation instead of the bar docked across the bottom</string>
 </resources>

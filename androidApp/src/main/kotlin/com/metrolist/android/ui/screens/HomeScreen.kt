@@ -65,9 +65,11 @@ import com.metrolist.android.viewmodels.HomeViewModel
 import com.metrolist.shared.auth.AuthManager
 import com.metrolist.shared.db.MusicDatabase
 import com.metrolist.shared.generated.resources.Res
-import com.metrolist.shared.generated.resources.home_load_failed
 import com.metrolist.shared.generated.resources.home_offline_empty
+import com.metrolist.shared.generated.resources.mm_error_details
+import com.metrolist.shared.generated.resources.mm_home_error_body
 import com.metrolist.shared.generated.resources.mm_home_error_title
+import com.metrolist.shared.generated.resources.mm_open_downloads
 import com.metrolist.shared.generated.resources.no_playable_items
 import com.metrolist.shared.generated.resources.pin_to_speed_dial
 import com.metrolist.shared.generated.resources.player_not_ready
@@ -123,6 +125,7 @@ fun HomeScreen(
     onNavigateToHomeSection: (HomeShelf) -> Unit = {},
     onNavigateToCharts: (sourceKey: String?, chartKey: String?) -> Unit = { _, _ -> },
     onNavigateToLibrary: (LibraryFilterType?) -> Unit = {},
+    onNavigateToDownloads: () -> Unit = {},
     floatingActionsBottomInset: State<Dp>,
     scrollToTopEvents: Flow<Long> = emptyFlow(),
     viewModel: HomeViewModel = koinViewModel<HomeViewModel>(),
@@ -322,8 +325,11 @@ fun HomeScreen(
                         item(key = "home_error", contentType = "home_error") {
                             MmErrorState(
                                 title = stringResource(Res.string.mm_home_error_title),
-                                message = stringResource(Res.string.home_load_failed),
+                                message = stringResource(Res.string.mm_home_error_body),
                                 detail = uiState.error,
+                                detailLabel = stringResource(Res.string.mm_error_details),
+                                secondaryLabel = stringResource(Res.string.mm_open_downloads),
+                                onSecondary = onNavigateToDownloads,
                                 retryLabel = stringResource(Res.string.try_again),
                                 onRetry = {
                                     isRefreshing = true
