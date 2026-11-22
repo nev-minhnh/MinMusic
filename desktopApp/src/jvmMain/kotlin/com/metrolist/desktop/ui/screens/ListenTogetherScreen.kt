@@ -8,6 +8,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.metrolist.desktop.state.app.AppState
+import com.metrolist.desktop.state.app.snackbarHostState
 import com.metrolist.desktop.state.app.DesktopNavigation
 import com.metrolist.desktop.ui.screens.settings.ListenTogetherSettingsContent
 import com.metrolist.shared.listentogether.ListenTogetherManager

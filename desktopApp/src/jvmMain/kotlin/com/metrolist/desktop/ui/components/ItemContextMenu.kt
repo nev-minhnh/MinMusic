@@ -76,6 +76,7 @@ import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
 import com.metrolist.desktop.state.app.AppState
+import com.metrolist.desktop.state.app.snackbarHostState
 import com.metrolist.desktop.state.content.ArtistState
 import com.metrolist.desktop.state.content.HomeState
 import com.metrolist.desktop.state.content.LibraryState

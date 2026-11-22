@@ -86,8 +86,11 @@ import com.metrolist.desktop.input.DesktopShortcutLayer
 import com.metrolist.desktop.input.desktopScrollConfig
 import com.metrolist.desktop.state.DesktopLocaleManager
 import com.metrolist.desktop.state.app.AppState
+import com.metrolist.desktop.state.app.DesktopCoreSeams
 import com.metrolist.desktop.state.app.DesktopNavigation
+import com.metrolist.desktop.state.app.UiColors
 import com.metrolist.desktop.state.app.UiState
+import com.metrolist.desktop.state.app.snackbarHostState
 import com.metrolist.desktop.state.auth.AuthState
 import com.metrolist.desktop.state.content.HomeState
 import com.metrolist.desktop.state.content.LibraryContentState
@@ -580,7 +583,7 @@ private fun WindowScope.AppContent(
                 }
                 DesktopPlayerVisibility(visible = isExpandedPlayerVisible) {
                     FullscreenPlayerView(
-                        seedColor = UiState.seedColor,
+                        seedColor = UiColors.seedColor,
                         toggleFullscreen = { toggleWindowFullscreen() },
                         onBackgroundFocusChanged = { isPlayerBackgroundFocused = it },
                         onFocus = {
@@ -799,6 +802,8 @@ fun main(args: Array<String>) {
     if (OsUtil.isWindows) System.getProperties().putIfAbsent("java.net.useSystemProxies", "true")
     runCatching { System.getProperty("metrolist.cds.cache")?.let { File(it).mkdirs() } }
     startup.trace("main")
+    // Registers the Compose side of the desktopCore seams (snackbar, tray, crash hint, artwork). Must precede everything else.
+    DesktopCoreSeams.install()
     val recoveryIndex = args.indexOf(DesktopCrashRecovery.ARGUMENT)
     val pendingReport = if (recoveryIndex < 0) runCatching { DesktopCrashRecovery.store.pendingReportId() }.getOrNull() else null
     if (recoveryIndex >= 0 || pendingReport != null) {
@@ -1260,7 +1265,7 @@ private fun runDesktopApp(args: Array<String>) {
             }
             if (!backendReady) {
                 DesktopDensityProvider {
-                    MetrolistTheme(seedColor = UiState.seedColor) {
+                    MetrolistTheme(seedColor = UiColors.seedColor) {
                         WindowsWindowBackground(MaterialTheme.colorScheme.background)
                         val shell: @Composable () -> Unit = {
                             Surface(

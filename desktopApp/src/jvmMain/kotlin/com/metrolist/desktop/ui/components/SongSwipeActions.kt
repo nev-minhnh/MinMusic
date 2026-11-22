@@ -3,6 +3,7 @@ package com.metrolist.desktop.ui.components
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.runtime.Composable
 import com.metrolist.desktop.state.app.AppState
+import com.metrolist.desktop.state.app.snackbarHostState
 import com.metrolist.desktop.state.playback.PlayerState
 import com.metrolist.shared.model.SongItem
 import kotlinx.coroutines.launch

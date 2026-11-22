@@ -2,6 +2,7 @@ package com.metrolist.core.api
 
 import com.metrolist.core.CoreConfig
 import com.metrolist.core.CoreLog
+import com.metrolist.core.bridge.AppEvents
 import com.metrolist.core.server.Handler
 import com.metrolist.core.server.Topic
 import com.metrolist.core.server.epochNow
@@ -10,7 +11,6 @@ import com.metrolist.core.server.str
 import com.metrolist.core.server.topic
 import com.metrolist.shared.BuildConfig
 import com.metrolist.shared.utils.XdgUtils
-import kotlinx.coroutines.awaitCancellation
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -50,6 +50,7 @@ object SysApi {
     val appTopic: Topic =
         topic { _, emit ->
             emit("app.snapshot", buildJsonObject { put("toasts", JsonArray(emptyList())) })
-            awaitCancellation()
+            // Every event raised through AppEvents (app.toast from CoreNotifier, later home.updated, import.progress ...).
+            AppEvents.events.collect { (event, payload) -> emit(event, payload) }
         }
 }

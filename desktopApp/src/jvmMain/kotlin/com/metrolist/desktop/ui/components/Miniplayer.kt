@@ -95,6 +95,7 @@ import com.metrolist.desktop.state.content.ArtistState
 import com.metrolist.desktop.state.content.PlaylistAlbumState
 import com.metrolist.desktop.state.playback.ListenTogetherState
 import com.metrolist.desktop.state.playback.PlayerState
+import com.metrolist.desktop.state.playback.artworkPreview
 import com.metrolist.desktop.ui.DesktopDensityProvider
 import com.metrolist.desktop.ui.theme.MetrolistTheme
 import com.metrolist.desktop.utils.ComposeTrayManager

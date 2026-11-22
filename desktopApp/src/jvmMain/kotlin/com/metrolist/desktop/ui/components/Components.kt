@@ -34,7 +34,7 @@ import coil3.compose.LocalPlatformContext
 import coil3.compose.asPainter
 import coil3.request.ImageRequest
 import coil3.request.SuccessResult
-import com.metrolist.desktop.state.app.UiState
+import com.metrolist.desktop.state.app.UiColors
 import com.metrolist.desktop.state.playback.PlayerArtworkPreview
 import com.metrolist.desktop.state.playback.PlayerState
 import com.metrolist.shared.constants.ThumbnailCornerRadius
@@ -214,7 +214,7 @@ internal suspend fun updateArtworkTheme(
             }
         }
     currentCoroutineContext().ensureActive()
-    UiState.artworkSeedColor = seedColor
+    UiColors.artworkSeedColor = seedColor
 }
 
 private suspend fun loadArtworkTheme(

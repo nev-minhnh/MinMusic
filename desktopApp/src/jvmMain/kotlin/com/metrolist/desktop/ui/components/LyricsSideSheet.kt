@@ -47,9 +47,11 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.metrolist.desktop.state.app.UiColors
 import com.metrolist.desktop.state.app.UiState
 import com.metrolist.desktop.state.playback.LyricsState
 import com.metrolist.desktop.state.playback.PlayerState
+import com.metrolist.desktop.state.playback.artworkPreview
 import com.metrolist.shared.generated.resources.Res
 import com.metrolist.shared.generated.resources.close
 import com.metrolist.shared.generated.resources.lyrics
@@ -107,7 +109,7 @@ internal fun DesktopLyricsContent(
     modifier: Modifier = Modifier,
     isVisible: Boolean = true,
 ) {
-    val activeSeedColor = UiState.seedColor
+    val activeSeedColor = UiColors.seedColor
 
     val isImmersiveBg = Settings.shared.playerBackgroundStyle != PlayerBackgroundStyle.SOLID
 

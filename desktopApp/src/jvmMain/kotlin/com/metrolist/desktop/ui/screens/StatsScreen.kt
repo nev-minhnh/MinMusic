@@ -16,6 +16,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.metrolist.desktop.history.HistoryRepository
 import com.metrolist.desktop.state.app.AppState
+import com.metrolist.desktop.state.app.snackbarHostState
 import com.metrolist.desktop.state.content.ArtistState
 import com.metrolist.desktop.state.content.PlaylistAlbumState
 import com.metrolist.desktop.state.playback.PlayerState

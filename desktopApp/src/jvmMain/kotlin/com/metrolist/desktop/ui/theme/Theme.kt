@@ -15,7 +15,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
-import com.metrolist.desktop.state.app.UiState
+import com.metrolist.desktop.state.app.UiColors
 import com.metrolist.desktop.utils.DesktopFontManager
 import com.metrolist.desktop.utils.MatugenColors
 import com.metrolist.shared.settings.FontOption
@@ -78,7 +78,7 @@ fun AppTypography(): Typography {
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun MetrolistTheme(
-    seedColor: Color = UiState.seedColor,
+    seedColor: Color = UiColors.seedColor,
     pureBlack: Boolean = Settings.shared.isPureBlackTheme(),
     content: @Composable () -> Unit,
 ) {

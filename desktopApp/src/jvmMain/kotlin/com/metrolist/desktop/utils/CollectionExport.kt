@@ -1,6 +1,7 @@
 package com.metrolist.desktop.utils
 
 import com.metrolist.desktop.state.app.AppState
+import com.metrolist.desktop.state.app.snackbarHostState
 import com.metrolist.shared.generated.resources.Res
 import com.metrolist.shared.generated.resources.export_collection
 import com.metrolist.shared.generated.resources.export_failed

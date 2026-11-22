@@ -1109,10 +1109,16 @@ actual class VideoPlayer actual constructor(
     private class FrameBitmapHolder {
         val imageLock = Any()
         var currentFrame: VideoFrame? = null
-        val planeY = Bitmap()
-        val planeU = Bitmap()
-        val planeV = Bitmap()
-        val bgraBitmap = Bitmap()
+        // Created on the first video frame, not in the constructor: the 8 holders exist as soon as a VideoPlayer does (audio
+        // only included), and the headless core sidecar must not load Skia for them.
+        private val planeYLazy = lazy { Bitmap() }
+        private val planeULazy = lazy { Bitmap() }
+        private val planeVLazy = lazy { Bitmap() }
+        private val bgraLazy = lazy { Bitmap() }
+        val planeY: Bitmap by planeYLazy
+        val planeU: Bitmap by planeULazy
+        val planeV: Bitmap by planeVLazy
+        val bgraBitmap: Bitmap by bgraLazy
 
         var yAddr: Long = 0L
         var uAddr: Long = 0L
@@ -1173,10 +1179,10 @@ actual class VideoPlayer actual constructor(
             synchronized(imageLock) {
                 currentFrame?.close()
                 currentFrame = null
-                planeY.reset()
-                planeU.reset()
-                planeV.reset()
-                bgraBitmap.reset()
+                if (planeYLazy.isInitialized()) planeY.reset()
+                if (planeULazy.isInitialized()) planeU.reset()
+                if (planeVLazy.isInitialized()) planeV.reset()
+                if (bgraLazy.isInitialized()) bgraBitmap.reset()
                 yAddr = 0L
                 uAddr = 0L
                 vAddr = 0L

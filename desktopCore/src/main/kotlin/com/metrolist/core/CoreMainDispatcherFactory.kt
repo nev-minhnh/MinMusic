@@ -47,10 +47,21 @@ internal class CoreMainDispatcher(
     override fun toString(): String = "CoreMain"
 }
 
-/** Registered through META-INF/services; wins over every other factory (architecture 3.1, headless prerequisite 1). */
+/**
+ * Registered through META-INF/services. In the sidecar (`-Dminmusic.sidecar=true`) it wins over every other factory
+ * (architecture 3.1, headless prerequisite 1). The v1 Compose app has desktopCore on its classpath too, and there
+ * Dispatchers.Main must stay the Swing dispatcher, so without the property this factory loses to every other one.
+ */
 @OptIn(InternalCoroutinesApi::class)
 class CoreMainDispatcherFactory : MainDispatcherFactory {
-    override val loadPriority: Int get() = Int.MAX_VALUE
+    override val loadPriority: Int get() = priorityFor(System.getProperty(SIDECAR_PROPERTY))
 
     override fun createDispatcher(allFactories: List<MainDispatcherFactory>): MainCoroutineDispatcher = CoreMainDispatcher(false)
+
+    companion object {
+        const val SIDECAR_PROPERTY = "minmusic.sidecar"
+
+        /** Load priority for the given value of the `minmusic.sidecar` system property. */
+        fun priorityFor(sidecarProperty: String?): Int = if (sidecarProperty == "true") Int.MAX_VALUE else Int.MIN_VALUE
+    }
 }
