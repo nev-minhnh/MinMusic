@@ -15,6 +15,8 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assume.assumeTrue
 import java.io.File
 import java.text.Normalizer
@@ -53,7 +55,7 @@ class LyricsEvalHarnessTest {
             Case("Hello (Lionel Richie)", "Hello Lionel Richie", phrases = listOf("alone with you inside my mind")),
             Case("Stay (Kid LAROI)", "Stay The Kid LAROI Justin Bieber", phrases = listOf("i do the same thing i told you that i never would")),
             Case("Faded", "Faded Alan Walker", phrases = listOf("you were the shadow to my light")),
-            Case("Despacito (Remix)", "Despacito Remix Luis Fonsi Daddy Yankee Justin Bieber", phrases = listOf("comin over in my direction")),
+            Case("Despacito (Remix)", "Despacito Remix Luis Fonsi Daddy Yankee Justin Bieber", phrases = listOf("so thankful for that its such a blessing")),
             Case("bad guy", "bad guy Billie Eilish", phrases = listOf("white shirt now red", "bruises on both my knees")),
             Case("Closer", "Closer The Chainsmokers Halsey", phrases = listOf("i was doing just fine before i met you")),
             Case("Dynamite (BTS)", "Dynamite BTS", phrases = listOf("in the stars tonight")),
@@ -74,6 +76,15 @@ class LyricsEvalHarnessTest {
             Case("Không Môn Đăng Hộ Đối", "Không Môn Đăng Hộ Đối Nguyễn Vĩ"),
             Case("Kẻ Say Tình (MUST)", "Kẻ Say Tình Quốc Thiên"),
             Case("Kẻ Say Tình (Zing id)", "Kẻ Say Tình Quốc Thiên", Kind.FOREIGN),
+            Case("Kẻ Say Tình (MV)", "Kẻ Say Tình Quốc Thiên MV", Kind.VIDEO),
+            Case("Ai Chung Tình Được Mãi", "Ai Chung Tình Được Mãi Đinh Tùng Huy"),
+            Case("Sóng Gió", "Sóng Gió Jack K-ICM"),
+            Case("Yêu Là Cưới", "Yêu Là Cưới Phát Hồ"),
+            Case("Tình Yêu Màu Nắng", "Tình Yêu Màu Nắng Đoàn Thúy Trang BigDaddy"),
+            Case("Cưới Thôi", "Cưới Thôi Masew"),
+            Case("Em Gì Ơi", "Em Gì Ơi Jack K-ICM"),
+            Case("Thương Em Là Điều Anh Không Thể Ngờ", "Thương Em Là Điều Anh Không Thể Ngờ Noo Phước Thịnh"),
+            Case("Hoa Nở Không Màu (cover)", "Hoa Nở Không Màu cover"),
             Case("Hoa Nở Không Màu", "Hoa Nở Không Màu Hoài Lâm"),
             Case("Em Gái Mưa", "Em Gái Mưa Hương Tràm"),
             Case("Có Chàng Trai Viết Lên Cây", "Có Chàng Trai Viết Lên Cây Phan Mạnh Quỳnh"),
@@ -123,8 +134,9 @@ class LyricsEvalHarnessTest {
             var none = 0
             var unsure = 0
             var synced = 0
+            var badTiming = 0
             for (case in cases) {
-                val track = resolveTrack(search, case)
+                val track = resolveTrack(search, api, case)
                 if (track == null) {
                     rows += "| ${case.label} | (search failed) | | | | | | |"
                     continue
@@ -132,7 +144,7 @@ class LyricsEvalHarnessTest {
                 val reference =
                     if (case.phrases.isEmpty() && !case.expectNone) {
                         // YouTube Music's own lyrics for the audio track are the ground truth when no line is given.
-                        val audioId = if (case.kind == Kind.SONG) track.videoId else resolveTrack(search, case.copy(kind = Kind.SONG))?.videoId
+                        val audioId = if (case.kind == Kind.SONG) track.videoId else resolveTrack(search, api, case.copy(kind = Kind.SONG))?.videoId
                         audioId?.let { id -> runCatching { youtubeLyrics.getLyrics(id) }.getOrNull() }?.let(::plainText)
                     } else {
                         null
@@ -153,13 +165,18 @@ class LyricsEvalHarnessTest {
                         }.getOrNull()
                     }
                 val elapsed = System.currentTimeMillis() - started
-                val verdict = verdict(case, reference, chosen?.lyrics)
-                when (verdict) {
+                val verdict =
+                    verdict(case, reference, chosen?.lyrics).let { base ->
+                        val lines = chosen?.lyrics?.let(LyricsUtils::parseLyrics).orEmpty()
+                        if (lyricsTimingKind(lines) != LyricsTimingKind.UNSYNCED && !timingPlausible(lines, track.durationMs)) "$base+BADTIMING" else base
+                    }
+                when (verdict.substringBefore('+')) {
                     "WRONG" -> wrong++
                     "OK" -> correct++
                     "NONE", "OK-NONE" -> none++
                     else -> unsure++
                 }
+                if (verdict.endsWith("+BADTIMING")) badTiming++
                 val doc = chosen?.lyrics?.let(LyricsUtils::parseMlxDocument)
                 val lines = doc?.lines.orEmpty()
                 val timing = lyricsTimingKind(lines)
@@ -205,7 +222,7 @@ class LyricsEvalHarnessTest {
                 buildString {
                     appendLine("# Lyrics evaluation")
                     appendLine()
-                    appendLine("cases=${cases.size} ok=$correct wrong=$wrong none=$none unsure=$unsure synced-ok=$synced")
+                    appendLine("cases=${cases.size} ok=$correct wrong=$wrong none=$none unsure=$unsure synced-ok=$synced bad-timing=$badTiming")
                     appendLine()
                     appendLine("| case | input (title / artist / duration) | chosen | timing | first..last | dur delta | matched meta | verdict | time |")
                     appendLine("|---|---|---|---|---|---|---|---|---|")
@@ -220,15 +237,30 @@ class LyricsEvalHarnessTest {
 
     private suspend fun resolveTrack(
         search: YouTubeSearchOperations,
+        api: InnerTubeLyricsApi,
         case: Case,
     ): Track? {
         val items = search.search(case.query, recordSearchHistory = false).orEmpty().filterIsInstance<SongItem>()
         val wantVideo = case.kind == Kind.VIDEO
+        // Songs have an album; music videos are OMV (fan uploads come last).
         val song =
-            items.firstOrNull { (it.musicVideoType == MUSIC_VIDEO_TYPE_OMV || it.musicVideoType?.contains("UGC") == true) == wantVideo }
+            (if (wantVideo) items.firstOrNull { it.musicVideoType == MUSIC_VIDEO_TYPE_OMV } else items.firstOrNull { it.album != null })
+                ?: items.firstOrNull { (it.album == null) == wantVideo }
                 ?: items.firstOrNull()
                 ?: return null
-        val duration = song.duration?.let { if (it < 100_000L) it * 1000L else it }
+        // The app always knows the playing length; search results often do not carry it.
+        val duration =
+            song.duration?.let { if (it < 100_000L) it * 1000L else it }
+                ?: runCatching {
+                    api
+                        .player(song.id)["videoDetails"]
+                        ?.jsonObject
+                        ?.get("lengthSeconds")
+                        ?.jsonPrimitive
+                        ?.content
+                        ?.toLongOrNull()
+                        ?.times(1000L)
+                }.getOrNull()
         return Track(song.id, song.title, song.artists.joinToString { it.name }, duration, song.album?.name, wantVideo)
     }
 
@@ -253,6 +285,17 @@ class LyricsEvalHarnessTest {
             jaccard < 0.15 -> "WRONG"
             else -> "UNSURE(${"%.2f".format(jaccard)})"
         }
+    }
+
+    /** Synced lines that cannot belong to a recording of this length (past the end, absurd start, far too short). */
+    private fun timingPlausible(
+        lines: List<com.metrolist.shared.model.LyricsEntry>,
+        durationMs: Long?,
+    ): Boolean {
+        val duration = durationMs ?: return true
+        val starts = lines.filter { it.time >= 0 && it.text.isNotBlank() }.map { it.time }
+        if (starts.isEmpty()) return true
+        return starts.max() <= duration + 2_000 && starts.min() <= duration / 2 && starts.max() >= duration * 2 / 5
     }
 
     private fun plainText(lyrics: String): String = LyricsUtils.parseLyrics(lyrics).joinToString(" ") { it.text }
