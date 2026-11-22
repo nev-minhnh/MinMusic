@@ -16,6 +16,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
@@ -277,7 +279,12 @@ fun MetrolistNavigationScaffold(
                         // surface1 beside the stage; pure black stays black.
                         containerColor = tabletNavigationColor,
                         itemModifier = itemModifier,
-                        modifier = Modifier.padding(bottom = tabletNavigationBottomInset),
+                        // The inset already includes the system bar under the docked player bar: consume it so the
+                        // rail does not add the navigation bar padding a second time.
+                        modifier =
+                            Modifier
+                                .padding(bottom = tabletNavigationBottomInset)
+                                .consumeWindowInsets(PaddingValues(bottom = tabletNavigationBottomInset)),
                         overlayMenu = onToggleTabletSidebar == null,
                     )
                 }
@@ -329,7 +336,10 @@ fun MetrolistNavigationScaffold(
                     width = TabletOverlaySidebarWidth,
                     overlayMenu = true,
                     onNavigated = { overlaySidebarOpen = false },
-                    modifier = Modifier.padding(bottom = tabletNavigationBottomInset),
+                    modifier =
+                        Modifier
+                            .padding(bottom = tabletNavigationBottomInset)
+                            .consumeWindowInsets(PaddingValues(bottom = tabletNavigationBottomInset)),
                 )
             }
         }
