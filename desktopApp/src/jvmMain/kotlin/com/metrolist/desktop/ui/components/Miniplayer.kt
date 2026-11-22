@@ -96,6 +96,7 @@ import com.metrolist.desktop.state.content.PlaylistAlbumState
 import com.metrolist.desktop.state.playback.ListenTogetherState
 import com.metrolist.desktop.state.playback.PlayerState
 import com.metrolist.desktop.ui.DesktopDensityProvider
+import com.metrolist.desktop.ui.layouts.minMusicBrandLogo
 import com.metrolist.desktop.ui.theme.MetrolistTheme
 import com.metrolist.desktop.utils.ComposeTrayManager
 import com.metrolist.desktop.utils.WindowDragHandle
@@ -176,6 +177,7 @@ fun MiniplayerWindow() {
     Window(
         onCloseRequest = { PlayerState.showMiniplayer = false },
         title = stringResource(Res.string.miniplayer),
+        icon = minMusicBrandLogo(),
         resizable = false,
         visible = true,
         undecorated = !OsUtil.isWindows,

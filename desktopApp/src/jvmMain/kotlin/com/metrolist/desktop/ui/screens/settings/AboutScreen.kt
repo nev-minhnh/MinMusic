@@ -10,6 +10,7 @@ import androidx.compose.material3.ColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.unit.dp
 import com.metrolist.desktop.state.playback.PlayerState
+import com.metrolist.desktop.ui.layouts.minMusicBrandLogo
 import com.metrolist.shared.generated.resources.Res
 import com.metrolist.shared.generated.resources.app_name
 import com.metrolist.shared.generated.resources.logo
@@ -29,5 +30,6 @@ fun DesktopAboutScreen(
         contentPadding = PaddingValues(32.dp),
         onDevtoolsUnlocked = onDevtoolsUnlocked,
         onPlayFavoriteSong = PlayerState::playFromId,
+        brandLogo = minMusicBrandLogo(),
     )
 }

@@ -9,6 +9,7 @@
 package com.metrolist.desktop.ui.layouts
 
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.TooltipArea
 import androidx.compose.foundation.background
@@ -59,13 +60,11 @@ import com.metrolist.shared.db.entities.PlaylistEntity
 import com.metrolist.shared.generated.resources.Res
 import com.metrolist.shared.generated.resources.app_name
 import com.metrolist.shared.generated.resources.expand_sidebar
-import com.metrolist.shared.generated.resources.logo
 import com.metrolist.shared.generated.resources.mm_desk_collapse_sidebar
 import com.metrolist.shared.generated.resources.my_albums
 import com.metrolist.shared.ui.icons.MetrolistIcons
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
-import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 import org.koin.core.context.GlobalContext
 
@@ -108,6 +107,11 @@ internal fun rememberUserAlbums(): State<List<PlaylistEntity>> {
     return flow.collectAsState(initial = emptyList())
 }
 
+/** The owner's full-colour brand logo (black rounded square, green-to-blue "m"); the window and tray icon too. */
+@Suppress("DEPRECATION")
+@Composable
+internal fun minMusicBrandLogo(): Painter = androidx.compose.ui.res.painterResource("logo.png")
+
 /** The owner's logo tile (rounded square, never recoloured). */
 @Composable
 internal fun MinMusicLogoTile(
@@ -115,7 +119,7 @@ internal fun MinMusicLogoTile(
     modifier: Modifier = Modifier,
 ) {
     Image(
-        painter = painterResource(Res.drawable.logo),
+        painter = minMusicBrandLogo(),
         contentDescription = stringResource(Res.string.app_name),
         modifier = modifier.size(size).clip(RoundedCornerShape(size / 4)),
     )

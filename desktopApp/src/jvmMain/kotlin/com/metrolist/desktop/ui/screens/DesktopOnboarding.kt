@@ -39,7 +39,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.heading
@@ -51,6 +50,7 @@ import androidx.compose.ui.unit.dp
 import com.metrolist.desktop.backup.DesktopBackupRestoreManager
 import com.metrolist.desktop.state.DesktopLocaleManager
 import com.metrolist.desktop.state.appLanguageChoices
+import com.metrolist.desktop.ui.layouts.MinMusicLogoTile
 import com.metrolist.desktop.utils.pickDesktopFile
 import com.metrolist.shared.generated.resources.Res
 import com.metrolist.shared.generated.resources.app_name
@@ -58,7 +58,6 @@ import com.metrolist.shared.generated.resources.back
 import com.metrolist.shared.generated.resources.continue_action
 import com.metrolist.shared.generated.resources.finish
 import com.metrolist.shared.generated.resources.log_in
-import com.metrolist.shared.generated.resources.logo
 import com.metrolist.shared.generated.resources.no
 import com.metrolist.shared.generated.resources.onboarding_backup_picker_error
 import com.metrolist.shared.generated.resources.onboarding_backup_picker_title
@@ -95,7 +94,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.jetbrains.compose.resources.getString
-import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 
 @Composable
@@ -314,12 +312,7 @@ private fun DesktopOnboardingPage(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    Image(
-                        painter = painterResource(Res.drawable.logo),
-                        contentDescription = null,
-                        colorFilter = ColorFilter.tint(colors.onSurface),
-                        modifier = Modifier.size(20.dp),
-                    )
+                    MinMusicLogoTile(size = 20.dp)
                     Text(stringResource(Res.string.app_name), style = MaterialTheme.typography.titleSmall)
                     Spacer(Modifier.weight(1f))
                     StepIndicator(step = content.step, stepCount = content.stepCount)

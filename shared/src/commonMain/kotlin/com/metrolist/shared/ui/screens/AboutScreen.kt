@@ -109,6 +109,7 @@ fun AboutScreen(
     onOpenCommunityLink: ((AboutCommunityLink) -> Unit)? = null,
     onDevtoolsUnlocked: () -> Unit = {},
     onPlayFavoriteSong: ((videoId: String) -> Unit)? = null,
+    brandLogo: Painter? = null,
 ) {
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     var logoClickCount by rememberSaveable { mutableIntStateOf(0) }
@@ -202,6 +203,7 @@ fun AboutScreen(
         ) {
             AppHeaderCard(
                 logo = logo,
+                brandLogo = brandLogo,
                 appName = appName,
                 version = version,
                 architecture = architecture,
@@ -269,6 +271,7 @@ internal fun contributorShape(contributor: AboutContributor): Shape =
 @Composable
 private fun AppHeaderCard(
     logo: Painter,
+    brandLogo: Painter?,
     appName: String,
     version: String,
     architecture: String,
@@ -292,15 +295,20 @@ private fun AppHeaderCard(
             Surface(
                 onClick = onLogoClick,
                 shape = RoundedCornerShape(28.dp),
-                color = colorScheme.primaryContainer,
+                color = if (brandLogo != null) Color.Transparent else colorScheme.primaryContainer,
                 modifier = Modifier.size(112.dp),
             ) {
-                Image(
-                    painter = logo,
-                    contentDescription = stringResource(Res.string.app_name),
-                    colorFilter = ColorFilter.tint(colorScheme.onPrimaryContainer, BlendMode.SrcIn),
-                    modifier = Modifier.padding(12.dp),
-                )
+                if (brandLogo != null) {
+                    // The full-colour brand tile is shown as is.
+                    Image(painter = brandLogo, contentDescription = stringResource(Res.string.app_name))
+                } else {
+                    Image(
+                        painter = logo,
+                        contentDescription = stringResource(Res.string.app_name),
+                        colorFilter = ColorFilter.tint(colorScheme.onPrimaryContainer, BlendMode.SrcIn),
+                        modifier = Modifier.padding(12.dp),
+                    )
+                }
             }
 
             Spacer(Modifier.height(16.dp))
