@@ -26,7 +26,12 @@ object XdgUtils {
         return File(File(base, WINDOWS_APP_DIR), child)
     }
 
+    // The headless core sidecar (desktopCore) sets this to keep every path under one test root.
+    private fun rootOverride(child: String): File? =
+        System.getProperty("minmusic.dataRoot")?.takeIf(String::isNotBlank)?.let { File(File(it), child) }
+
     fun getXdgDataHome(): File {
+        rootOverride("data")?.let { return it }
         val env = System.getenv("XDG_DATA_HOME")
         return if (env != null && File(env).isAbsolute) {
             File(env)
@@ -38,6 +43,7 @@ object XdgUtils {
     }
 
     fun getXdgCacheHome(): File {
+        rootOverride("cache")?.let { return it }
         val env = System.getenv("XDG_CACHE_HOME")
         return if (env != null && File(env).isAbsolute) {
             File(env)
@@ -49,6 +55,7 @@ object XdgUtils {
     }
 
     fun getXdgStateHome(): File {
+        rootOverride("state")?.let { return it }
         val env = System.getenv("XDG_STATE_HOME")
         return if (env != null && File(env).isAbsolute) {
             File(env)
@@ -60,6 +67,7 @@ object XdgUtils {
     }
 
     fun getXdgConfigHome(): File {
+        rootOverride("config")?.let { return it }
         val env = System.getenv("XDG_CONFIG_HOME")
         return if (env != null && File(env).isAbsolute) {
             File(env)

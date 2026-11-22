@@ -44,3 +44,21 @@ val composeStateModule =
             }
         }
     }
+
+/**
+ * The bindings of [composeStateModule] for the headless core sidecar (desktopCore): no page-bound WebView runtime exists
+ * there, so the caller supplies the [TokenProvider]. The v1 app does not use this.
+ */
+fun headlessStateModule(tokenProvider: () -> TokenProvider) =
+    module {
+        includes(desktopSourceModule)
+        single<MusicDatabase> { getDatabaseBuilder().build() }
+        single<LocalAudioSource> {
+            LocalAudioSource { id, song ->
+                DownloadManager.getLocalPlaybackResource(id, song) ?: SongCacheManager.getCachedPlaybackResource(id, song)
+            }
+        }
+        single<DatabaseDao> { get<MusicDatabase>().dao() }
+        single<OfflineSongAvailability> { desktopSongOfflineAvailability(get()) }
+        single<TokenProvider> { tokenProvider() }
+    }
