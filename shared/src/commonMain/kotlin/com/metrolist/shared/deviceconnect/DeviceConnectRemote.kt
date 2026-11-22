@@ -83,6 +83,10 @@ class DeviceConnectRemote(
 
     @Volatile private var defaultPlaybackGeneration = 0L
 
+    // Consecutive tracks the target skipped because it cannot stream them; any other command resets it.
+    private var unplayableSkips = 0
+    private var skippingUnplayable = false
+
     init {
         scope.launch {
             for (event in events) {
@@ -158,7 +162,7 @@ class DeviceConnectRemote(
             (
                 command.action !in setOf(DcPlaybackAction.PLAY, DcPlaybackAction.SELECT, DcPlaybackAction.REPLACE_QUEUE) ||
                     availableDefaultDevice() == null ||
-                    command.songs.any { !it.isYouTube } ||
+                    command.songs.any { !it.isDeviceConnectShareable } ||
                     (
                         command.action != DcPlaybackAction.REPLACE_QUEUE && expectedQueue != null &&
                             !DcLocalPlaybackState(queue = expectedQueue).isShareableDeviceConnectState()
@@ -235,6 +239,38 @@ class DeviceConnectRemote(
         val generation = applyGeneration
         enqueue {
             if (generation == applyGeneration && isActive && !isFollowing && !applying) observeLocal(trackChanged)
+        }
+    }
+
+    /**
+     * Called by the audible target when the current track cannot play on it (e.g. its source is turned off here).
+     * Skips to the next track, at most [MAX_UNPLAYABLE_SKIPS] times in a row so a queue of such tracks stops.
+     */
+    fun skipUnplayableTrack(trackRevision: Long) {
+        enqueue {
+            val current = canonical ?: return@enqueue
+            if (!isActive || isFollowing || current.trackRevision != trackRevision) return@enqueue
+            val queue = current.playback.queue
+            val atEnd = queue.currentIndex >= queue.displayedItems.lastIndex
+            if (unplayableSkips >= MAX_UNPLAYABLE_SKIPS || (atEnd && current.playback.repeatMode != DcRepeatMode.ALL)) {
+                return@enqueue
+            }
+            unplayableSkips++
+            skippingUnplayable = true
+            try {
+                handleCommand(localDeviceId(), DcPlaybackCommand(DcPlaybackAction.NEXT), current.queueRevision)
+            } finally {
+                skippingUnplayable = false
+            }
+        }
+    }
+
+    /** Stops controlling the remote target and leaves it playing; this device keeps its own queue, paused. */
+    fun leaveRemoteSession() {
+        enqueue {
+            if (!isFollowing) return@enqueue
+            state.value.targetId?.let { send(it, DcSyncMessage(DcSyncMessageType.RELEASE, sessionId = state.value.sessionId)) }
+            endSession(pause = true)
         }
     }
 
@@ -697,6 +733,7 @@ class DeviceConnectRemote(
         expectedQueue: Long,
     ) {
         val current = canonical ?: return
+        if (!skippingUnplayable) unplayableSkips = 0
         if ((command.isQueueIndexed() && expectedQueue != current.queueRevision) ||
             (command.action == DcPlaybackAction.REPLACE_CURRENT && command.expectedTrackRevision != current.trackRevision)
         ) {
@@ -1103,4 +1140,5 @@ class DeviceConnectRemote(
 private const val DEVICE_CONNECT_TRANSFER_TIMEOUT_MS = 10_000L
 private const val CLOCK_CORRECTION_INTERVAL_MS = 10_000L
 private const val APPLY_RETRY_DELAY_MS = 3_000L
+private const val MAX_UNPLAYABLE_SKIPS = 25
 private const val TARGET_REANCHOR_TOLERANCE_MS = 300L

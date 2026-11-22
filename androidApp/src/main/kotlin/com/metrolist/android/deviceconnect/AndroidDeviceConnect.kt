@@ -19,6 +19,7 @@ import com.metrolist.shared.deviceconnect.DcPlaybackSnapshot
 import com.metrolist.shared.deviceconnect.DcRepeatMode
 import com.metrolist.shared.deviceconnect.DeviceConnectDeviceType
 import com.metrolist.shared.deviceconnect.DeviceConnectManager
+import com.metrolist.shared.deviceconnect.isDeviceConnectShareable
 import com.metrolist.shared.model.SongItem
 import com.metrolist.shared.playback.MusicQueueSnapshot
 
@@ -83,4 +84,4 @@ internal fun canUseDeviceConnectTrack(
     song: SongItem,
     isFollowing: Boolean,
     requiresReload: Boolean,
-): Boolean = song.isYouTube || (!isFollowing && !requiresReload)
+): Boolean = song.isDeviceConnectShareable || (!isFollowing && !requiresReload)
