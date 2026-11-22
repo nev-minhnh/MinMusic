@@ -168,6 +168,7 @@ class LrcredLyricsProvider(
             source = "lrc.red",
             sourceId = match.isrc?.takeIf { it.isNotBlank() },
         ).also { check(it.isNotBlank()) { "Invalid TTML lyrics" } }
+            .let { LyricsMatch.withMatchedSong(it, match.trackName, match.artistName, match.duration?.let { seconds -> (seconds * 1000).toLong() }) }
     }
 
     private fun cleanVideoTitle(title: String): String = title.replace(VIDEO_TAG_REMOVAL, "").trim()
@@ -255,7 +256,8 @@ class LrcredLyricsProvider(
                     } else if (itemBaseTitle.contains(targetBaseTitle) || targetBaseTitle.contains(itemBaseTitle)) {
                         score += 15.0
                     } else {
-                        score -= 40.0
+                        // Another title is another song, however well artist and length match.
+                        continue
                     }
                 }
 

@@ -45,30 +45,45 @@ class SimpMusicLyricsProvider(
         val data = checkNotNull(root["data"]?.jsonArray) { "Missing lyrics data" }
         if (data.isEmpty()) return null
 
+        val dSec = duration?.takeIf { it > 0 }?.let { (it / 1000).toInt() }
+        // Entries for another length are another recording (or another song): never fall back to them.
         val tracks =
-            if (duration != null && duration > 0) {
-                val dSec = (duration / 1000).toInt()
-                val filtered = data.filter { abs((it.jsonObject["durationSeconds"]?.jsonPrimitive?.intOrNull ?: 0) - dSec) <= 10 }
-                filtered.ifEmpty { data.toList() }
+            if (dSec != null) {
+                data.filter { abs((it.jsonObject["durationSeconds"]?.jsonPrimitive?.intOrNull ?: 0) - dSec) <= 10 }
             } else {
                 data.toList()
             }
-
         val best =
-            if (duration != null) {
-                val dSec = (duration / 1000).toInt()
+            if (dSec != null) {
                 tracks.minByOrNull { abs((it.jsonObject["durationSeconds"]?.jsonPrimitive?.intOrNull ?: 0) - dSec) }
             } else {
-                tracks.firstOrNull() ?: return null
-            }
+                tracks.firstOrNull()
+            } ?: return null
 
-        val obj = best!!.jsonObject
+        val obj = best.jsonObject
         val rawLyrics =
             obj["richSyncLyrics"]?.jsonPrimitive?.contentOrNull?.takeIf { it.isNotBlank() }
                 ?: obj["syncedLyrics"]?.jsonPrimitive?.contentOrNull?.takeIf { it.isNotBlank() }
-                ?: return null
-
-        return lrcToMlx(rawLyrics.removeNoobSyncCredit(), null, null)
+        val mlx =
+            if (rawLyrics != null) {
+                lrcToMlx(rawLyrics.removeNoobSyncCredit(), null, null)
+            } else {
+                val plain = obj["plainLyric"]?.jsonPrimitive?.contentOrNull?.takeIf { it.isNotBlank() } ?: return null
+                MlxBuilder()
+                    .meta("LRC")
+                    .song()
+                    .apply { plain.lines().forEach { line -> if (line.isNotBlank()) unsyncedLine(line.trim()) } }
+                    .build()
+            }
+        // What the entry says it is, so the lookup can check it against the playing track.
+        return mlx?.let {
+            LyricsMatch.withMatchedSong(
+                it,
+                obj["songTitle"]?.jsonPrimitive?.contentOrNull,
+                obj["artistName"]?.jsonPrimitive?.contentOrNull,
+                obj["durationSeconds"]?.jsonPrimitive?.intOrNull?.let { seconds -> seconds * 1000L },
+            )
+        }
     }
 
     private fun String.removeNoobSyncCredit(): String =

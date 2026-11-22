@@ -56,7 +56,14 @@ class PaxsenixLyricsProvider(
                 }
             }
         }
-        val scoredResults = resultsById.values.sortedByDescending { it.second }
+        val query = LyricsQuery(title, artist, duration?.takeIf { it > 0 }, album)
+        // Apple Music search also returns other songs and covers; never fetch one that is not this track.
+        val scoredResults =
+            resultsById.values
+                .filter { (result, _) ->
+                    LyricsMatch.evaluate(query, LyricsCandidateInfo(result.trackName, result.artistName, result.durationMs)).confidence !=
+                        LyricsMatchConfidence.REJECTED
+                }.sortedByDescending { it.second }
 
         var bestLyrics: String? = null
         var bestQuality = 0
@@ -65,7 +72,10 @@ class PaxsenixLyricsProvider(
 
         for ((result, score) in scoredResults.take(10)) {
             if (topScore - score > 15.0 || (bestLyrics != null && score < bestScore)) break
-            val lyrics = fetchLyricsForTrack(result.id, title, artist) ?: continue
+            val lyrics =
+                fetchLyricsForTrack(result.id, title, artist)
+                    ?.let { LyricsMatch.withMatchedSong(it, result.trackName, result.artistName, result.durationMs) }
+                    ?: continue
             val quality = getQuality(lyrics)
             if (bestLyrics == null || score > bestScore || (score == bestScore && quality > bestQuality)) {
                 bestQuality = quality
