@@ -33,11 +33,13 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.State
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
@@ -46,9 +48,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -64,8 +68,10 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
@@ -77,6 +83,7 @@ import androidx.media3.common.util.UnstableApi
 import com.metrolist.android.LocalListenTogetherManager
 import com.metrolist.android.playback.LocalPlayerConnection
 import com.metrolist.android.playback.PlayerConnection
+import com.metrolist.android.ui.player.MusicVideoSurface
 import com.metrolist.shared.equalizer.EqualizerProfiles
 import com.metrolist.shared.generated.resources.Res
 import com.metrolist.shared.generated.resources.action_like
@@ -124,6 +131,7 @@ import com.metrolist.shared.ui.components.sliders.rememberPendingSeekPosition
 import com.metrolist.shared.ui.haptics.HapticEvent
 import com.metrolist.shared.ui.haptics.rememberMetrolistHaptics
 import com.metrolist.shared.ui.icons.MetrolistIcons
+import com.metrolist.shared.ui.player.shouldShowMusicVideoSurface
 import com.metrolist.shared.ui.theme.LocalBrand
 import com.metrolist.shared.ui.tv.tvFocusHighlight
 import com.metrolist.shared.utils.formatDuration
@@ -132,17 +140,15 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
 
-/** Height of the tablet player bar (spec 3.2: 72, or 64 on compact heights below 480 dp). */
-val TabletPlayerBarHeight = 72.dp
-val TabletPlayerBarCompactHeight = 64.dp
-
 /** Inset of the floating variant from the content column edges. */
 private val FloatingInset = 8.dp
 private val FloatingRadius = 20.dp
 private val BarIconButtonSize = 44.dp
+private val FullIconSize = 20.dp
 private val PlayButtonSize = 48.dp
 private val PlayButtonRadius = 16.dp
-private val ArtworkSize = 48.dp
+private val FullPlayButtonRadius = 14.dp
+private val ArtworkSize = TabletBarArtworkSize
 private val CentreMaxWidth = 480.dp
 private val CentreMinWidth = 280.dp
 private val SideMinWidth = 220.dp
@@ -150,6 +156,44 @@ private val SideGap = 16.dp
 
 /** Right zone width from which the volume slider (as on the desktop bar) fits next to the other actions. */
 private val VolumeMinSideWidth = 360.dp
+
+/**
+ * Height of the tablet player bar for the current window, slider style/thickness, progress setting and font scale.
+ * MetrolistApp reserves exactly this height, and the bar lays its rows out with the same numbers, so nothing clips.
+ */
+@Composable
+fun rememberTabletPlayerBarHeight(
+    fullLayout: Boolean,
+    shortHeight: Boolean,
+): Dp {
+    val density = LocalDensity.current
+    val typography = MaterialTheme.typography
+    val sliderStyle = Settings.shared.sliderStyle
+    val thickness = Settings.shared.sliderTrackThicknessDp
+    val showSeekRow = Settings.shared.showExpressiveMiniPlayerProgress
+    return remember(fullLayout, shortHeight, density, typography, sliderStyle, thickness, showSeekRow) {
+        with(density) {
+            val seekRow =
+                if (fullLayout && showSeekRow) {
+                    tabletSeekRowHeight(tabletSeekTrackHeight(sliderStyle, thickness), lineHeightDp(typography.labelSmall))
+                } else {
+                    0.dp
+                }
+            tabletPlayerBarHeight(
+                fullLayout = fullLayout,
+                shortHeight = shortHeight,
+                seekRowHeight = seekRow,
+                songZoneHeight = tabletSongZoneHeight(lineHeightDp(typography.titleSmall), lineHeightDp(typography.labelSmall)),
+            )
+        }
+    }
+}
+
+/** One text line in dp at the current (possibly non-linear) font scale. */
+private fun Density.lineHeightDp(style: TextStyle): Dp {
+    val line = if (style.lineHeight.isSp) style.lineHeight else style.fontSize * 1.4f
+    return if (line.isSp) line.toDp() else 20.dp
+}
 
 /**
  * The tablet player bar. [fullLayout] picks the Expanded/Large layout; otherwise the compact one.
@@ -178,6 +222,8 @@ fun TabletPlayerBar(
     val playbackResource by player.currentPlaybackResource.collectAsState(initial = null)
     val canSkipNext by player.canSkipNext.collectAsState(initial = false)
     val canSkipPrevious by player.canSkipPrevious.collectAsState(initial = false)
+    val isVideoModeActive by player.isVideoModeActive.collectAsState()
+    val isVideoViewerVisible by player.isVideoViewerVisible.collectAsState()
     val listenTogetherManager = LocalListenTogetherManager.current
     val listenTogetherRole by listenTogetherManager?.role?.collectAsState()
         ?: remember { mutableStateOf(ListenTogetherRoomRole.NONE) }
@@ -302,8 +348,18 @@ fun TabletPlayerBar(
                     },
                 ),
         ) {
+            // "Play videos in mini player" applies to the tablet bar too: the 48 dp artwork becomes the video.
+            val showVideo =
+                shouldShowMusicVideoSurface(
+                    isVideoModeActive = isVideoModeActive,
+                    isVideoViewerVisible = isVideoViewerVisible,
+                    hasVideo = playbackResource?.hasVideo == true,
+                    presentationAllowed = Settings.shared.playVideosInMiniPlayer && active,
+                )
             val songZone: @Composable (Modifier) -> Unit = { zoneModifier ->
                 TabletBarSongZone(
+                    videoPlayer = if (showVideo) player.videoPlayer else null,
+                    showVideo = showVideo,
                     song = song,
                     playbackResource = playbackResource,
                     isLive = isLive,
@@ -320,36 +376,43 @@ fun TabletPlayerBar(
                 )
             }
             if (fullLayout) {
-                TabletBarFullLayout(
-                    player = player,
-                    song = song,
-                    isPlaying = isPlaying,
-                    isLoading = isPlaybackLoading && active,
-                    isLive = isLive,
-                    isGuest = isGuest,
-                    active = active,
-                    volume = volume,
-                    canSkipNext = canSkipNext && !isGuest,
-                    canSkipPrevious = canSkipPrevious && !isGuest,
-                    playIcon = playIcon,
-                    playLabel = playLabel,
-                    onTogglePlay = togglePlay,
-                    onExpand = expand,
-                    onOpenEqualizer = {
-                        hapticManager.perform(HapticEvent.PRESS)
-                        onOpenEqualizer()
-                    },
-                    onOpenLyrics = {
-                        hapticManager.perform(HapticEvent.PRESS)
-                        onOpenLyrics()
-                    },
-                    onOpenQueue = {
-                        hapticManager.perform(HapticEvent.PRESS)
-                        onOpenQueue()
-                    },
-                    onPress = { hapticManager.perform(HapticEvent.PRESS) },
-                    songZone = songZone,
-                )
+                // Full layout: 40 dp controls without the 48 dp minimum-touch inflation, so the controls row and the
+                // seek row fit the reserved height (rememberTabletPlayerBarHeight) and never overlap each other.
+                CompositionLocalProvider(
+                    LocalMinimumInteractiveComponentSize provides 0.dp,
+                    LocalBarControlSize provides TabletBarFullControlSize,
+                ) {
+                    TabletBarFullLayout(
+                        player = player,
+                        song = song,
+                        isPlaying = isPlaying,
+                        isLoading = isPlaybackLoading && active,
+                        isLive = isLive,
+                        isGuest = isGuest,
+                        active = active,
+                        volume = volume,
+                        canSkipNext = canSkipNext && !isGuest,
+                        canSkipPrevious = canSkipPrevious && !isGuest,
+                        playIcon = playIcon,
+                        playLabel = playLabel,
+                        onTogglePlay = togglePlay,
+                        onExpand = expand,
+                        onOpenEqualizer = {
+                            hapticManager.perform(HapticEvent.PRESS)
+                            onOpenEqualizer()
+                        },
+                        onOpenLyrics = {
+                            hapticManager.perform(HapticEvent.PRESS)
+                            onOpenLyrics()
+                        },
+                        onOpenQueue = {
+                            hapticManager.perform(HapticEvent.PRESS)
+                            onOpenQueue()
+                        },
+                        onPress = { hapticManager.perform(HapticEvent.PRESS) },
+                        songZone = songZone,
+                    )
+                }
                 if (docked) {
                     // Docked full bar: 1 dp line on the top edge (mockup `.pbar` border-top).
                     Spacer(
@@ -450,7 +513,11 @@ private fun TabletBarFullLayout(
     val repeatMode by player.repeatMode.collectAsState()
     val ink = MaterialTheme.colorScheme.onSurface
     val accent = LocalBrand.current.accentText
-    BoxWithConstraints(Modifier.fillMaxSize().padding(start = 16.dp, end = 12.dp)) {
+    BoxWithConstraints(
+        Modifier
+            .fillMaxSize()
+            .padding(start = 16.dp, end = 12.dp, top = TabletBarFullVerticalPadding, bottom = TabletBarFullVerticalPadding),
+    ) {
         // Grid 1fr / <= 480 / 1fr: the centre shrinks first on narrow windows so the sides keep their minimum.
         val centreWidth = (maxWidth - SideGap * 2 - SideMinWidth * 2).coerceIn(CentreMinWidth, CentreMaxWidth)
         val sideWidth = (maxWidth - centreWidth - SideGap * 2) / 2
@@ -517,14 +584,16 @@ private fun TabletBarFullLayout(
                         },
                     )
                 }
-                TabletBarSeekRow(
-                    player = player,
-                    songId = song.id,
-                    isPlaying = isPlaying,
-                    isLive = isLive,
-                    active = active,
-                    enabled = !isGuest,
-                )
+                if (Settings.shared.showExpressiveMiniPlayerProgress) {
+                    TabletBarSeekRow(
+                        player = player,
+                        songId = song.id,
+                        isPlaying = isPlaying,
+                        isLive = isLive,
+                        active = active,
+                        enabled = !isGuest,
+                    )
+                }
             }
             Row(
                 modifier = Modifier.weight(1f),
@@ -577,6 +646,8 @@ private fun TabletBarFullLayout(
 /** Art 48 r8 + title 14/600 + meta line (source and quality badges, artist), and the heart in the full layout. */
 @Composable
 private fun TabletBarSongZone(
+    videoPlayer: Player?,
+    showVideo: Boolean,
     song: SongItem,
     playbackResource: PlaybackResource?,
     isLive: Boolean,
@@ -599,12 +670,22 @@ private fun TabletBarSongZone(
                     .mmPlayerMiniArtworkSlot()
                     .clip(RoundedCornerShape(MmPlayerMiniArtworkRadius)),
         ) {
-            AsyncImage(
-                url = song.previewThumbnailUrl,
-                contentDescription = null,
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop,
-            )
+            if (showVideo) {
+                MusicVideoSurface(
+                    player = videoPlayer,
+                    artworkUrl = song.previewThumbnailUrl,
+                    fillContainer = true,
+                    showControls = false,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            } else {
+                AsyncImage(
+                    url = song.previewThumbnailUrl,
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop,
+                )
+            }
         }
         Column(Modifier.weight(1f)) {
             Text(
@@ -649,7 +730,13 @@ private fun TabletBarSongZone(
     }
 }
 
-/** Play/pause 48 r16 on the brand gradient. */
+/**
+ * Control size inside the bar: 44 dp icon buttons and the 48 r16 play button by default (compact layout);
+ * the full layout provides [TabletBarFullControlSize] for every control and a 40 r14 play button.
+ */
+private val LocalBarControlSize = staticCompositionLocalOf<Dp?> { null }
+
+/** Play/pause on the brand gradient: 48 r16, or 40 r14 in the full layout. */
 @Composable
 private fun TabletBarPlayButton(
     icon: ImageVector,
@@ -660,11 +747,12 @@ private fun TabletBarPlayButton(
 ) {
     val brand = LocalBrand.current
     val loadingLabel = stringResource(Res.string.loading)
+    val controlSize = LocalBarControlSize.current
     Box(
         modifier =
             modifier
-                .size(PlayButtonSize)
-                .clip(RoundedCornerShape(PlayButtonRadius))
+                .size(controlSize ?: PlayButtonSize)
+                .clip(RoundedCornerShape(if (controlSize != null) FullPlayButtonRadius else PlayButtonRadius))
                 .background(brand.gradient)
                 .clickable(role = Role.Button, onClick = onClick)
                 .semantics { contentDescription = if (isLoading) loadingLabel else label },
@@ -672,13 +760,18 @@ private fun TabletBarPlayButton(
     ) {
         if (isLoading) {
             CircularProgressIndicator(
-                modifier = Modifier.size(22.dp),
+                modifier = Modifier.size(if (controlSize != null) 20.dp else 22.dp),
                 color = brand.onGradient,
                 strokeWidth = 3.dp,
                 trackColor = Color.Transparent,
             )
         } else {
-            Icon(imageVector = icon, contentDescription = null, tint = brand.onGradient)
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = brand.onGradient,
+                modifier = Modifier.size(if (controlSize != null) 22.dp else 24.dp),
+            )
         }
     }
 }
@@ -691,12 +784,13 @@ private fun BarIconButton(
     enabled: Boolean = true,
     tint: Color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.76f),
 ) {
-    IconButton(onClick = onClick, enabled = enabled, modifier = Modifier.size(BarIconButtonSize)) {
+    val controlSize = LocalBarControlSize.current
+    IconButton(onClick = onClick, enabled = enabled, modifier = Modifier.size(controlSize ?: BarIconButtonSize)) {
         Icon(
             imageVector = icon,
             contentDescription = label,
             tint = if (enabled) tint else tint.copy(alpha = 0.38f),
-            modifier = Modifier.size(22.dp),
+            modifier = Modifier.size(if (controlSize != null) FullIconSize else 22.dp),
         )
     }
 }
@@ -736,8 +830,15 @@ private fun TabletBarSeekRow(
     val timeColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.56f)
     val timeStyle = MaterialTheme.typography.labelSmall.copy(fontFeatureSettings = "tnum")
     val positionLabel = stringResource(Res.string.cd_playback_position)
+    val thickness = Settings.shared.sliderTrackThicknessDp
+    val rowHeight =
+        with(LocalDensity.current) {
+            tabletSeekRowHeight(tabletSeekTrackHeight(sliderStyle, thickness), lineHeightDp(MaterialTheme.typography.labelSmall))
+        }
     Row(
-        modifier = Modifier.fillMaxWidth().height(24.dp),
+        // Exactly the height rememberTabletPlayerBarHeight reserved. The M3 slider lays itself out taller (touch
+        // target); clipToBounds keeps its drawing and its touch area inside the row so it never covers the controls.
+        modifier = Modifier.fillMaxWidth().height(rowHeight).clipToBounds(),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {

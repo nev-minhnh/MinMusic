@@ -34,6 +34,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalViewConfiguration
@@ -74,6 +75,7 @@ import com.metrolist.shared.state.GlobalYouTubeRepository
 import com.metrolist.shared.state.applyContentRegion
 import com.metrolist.shared.ui.LocalIsInPipMode
 import com.metrolist.shared.ui.LocalIsTv
+import com.metrolist.shared.ui.components.LocalTabletWindow
 import com.metrolist.shared.ui.equalizer.LocalMetroEqExportActions
 import com.metrolist.shared.ui.theme.appearanceDensity
 import com.metrolist.shared.youtube.playback.AndroidTokenProvider
@@ -308,6 +310,9 @@ class MainActivity : ComponentActivity() {
                 LocalIsInPipMode provides isInPipModeState.value,
                 LocalDensity provides density,
                 LocalMetroEqExportActions provides rememberMetroEqExportActions(),
+                // Tablet-only layouts (centred sheet dialogs, wide headers, two-pane search) need a tablet-class
+                // device, not just a wide window: a phone in landscape keeps the phone layouts.
+                LocalTabletWindow provides (LocalConfiguration.current.smallestScreenWidthDp >= 600),
             ) {
                 val app = application as App
                 var onboardingComplete by remember { mutableStateOf(app.onboardingManager.isComplete) }

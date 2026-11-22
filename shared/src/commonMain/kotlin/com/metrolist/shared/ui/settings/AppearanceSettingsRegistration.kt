@@ -37,6 +37,7 @@ import com.metrolist.shared.settings.desktopDefaultOpenTabs
 import com.metrolist.shared.settings.isDesktopMac
 import com.metrolist.shared.settings.normalizeDefaultOpenTab
 import com.metrolist.shared.settings.updateDefaultOpenTab
+import com.metrolist.shared.ui.components.LocalTabletWindow
 import com.metrolist.shared.ui.icons.MetrolistIcons
 import org.jetbrains.compose.resources.stringResource
 import kotlin.math.roundToInt
@@ -461,12 +462,15 @@ internal fun SettingsUiRegistryBuilder.registerAppearanceSettings(host: SharedSe
                         checked = settings.floatingTopBar,
                     ) { settings.floatingTopBar = it }
                     // Tablets (>= 600 dp): docked full-width player bar by default, floating bar on request.
-                    switch(
-                        id = "tabletFloatingPlayerBar",
-                        title = stringResource(Res.string.mm_settings_tablet_floating_player_bar),
-                        description = stringResource(Res.string.mm_settings_tablet_floating_player_bar_description),
-                        checked = settings.tabletFloatingPlayerBar,
-                    ) { settings.tabletFloatingPlayerBar = it }
+                    // Hidden on phones, where it has no effect.
+                    if (LocalTabletWindow.current) {
+                        switch(
+                            id = "tabletFloatingPlayerBar",
+                            title = stringResource(Res.string.mm_settings_tablet_floating_player_bar),
+                            description = stringResource(Res.string.mm_settings_tablet_floating_player_bar_description),
+                            checked = settings.tabletFloatingPlayerBar,
+                        ) { settings.tabletFloatingPlayerBar = it }
+                    }
                 }
                 if (host.platform == SettingsPlatform.ANDROID) {
                     switch(
