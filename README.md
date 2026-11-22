@@ -1,271 +1,95 @@
-<div style="display: flex; gap: 1rem;">
-  <img src="fastlane/metadata/android/en-US/images/icon.png" alt="Metrolist app icon" width="200" height="200" />
-  <div>
-      <h1>Metrolist</h1>
-      <h3>A Material Design YouTube Music client for Android, iOS and desktop</h3>
-      <div style="display: flex; gap: 1rem;">
-        <a href="https://github.com/MetrolistGroup/Metrolist/releases"><img src="https://img.shields.io/github/v/release/MetrolistGroup/Metrolist?style=for-the-badge&labelColor=0d1117" alt="Latest release" /></a>
-        <a href="https://github.com/MetrolistGroup/Metrolist/blob/main/LICENSE"><img src="https://img.shields.io/github/license/MetrolistGroup/metrolist?style=for-the-badge&labelColor=0d1117" alt="License" /></a>
-        <a href="https://github.com/MetrolistGroup/Metrolist/releases"><img src="https://img.shields.io/github/downloads/MetrolistGroup/Metrolist/total?style=for-the-badge&labelColor=0d1117" alt="Downloads" /></a>
-      </div>
-  </div>
-</div>
+<div align="center">
+  <img src="assets/minmusic-logo.png" alt="MinMusic" width="160" />
+  <h1>MinMusic</h1>
+  <h3>Trình nghe nhạc tất cả trong một cho Android: YouTube Music, SoundCloud, Zing MP3 và NhacCuaTui</h3>
+  <p><i>An all-in-one music player for Android (phone and tablet): stream, download in the best quality, and tune with a Poweramp-class equalizer. No ads, no telemetry.</i></p>
 
-<br>
-
-<div style="display: flex; gap: 0.5rem; align-items: center;">
-  <a href="https://www.blacksmith.sh"><img src="assets/blacksmith-powered.svg" alt="CI powered by Blacksmith" height="32" /></a>
-  <a href="https://dsc.gg/metrolist"><img src="https://img.shields.io/badge/Discord-5865F2?style=for-the-badge&logo=discord&logoColor=white" alt="Discord" height="32" /></a>
-  <a href="https://t.me/metrolistapp"><img src="https://img.shields.io/badge/Telegram-2CA5E0?style=for-the-badge&logo=telegram&logoColor=white" alt="Telegram" height="32" /></a>
+  <a href="https://github.com/nev-minhnh/MinMusic/releases/latest"><img src="https://img.shields.io/github/v/release/nev-minhnh/MinMusic?style=for-the-badge&labelColor=0d1117" alt="Bản mới nhất" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/nev-minhnh/MinMusic?style=for-the-badge&labelColor=0d1117" alt="Giấy phép" /></a>
+  <a href="https://github.com/nev-minhnh/MinMusic/releases"><img src="https://img.shields.io/github/downloads/nev-minhnh/MinMusic/total?style=for-the-badge&labelColor=0d1117" alt="Lượt tải" /></a>
 </div>
 
 <br>
 
 > [!WARNING]
-> <details>
->   <summary>The use of Metrolist to access YouTube Music may violate YouTube's Terms of Service.</summary>
->   <p>You use Metrolist at your own risk. You are solely responsible for any consequences. Metrolist's contributors are not liable for damages, claims or actions against your account. We have received no reports of bans or restrictions for using Metrolist, but that does not guarantee your account's safety.</p>
-> </details>
->
-> YouTube Music is region-restricted. If the service is unavailable in your region, you need a [VPN or proxy in a supported region](https://one.one.one.one/) to use the app. [Changing your DNS](https://developers.cloudflare.com/1.1.1.1/setup/) can bypass some blocks.
+> Việc dùng ứng dụng bên thứ ba để truy cập YouTube Music, Zing MP3, NhacCuaTui hay SoundCloud có thể vi phạm điều khoản dịch vụ của các nền tảng đó. Bạn tự chịu trách nhiệm khi sử dụng; nên dùng một tài khoản Google phụ.
 
-<!---
+## Tính năng
 
-DO NOT REMOVE THIS SECTION, I WANT TO ADD IT LATER!!!
----
-<div align="center">
+**Nguồn nhạc**
+- 4 nguồn trong một app: **YouTube Music**, **SoundCloud**, **Zing MP3**, **NhacCuaTui**. Kết quả tìm kiếm, bảng xếp hạng (cuộn xem đầy đủ) và hàng chờ trộn được nhiều nguồn.
+- **Tự chọn nguồn chất lượng cao nhất** cho cùng một bài, có cơ chế tạm ngắt nguồn đang lỗi.
+- **Tài khoản VIP của chính bạn:** Zing MP3 (đăng nhập qua WebView) và NhacCuaTui (mật khẩu chỉ dùng khi đăng nhập, không bao giờ được lưu; token được mã hoá) để mở 320 kbps và lossless. Mặc định không đăng nhập là 128 kbps. MinMusic **không** vượt rào VIP, DRM hay bản nghe thử SoundCloud Go+.
 
-<h1><a id="screenshots"></a>Screenshots</h1>
+**Tải nhạc chất lượng cao**
+- Tải luồng tốt nhất có thể (YouTube: Opus 251), **không chuyển mã**, ghi đủ tag và ảnh bìa (ID3v2, FLAC, Vorbis).
+- Tự chọn thư mục lưu, gộp bài đã tải thành **album của riêng bạn**.
 
-<img src="fastlane/metadata/android/en-US/images/screenshots/screenshot_1.png" alt="Home screen" width="30%" />
-<img src="fastlane/metadata/android/en-US/images/screenshots/screenshot_2.png" alt="Artist screen" width="30%" />
-<img src="fastlane/metadata/android/en-US/images/screenshots/screenshot_3.png" alt="Recognize music screen" width="30%" />
-<img src="fastlane/metadata/android/en-US/images/screenshots/screenshot_4.png" alt="Listen together screen" width="30%" />
-<img src="fastlane/metadata/android/en-US/images/screenshots/screenshot_5.png" alt="Player screen" width="30%" />
-<img src="fastlane/metadata/android/en-US/images/screenshots/screenshot_6.png" alt="Player lyrics screen" width="30%" />
+**Âm thanh**
+- **EQ toàn màn hình** kiểu Poweramp: parametric 64-bit, nhiều loại bộ lọc, preset theo từng thiết bị phát, xuất cấu hình Equalizer APO, cùng các hiệu ứng tone, crossfeed…
 
-</div>
--->
+**Lời bài hát**
+- Lời chạy theo nhạc từ nhiều nguồn, **ưu tiên đúng bài**: kiểm tra tên bài, nghệ sĩ và thời lượng. Không chắc chắn thì không hiện, thay vì hiện lời của bài khác. Bài Zing/NCT ưu tiên lời gốc của nguồn đó.
 
-<div align="center">
-<h1>Features</h1>
-</div>
+**Giao diện**
+- Thiết kế "Sân khấu tối", màu thương hiệu mặc định, có tuỳ chọn Material You.
+- Cuộn và chuyển cảnh mượt; chọn bài là trình phát mở toàn màn hình; tuỳ biến kiểu thanh tiến trình, độ dày, kiểu mini player.
+- **Tablet dọc và ngang:** thanh rail/sidebar, thanh phát nhạc gắn đáy hoặc nổi (có nút tắt), trình phát có tab Lời / Tiếp theo / Liên quan, hộp thoại giữa màn hình khi màn rộng.
+- Nút Back lùi từng lớp; bấm Back 2 lần liên tiếp mới thoát app.
 
-- YouTube Music playback with or without signing in
-- Android 7+, iOS 15+, Windows 10+, macOS 15+ and Linux support
-- Material 3 Expressive design
-- Discord Rich Presence and scrobbling through Last.fm and ListenBrainz
-- No ads
-- Listen Together for shared playback online
-- Casting to Google Cast, F-Cast and SONOS devices, and over DLNA (Android and desktop)
-- Backup and playlist imports from 30+ clients and 6 services
-- Music recognition through Shazam
-- Lyrics with translation and romanization
-- Translations in over 15 languages
-- Video playback (Android and desktop)
-- Content filters for AI-generated content, explicit-only playback and SFW-only playback
-- Canvas from Apple Music, Spotify and YouTube Music
-- Player, thumbnail, miniplayer and background styles
-- Custom fonts and app icons
+**Kết nối**
+- **Device Connect:** dùng điện thoại hoặc tablet điều khiển MinMusic trên máy tính qua mạng LAN hoặc VPN (Tailscale, OpenVPN…). Ghép đôi bằng mã hoặc QR, không cần tài khoản Google.
+- Kế thừa từ Metrolist: Listen Together, cast tới Google Cast / DLNA, nhận diện bài hát, Last.fm, ListenBrainz, Discord, nhập playlist và sao lưu.
 
-> [!TIP]
-> <p>See the <a href="https://metrolist.cc/#faq">FAQ</a> for common questions.</p>
+**Riêng tư**
+- **Không quảng cáo, không bao giờ.** Không có SDK quảng cáo hay theo dõi; bản build tự kiểm tra và chặn nếu có.
+- **Không thu thập dữ liệu:** đã gỡ hoàn toàn Sentry.
 
-<br>
+## Tải về
 
-<div align="center">
+| Nền tảng | Tải | Ghi chú |
+|---|---|---|
+| **Android** (điện thoại + tablet) | [MinMusic.apk – bản mới nhất](https://github.com/nev-minhnh/MinMusic/releases/latest) | Android 7.0 trở lên. Một file APK cho cả điện thoại và tablet. Kiểm tra file bằng `MinMusic.apk.sha256` |
+| **Windows** 10/11 (bản Compose) | [Các bản `windows-v*`](https://github.com/nev-minhnh/MinMusic/releases?q=windows&expanded=true) | Bộ cài hoặc bản portable. Chưa ký số nên SmartScreen có thể cảnh báo: chọn *More info → Run anyway* |
+| **Windows** bản mới (Tauri + WebView2) | [MinMusic_For_Windows](https://github.com/nev-minhnh/MinMusic_For_Windows) | Đang phát triển: giao diện mượt như Edge, dùng chung lõi với bản Android |
 
-<h1><a id="download-now"></a>Download now</h1>
+Chứng chỉ ký APK (SHA-256): `77:D3:62:7B:…:92:D4`. Các bản cập nhật luôn dùng cùng chứng chỉ, nên cài đè không mất dữ liệu.
 
-<p>Setup guides: <a href="docs/install/android.md">Android</a> · <a href="docs/install/ios.md">iOS</a> · <a href="docs/install/windows.md">Windows</a> · <a href="docs/install/macos.md">macOS</a> · <a href="docs/install/linux.md">Linux</a></p>
+## Lịch sử phiên bản
 
-<h3>Android</h3>
-<p><sub>Android 7+ · updates itself from inside the app</sub></p>
-<p>
-  <a href="https://github.com/MetrolistGroup/Metrolist/releases/latest/download/Metrolist.apk"><img alt="Download the stable Android APK" src="assets/badges/platform/android-stable.svg"></a>
-  <a href="https://github.com/MetrolistGroup/Metrolist/releases/download/nightly/Metrolist.apk"><img alt="Download the nightly Android APK" src="assets/badges/platform/android-nightly.svg"></a>
-</p>
-<p>
-  <a href="https://apps.obtainium.imranr.dev/redirect?r=obtainium://add/https://github.com/MetrolistGroup/Metrolist/"><img alt="Add Metrolist to Obtainium" src="assets/badges/platform/store-obtainium.svg"></a>
-  <a href="https://apt.izzysoft.de/fdroid/index/apk/com.metrolist.music"><img alt="Get Metrolist from IzzyOnDroid" src="assets/badges/platform/store-izzyondroid.svg"></a>
-  <a href="https://www.openapk.net/metrolist/com.metrolist.music/"><img alt="Get Metrolist on OpenAPK" src="assets/badges/platform/store-openapk.svg"></a>
-</p>
+| Phiên bản | Nội dung chính |
+|---|---|
+| **1.0.4** | Tablet: nút menu không còn bị thanh phát nhạc che; thêm nút tắt thanh phát nhạc; thanh nằm sát cạnh dưới |
+| **1.0.3** | Logo màu; thanh phát nhạc tablet khi xoay ngang không bị cắt; kiểu mini player áp dụng trên tablet; điện thoại xoay ngang trở lại như 1.0.1; lời bài hát ưu tiên đúng bài |
+| **1.0.2** | Giao diện tablet dọc và ngang; Device Connect điều khiển máy tính |
+| **1.0.1** | Trình phát tự mở toàn màn hình; tôn trọng mọi cài đặt giao diện; viền mờ ảnh bìa; lời bài hát ưu tiên bản chạy chữ; bảng xếp hạng cuộn đầy đủ; nút Back lùi từng lớp |
+| **1.0.0** | Bản đầu tiên: 4 nguồn nhạc, tải chất lượng cao, EQ toàn màn hình, thiết kế mới, bỏ quảng cáo và theo dõi |
 
-<h3>iOS</h3>
-<p><sub>iPhone and iPad · iOS 15+ · sideload with AltStore, SideStore, TrollStore or Sideloadly</sub></p>
-<p>
-  <a href="https://github.com/MetrolistGroup/Metrolist/releases/latest/download/Metrolist.ipa"><img alt="Download the iOS IPA" src="assets/badges/platform/ios-ipa.svg"></a>
-</p>
-<p><sub>For updates, add the <a href="https://github.com/MetrolistGroup/Metrolist/releases/latest/download/metrolist-altstore.json">AltStore and SideStore source</a></sub></p>
+## Build từ mã nguồn
 
-<h3>Windows</h3>
-<p><sub>Windows 10+</sub></p>
-<p>
-  <a href="https://github.com/MetrolistGroup/Metrolist/releases/latest"><img alt="Download the Windows x64 installer" src="assets/badges/platform/windows-installer.svg"></a>
-  <a href="https://github.com/MetrolistGroup/Metrolist/releases/latest/download/Metrolist-Desktop-windows.zip"><img alt="Download the portable Windows x64 ZIP" src="assets/badges/platform/windows-portable.svg"></a>
-  <a href="https://github.com/MetrolistGroup/Metrolist/releases/latest"><img alt="Download the portable Windows ARM64 ZIP" src="assets/badges/platform/windows-arm64.svg"></a>
-</p>
+Yêu cầu JDK 21 và Android SDK.
 
-<h3>macOS</h3>
-<p><sub>macOS 15+ · unsigned, so you need to trust it on first launch</sub></p>
-<p>
-  <a href="https://github.com/MetrolistGroup/Metrolist/releases/latest"><img alt="Download the macOS DMG for Apple silicon" src="assets/badges/platform/macos-apple-silicon.svg"></a>
-  <a href="https://github.com/MetrolistGroup/Metrolist/releases/latest"><img alt="Download the macOS DMG for Intel" src="assets/badges/platform/macos-intel.svg"></a>
-</p>
-<p><b>Homebrew</b></p>
-
-```sh
-brew trust metrolistgroup/tap
-brew install --cask metrolistgroup/tap/metrolist
+```bash
+git clone https://github.com/nev-minhnh/MinMusic.git
+cd MinMusic
+./gradlew :androidApp:assembleDebug          # APK debug: androidApp/build/outputs/apk/debug/
+./gradlew :androidApp:testDebugUnitTest :shared:desktopTest
 ```
 
-<h3>Linux</h3>
-<p><sub>glibc · x86_64 and ARM64</sub></p>
-<p>
-  <a href="https://github.com/MetrolistGroup/Metrolist/releases/latest"><img alt="Download the Linux AppImage" src="assets/badges/platform/linux-appimage.svg"></a>
-</p>
-<p><b>Flatpak</b> <sub>from <a href="https://flatpark.org/apps/com.metrolist.desktop/">flatpark</a></sub></p>
+Bản phát hành có chữ ký được build trên GitHub Actions khi gắn tag `vX.Y.Z`. Tài liệu cho nhà phát triển nằm trong [docs/](docs/README.md).
 
-```sh
-flatpak install https://dl.flatpark.org/com.metrolist.desktop.flatpakref
-```
+## Ghi công
 
-<p><b>Arch Linux</b> <sub>community <a href="https://aur.archlinux.org/packages/metrolist-desktop-bin">AUR package</a>, x86_64 only</sub></p>
+MinMusic là bản fork của **[Metrolist](https://github.com/MetrolistGroup/Metrolist)**, xin cảm ơn đội ngũ Metrolist và các dự án mà Metrolist sử dụng:
+[InnerTubeX](https://github.com/MetrolistGroup/innertubex) (YouTube),
+[NewPipe Extractor](https://github.com/TeamNewPipe/NewPipeExtractor) (SoundCloud),
+[MusicRecognizer](https://github.com/aleksey-saenko/MusicRecognizer) (nhận diện bài hát),
+[metroserver](https://github.com/MetrolistGroup/metroserver) (Listen Together),
+cùng các nhà cung cấp lời bài hát LrcLib, KuGou, SimpMusic, BetterLyrics và Paxsenix.
 
-```sh
-yay -S metrolist-desktop-bin
-```
+## Giấy phép
 
-<p><b>Nix</b></p>
+Phát hành theo giấy phép **GNU General Public License v3.0**, giống dự án gốc. Xem [LICENSE](LICENSE).
 
-```sh
-nix profile install github:MetrolistGroup/Metrolist
-```
-
-<p><b>Homebrew</b></p>
-
-```sh
-brew trust metrolistgroup/tap
-brew install metrolistgroup/tap/metrolist
-```
-
-</div>
-
-<br>
-
-<div align="center">
-
-<h1><a id="support-the-project"></a>Support the project</h1>
-
-Metrolist is free and open-source. Donations support its development.
-
-<p>
-  <a href="https://github.com/sponsors/nyxiereal">
-    <img src="https://img.shields.io/badge/Sponsor-nyxiereal-ea4aaa?style=for-the-badge&logo=githubsponsors&logoColor=white" alt="Sponsor nyxiereal" />
-  </a>
-  <a href="https://www.buymeacoffee.com/mostafaalagamy">
-    <img src="https://img.shields.io/badge/Buy%20Me%20a%20Coffee-mostafaalagamy-FFDD00?style=for-the-badge&logo=buymeacoffee&logoColor=black" alt="Buy Me a Coffee" />
-  </a>
-  <a href="https://github.com/sponsors/l6t9">
-    <img src="https://img.shields.io/badge/Sponsor-l6t9-ea4aaa?style=for-the-badge&logo=githubsponsors&logoColor=white" alt="Sponsor l6t9" />
-  </a>
-  <a href="https://github.com/sponsors/adrielggmotion">
-    <img src="https://img.shields.io/badge/Sponsor-adrielggmotion-ea4aaa?style=for-the-badge&logo=githubsponsors&logoColor=white" alt="Sponsor adrielggmotion" />
-  </a>
-</p>
-
-<details>
-  <summary>Donate Monero to Mostafa Alagamy</summary>
-  <p>
-    <img src="assets/XMR.png" alt="Monero QR code" width="150" />
-  </p>
-
-```text
-44XjSELSWcgJTZiCKzjpCQWyXhokrH9RqH3rpp35FkSKi57T25hniHWHQNhLeXyFn3DDYqufmfRB1iEtENerZpJc7xJCcqt
-```
-
-</details>
-</div>
-
-<br>
-
-<div align="center">
-
-<h1>Special thanks</h1>
-
-Metrolist uses these projects and services.
-
-<table>
-  <thead>
-    <tr>
-      <th align="center">Project</th>
-      <th align="center">Contribution</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td align="center"><a href="https://github.com/aleksey-saenko/MusicRecognizer">MusicRecognizer</a></td>
-      <td>Music recognition through the Shazam API</td>
-    </tr>
-    <tr>
-      <td align="center"><a href="https://github.com/MetrolistGroup/innertubex">InnerTubeX</a></td>
-      <td>YouTube streaming engine, developed with help from <a href="https://github.com/ZemerTeam/">ZemerTeam</a></td>
-    </tr>
-    <tr>
-      <td align="center">Lyprio</td>
-      <td>Lyrics provider</td>
-    </tr>
-    <tr>
-      <td align="center"><a href="https://github.com/MetrolistGroup/metroserver">metroserver</a></td>
-      <td>Listen Together real-time synchronization backend</td>
-    </tr>
-    <tr>
-      <td align="center"><a href="https://www.blacksmith.sh">Blacksmith</a></td>
-      <td>GitHub Actions runners for CI</td>
-    </tr>
-  </tbody>
-</table>
-</div>
-
-<br>
-
-<div align="center">
-
-<h1><a id="translations"></a>Translations</h1>
-
-[![Translation status](https://img.shields.io/weblate/progress/metrolist?style=for-the-badge&labelColor=0d1117)](https://hosted.weblate.org/engage/metrolist/)
-
-<p>We use Weblate to translate Metrolist. <a href="https://hosted.weblate.org/projects/Metrolist/">Contribute a translation</a>.</p>
-
-<a href="https://hosted.weblate.org/projects/Metrolist/">
-  <img src="https://hosted.weblate.org/widget/Metrolist/horizontal-auto.svg" alt="Translation status" />
-</a>
-</div>
-
-<br>
-
-<div align="center">
-<h1>Contributors</h1>
-<p>To contribute code, start with the <a href="docs/README.md">developer docs</a>.</p>
-<a href="https://github.com/MetrolistGroup/Metrolist/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=MetrolistGroup/Metrolist" alt="Contributors" />
-</a>
-</div>
-
-<br>
-
-> [!WARNING]
-> <h2>Legal disclaimer</h2>
-> <p>This project is not affiliated with, funded, authorized or endorsed by YouTube, Google LLC, MetroList MLS, or their affiliates and subsidiaries.</p>
->
-> <p>All trademarks, service marks, and intellectual property rights referenced in this project belong to their respective owners.</p>
-
-<br/>
-
-<div align="center">
-
-**Developed by [the Metrolist development team](https://github.com/MetrolistGroup)**
-
-**This project stands with Palestine 🇵🇸**
-
-</div>
+> [!NOTE]
+> MinMusic không liên kết với, không được tài trợ hay chứng thực bởi YouTube, Google LLC, VNG (Zing MP3), NCT (NhacCuaTui), SoundCloud hay Metrolist. Mọi nhãn hiệu thuộc về chủ sở hữu tương ứng.
