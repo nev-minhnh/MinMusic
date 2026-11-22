@@ -104,6 +104,8 @@ fun main(args: Array<String>) {
         // No hard cap: the dynamic CDS archive is written during the normal JVM exit that follows.
         CoreShutdown.run("cds-warmup", hardCap = false)
     }
+    // Ktor's CIO threads are daemons: keep a non-daemon thread alive until CoreShutdown calls exitProcess.
+    java.util.concurrent.CountDownLatch(1).await()
 }
 
 private fun randomHex(bytes: Int): String = ByteArray(bytes).also(SecureRandom()::nextBytes).joinToString("") { "%02x".format(it) }
