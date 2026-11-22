@@ -80,13 +80,11 @@ class DesktopTokenProvider internal constructor(
 
     constructor(
         pageBoundRuntime: DesktopPoTokenJavaScriptRuntime,
-        preferSidecar: Boolean = false,
         upcomingVideoIds: () -> List<String> = { emptyList() },
     ) : this(
         createTokenHttpClient(),
         pageBoundRuntime = pageBoundRuntime,
         upcomingVideoIds = upcomingVideoIds,
-        preferSidecar = preferSidecar,
     )
 
     companion object {
