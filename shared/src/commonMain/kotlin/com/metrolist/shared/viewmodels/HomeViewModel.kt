@@ -772,6 +772,8 @@ class HomeViewModel(
                         ) {
                             return@supervisorScope
                         }
+                        // Log the cause: the screen only shows a generic message, so logcat is the only trace.
+                        Logger.e(HOME_LOG_TAG, "Home load failed browseId=$browseId filtered=${params != null}", e)
                         _uiState.update {
                             it.copy(
                                 isLoading = false,
@@ -779,7 +781,8 @@ class HomeViewModel(
                                 isRevalidating = false,
                                 isContentLoading = false,
                                 isLoadingMore = false,
-                                error = e.message,
+                                // A null message used to leave an empty Home with no error and no retry.
+                                error = e.message?.takeIf { message -> message.isNotBlank() } ?: (e::class.simpleName ?: "Exception"),
                             )
                         }
                     } finally {

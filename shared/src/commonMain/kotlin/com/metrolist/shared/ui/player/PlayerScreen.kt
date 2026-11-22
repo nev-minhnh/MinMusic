@@ -68,6 +68,7 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -97,6 +98,7 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.movableContentOf
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -146,6 +148,7 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.LayoutDirection
@@ -808,6 +811,8 @@ fun PlayerScreen(
     }
 
     val nextSong = queueItems.getOrNull(currentQueueIndex + 1)
+    // The tablet "Up next" card shows the next three queue rows.
+    val mmUpNext = remember(queueItems, currentQueueIndex) { queueItems.drop((currentQueueIndex + 1).coerceAtLeast(0)).take(3) }
     LaunchedEffect(currentSong?.id, nextSong?.id, shouldFetchLyrics) {
         if (shouldFetchLyrics && nextSong != null) {
             viewModel.currentPosition
@@ -888,7 +893,13 @@ fun PlayerScreen(
                 } else {
                     playerLayoutMode(screenWidth, maxHeight) == PlayerLayoutMode.LANDSCAPE
                 }
-            val useTabletLayout = isTv && useLandscapeLayout && minOf(screenWidth, maxHeight) >= 600.dp
+            // Tablets in landscape (and TV) use the two-pane player: artwork + controls, lyrics drawer and queue beside it.
+            val useTabletLayout = useLandscapeLayout && minOf(screenWidth, maxHeight) >= 600.dp
+            // MinMusic tablets (tablet-layout-spec section 6): block left + tabs right in landscape (>= 840 wide),
+            // the phone block capped by height class with two cards under it in portrait. Phones are unchanged.
+            val mmTabletLandscape = mmStyle && useTabletLayout && screenWidth >= 840.dp
+            val mmTabletPortrait =
+                mmStyle && !useLandscapeLayout && !usesFullscreenThumbnail && minOf(screenWidth, maxHeight) >= 600.dp
             val compactPortraitHeight = !useLandscapeLayout && maxHeight < 560.dp
             // Short split-screen windows shrink the centred artwork to a sliver; show it beside the title as lyrics do.
             val artworkBesideTitle = !useLandscapeLayout && !isTv && !usesFullscreenThumbnail && maxHeight < ArtworkBesideTitleMaxHeight
@@ -903,10 +914,31 @@ fun PlayerScreen(
                     if (displayCutoutTopPadding > 0.dp) displayCutoutTopPadding + 4.dp else 0.dp,
                     if (isImmersive) 16.dp else 0.dp,
                 )
+            val mmTabletArtwork = mmTabletArtworkCap(maxHeight)
+            // Artwork + the 12 dp artwork inset on both sides, centred: the block is as wide as the artwork.
+            val mmTabletBlockWidth = if (mmTabletPortrait) mmTabletArtwork + 24.dp else Dp.Unspecified
+            val mmTabletCardsHeight =
+                if (mmTabletPortrait) {
+                    mmTabletPortraitCardsHeight(maxHeight, statusBarTopPadding, navigationBarBottomPadding, mmTabletArtwork)
+                } else {
+                    0.dp
+                }
+            val portraitGutter = if (mmTabletPortrait) maxOf(24.dp, (screenWidth - mmTabletBlockWidth) / 2) else 24.dp
+            // Lyrics opened on a tablet use up to 640 dp instead of the narrow block width.
+            val mmTabletLyricsBleed =
+                if (mmTabletPortrait) {
+                    ((minOf(640.dp, screenWidth - 48.dp) - (screenWidth - portraitGutter * 2)) / 2).coerceAtLeast(0.dp)
+                } else {
+                    0.dp
+                }
             val queuePeekHeight =
                 when {
                     useLandscapeLayout -> 0.dp
-                    mmStyle -> mmPlayerBottomAreaHeight(showLyricsPeek = !uiState.isLyricsVisible) + navigationBarBottomPadding
+                    mmStyle ->
+                        mmPlayerBottomAreaHeight(
+                            showLyricsPeek = !uiState.isLyricsVisible,
+                            tabletCardsHeight = mmTabletCardsHeight,
+                        ) + navigationBarBottomPadding
                     else -> QueuePeekHeight + 16.dp + navigationBarBottomPadding
                 }
             val queueSheetState =
@@ -946,7 +978,57 @@ fun PlayerScreen(
             val queueHandlesBack by remember(queueSheetState, useLandscapeLayout) {
                 derivedStateOf { !useLandscapeLayout && queueSheetState.progress > 0.2f }
             }
-            val landscapeQueueVisible = useLandscapeLayout && !queueSheetState.isCollapsed
+            // Tablet player tab, shared by both orientations (LYRICS card <-> Lyrics tab, UP NEXT card <-> Up next tab).
+            var mmTabletTab by rememberSaveable { mutableIntStateOf(MmTabletTabLyrics) }
+            // The queue layer was open when the tablet turned to landscape: reopen it when it turns back.
+            var mmTabletReopenQueue by rememberSaveable { mutableStateOf(false) }
+            val mmTabletRelatedListState = rememberLazyListState()
+            LaunchedEffect(mmTabletLandscape) {
+                if (mmTabletLandscape) {
+                    if (!queueSheetState.isCollapsed) {
+                        mmTabletTab = MmTabletTabUpNext
+                        mmTabletReopenQueue = true
+                        queueSheetState.collapseSoft()
+                    } else if (uiState.isLyricsVisible) {
+                        mmTabletTab = MmTabletTabLyrics
+                    }
+                } else if (mmTabletReopenQueue) {
+                    mmTabletReopenQueue = false
+                    if (mmTabletPortrait && mmTabletTab == MmTabletTabUpNext) queueSheetState.expandSoft()
+                }
+            }
+            // The tablet player bar opens the full player with setQueueVisible(true) / setLyricsVisible(true).
+            val mmTablet = mmTabletLandscape || mmTabletPortrait
+            var mmQueueOpenedByRequest by remember { mutableStateOf(false) }
+            LaunchedEffect(uiState.isQueueVisible, mmTabletLandscape, mmTabletPortrait) {
+                if (!mmTablet) return@LaunchedEffect
+                if (uiState.isQueueVisible) {
+                    mmQueueOpenedByRequest = true
+                    if (mmTabletLandscape) mmTabletTab = MmTabletTabUpNext else queueSheetState.expandSoft()
+                } else if (mmQueueOpenedByRequest) {
+                    // Back cleared the request: close the queue first; the next Back collapses the player.
+                    mmQueueOpenedByRequest = false
+                    if (mmTabletLandscape) {
+                        if (mmTabletTab == MmTabletTabUpNext) mmTabletTab = MmTabletTabLyrics
+                    } else if (!queueSheetState.isCollapsed) {
+                        queueSheetState.collapseSoft()
+                    }
+                }
+            }
+            LaunchedEffect(uiState.isLyricsVisible, mmTabletLandscape) {
+                if (mmTabletLandscape && uiState.isLyricsVisible) mmTabletTab = MmTabletTabLyrics
+            }
+            var mmQueueSheetWasOpen by remember { mutableStateOf(false) }
+            LaunchedEffect(queueSheetState.isCollapsed) {
+                if (!queueSheetState.isCollapsed) {
+                    mmQueueSheetWasOpen = true
+                } else if (mmQueueSheetWasOpen) {
+                    mmQueueSheetWasOpen = false
+                    // The queue sheet was closed by drag/Back/scrim: drop a pending open request with it.
+                    if (mmTabletPortrait && uiState.isQueueVisible) viewModel.setQueueVisible(false)
+                }
+            }
+            val landscapeQueueVisible = useLandscapeLayout && !mmTabletLandscape && !queueSheetState.isCollapsed
             // Phone landscape has no room above the controls, so cast and the audio/video switch move into the player menu.
             val landscapeMenuActions =
                 if (useLandscapeLayout && !isTv && !landscapeQueueVisible) {
@@ -1282,7 +1364,65 @@ fun PlayerScreen(
                                 isBuffering = castState.isBuffering,
                             )
                         } else if (useLandscapeLayout) {
-                            if (useTabletLayout || landscapeQueueVisible) {
+                            if (mmTabletLandscape) {
+                                MmTabletLandscapePlayerContent(
+                                    viewModel = viewModel,
+                                    uiState = uiState,
+                                    currentSong = currentSong,
+                                    playbackResource = playbackResource,
+                                    selectedTab = mmTabletTab,
+                                    onSelectTab = { tab ->
+                                        mmTabletTab = tab
+                                        mmTabletReopenQueue = tab == MmTabletTabUpNext && mmTabletReopenQueue
+                                        // Leaving the lyrics tab closes the lyrics layer, so portrait does not reopen it.
+                                        if (tab != MmTabletTabLyrics && uiState.isLyricsVisible) viewModel.setLyricsVisible(false)
+                                        if (tab != MmTabletTabUpNext && uiState.isQueueVisible) viewModel.setQueueVisible(false)
+                                    },
+                                    queueSession = queueSession,
+                                    relatedListState = mmTabletRelatedListState,
+                                    artworkOverlay = artworkOverlay,
+                                    crossfadeNextArtworkUrl = crossfadeNextArtworkUrl,
+                                    artworkCrossfadeProgress = artworkCrossfadeProgress,
+                                    showVideoSurface = showVideoSurface,
+                                    onToggleFullscreen = onToggleFullscreen,
+                                    isPlaying = isPlaying,
+                                    isPlaybackLoading = isPlaybackLoading && contentActive && !hasVisibleVideoTransitionIndicator,
+                                    duration = duration,
+                                    isLiked = isLiked,
+                                    onToggleLike = toggleDisplayedLike,
+                                    onShareSong = { shareDisplayedSong() },
+                                    textColor = textBackgroundColor,
+                                    castState = castState,
+                                    onOpenCast =
+                                        openCastDialog.takeIf {
+                                            !isListenTogetherGuest && platform.supportsCasting &&
+                                                Settings.shared.isPlayerCastButtonVisible
+                                        },
+                                    onOpenEqualizer = { showEqualizerShortcut = true },
+                                    sleepTimerState = sleepTimerState,
+                                    onShowSleepTimer = { showSleepTimerDialog = true },
+                                    onShowPlayerMenu = { showPlayerMenu = true },
+                                    onShowLyricsMenu = { showLyricsMenu = true },
+                                    onClose = onClose,
+                                    showVideoButton = showVideoButton,
+                                    isVideoModeActive = isVideoModeActive,
+                                    isVideoModeResolving = isVideoModeResolving,
+                                    onToggleVideoMode = { playerConnection?.setVideoMode(!isVideoModeActive) },
+                                    isListenTogetherGuest = isListenTogetherGuest,
+                                    artworkSwipeEnabled = artworkSwipeEnabled,
+                                    onArtworkSeek = onArtworkSeek,
+                                    seekFeedback = seekFeedback,
+                                    seekFeedbackVisible = seekFeedbackVisible,
+                                    playPauseFocusRequester = playPauseFocusRequester,
+                                    useRoundedRectPlayButton = useRoundedRectPlayButton,
+                                    showLyricsOffsetEditor = showLyricsOffsetEditor,
+                                    onLyricsOffsetChange = { offset -> currentSong?.let { viewModel.setLyricsOffset(it.id, offset) } },
+                                    onDoneLyricsOffset = { showLyricsOffsetEditor = false },
+                                    onNavigateToArtist = onNavigateToArtist,
+                                    onNavigateToAlbum = onNavigateToAlbum,
+                                    onNavigateToListenTogether = onNavigateToListenTogether,
+                                )
+                            } else if (useTabletLayout || landscapeQueueVisible) {
                                 TabletPlayerContent(
                                     viewModel = viewModel,
                                     artworkOverlay = artworkOverlay,
@@ -1402,7 +1542,7 @@ fun PlayerScreen(
                                         ).windowInsetsPadding(WindowInsets.safeDrawing)
                                         .windowInsetsPadding(
                                             WindowInsets.mandatorySystemGestures.only(WindowInsetsSides.Bottom),
-                                        ).padding(horizontal = 24.dp)
+                                        ).padding(horizontal = portraitGutter)
                                         .padding(top = 16.dp),
                             ) {
                                 AnimatedContent(
@@ -1427,6 +1567,8 @@ fun PlayerScreen(
                                             textColor = textBackgroundColor,
                                             isCasting = castState.isConnected,
                                             isBuffering = castState.isBuffering,
+                                            modifier =
+                                                if (mmTabletPortrait) Modifier.mmPlayerBleed(mmTabletLyricsBleed) else Modifier,
                                         )
                                     } else {
                                         Column(
@@ -1457,7 +1599,7 @@ fun PlayerScreen(
                                                         playerConnection?.setVideoMode(!isVideoModeActive)
                                                     },
                                                     contentColor = textBackgroundColor,
-                                                    modifier = Modifier.mmPlayerBleed(MmPlayerTopBarBleed),
+                                                    modifier = Modifier.mmPlayerBleed(if (mmTabletPortrait) portraitGutter - 4.dp else MmPlayerTopBarBleed),
                                                     controllingDeviceName = deviceConnectTarget?.name,
                                                 )
                                             }
@@ -2037,6 +2179,9 @@ fun PlayerScreen(
                                                         style =
                                                             if (usesCanvasThumbnail) {
                                                                 MaterialTheme.typography.titleMedium
+                                                            } else if (mmTabletPortrait) {
+                                                                // Tablet title 28 (phone 20), spec section 2.
+                                                                MaterialTheme.typography.headlineSmall
                                                             } else {
                                                                 MaterialTheme.typography.titleLarge
                                                             },
@@ -2373,7 +2518,7 @@ fun PlayerScreen(
                                         modifier =
                                             Modifier.height(
                                                 if (mmStyle) {
-                                                    mmPlayerBottomAreaHeight(showLyricsPeek = !uiState.isLyricsVisible) + 8.dp
+                                                    mmPlayerBottomAreaHeight(!uiState.isLyricsVisible, mmTabletCardsHeight) + 8.dp
                                                 } else {
                                                     QueuePeekHeight + 32.dp
                                                 },
@@ -2472,7 +2617,10 @@ fun PlayerScreen(
                                             lyricsOffsetMs = uiState.lyricsOffsetMs,
                                             isLyricsLoading = uiState.isLyricsLoading,
                                             isLyricsVisible = uiState.isLyricsVisible,
-                                            onLyricsVisibleChange = { visible -> viewModel.setLyricsVisible(visible) },
+                                            onLyricsVisibleChange = { visible ->
+                                                if (visible) mmTabletTab = MmTabletTabLyrics
+                                                viewModel.setLyricsVisible(visible)
+                                            },
                                             isPlaying = isPlaying,
                                             castState = castState,
                                             // The output chip is also the Device Connect entry, so it opens the device picker
@@ -2486,12 +2634,18 @@ fun PlayerScreen(
                                             onOpenEqualizer = { showEqualizerShortcut = true },
                                             sleepTimerState = sleepTimerState,
                                             onShowSleepTimer = { showSleepTimerDialog = true },
-                                            onOpenQueue = { queueSheetState.expandSoft() },
+                                            onOpenQueue = {
+                                                mmTabletTab = MmTabletTabUpNext
+                                                queueSheetState.expandSoft()
+                                            },
                                             isListenTogetherGuest = isListenTogetherGuest,
                                             navigationBarBottomPadding = navigationBarBottomPadding,
                                             nextSongTitle = nextSong?.title,
                                             queueSize = queueItems.size,
                                             controlledTarget = deviceConnectTarget,
+                                            tabletCardsHeight = mmTabletCardsHeight,
+                                            tabletBlockWidth = mmTabletBlockWidth,
+                                            upNext = mmUpNext,
                                         )
                                     } else {
                                         PlayerBottomControls(
@@ -2605,7 +2759,7 @@ fun PlayerScreen(
                         )
                     }
 
-                    if (useLandscapeLayout) {
+                    if (useLandscapeLayout && !mmTabletLandscape) {
                         Box(
                             Modifier
                                 .align(Alignment.CenterEnd)

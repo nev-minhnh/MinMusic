@@ -126,6 +126,8 @@ fun SearchScreen(
     onMixClick: (YTItem) -> Unit = {},
     itemContainer: @Composable (YTItem, @Composable () -> Unit) -> Unit = { _, content -> content() },
     onMicrophoneClick: (() -> Unit)? = null,
+    onRecognizeClick: (() -> Unit)? = null,
+    recognizeContentDescription: String = "",
     focusRequester: FocusRequester = remember { FocusRequester() },
     showSearchBar: Boolean = true,
     searchBarEndPadding: Dp = 0.dp,
@@ -168,6 +170,8 @@ fun SearchScreen(
                                 onBack = onBack,
                                 onMicrophoneClick = onMicrophoneClick,
                                 microphoneContentDescription = text.microphoneContentDescription,
+                                onRecognizeClick = onRecognizeClick,
+                                recognizeContentDescription = recognizeContentDescription,
                                 isQuerySubmitted = isQuerySubmitted,
                                 focusRequester = focusRequester,
                                 placeholder = text.searchPlaceholder,
@@ -230,6 +234,8 @@ fun SearchBar(
     onBack: () -> Unit,
     onMicrophoneClick: (() -> Unit)?,
     microphoneContentDescription: String,
+    onRecognizeClick: (() -> Unit)? = null,
+    recognizeContentDescription: String = "",
     isQuerySubmitted: Boolean,
     focusRequester: FocusRequester,
     placeholder: String,
@@ -313,17 +319,35 @@ fun SearchBar(
                                 IconButton(onClick = onClear, modifier = Modifier.size(48.dp), shapes = IconButtonDefaults.shapes()) {
                                     Icon(imageVector = MetrolistIcons.Default.Clear, contentDescription = clearLabel)
                                 }
-                            } else if (onMicrophoneClick != null) {
-                                IconButton(
-                                    onClick = onMicrophoneClick,
-                                    modifier = Modifier.size(48.dp),
-                                    shapes = IconButtonDefaults.shapes(),
-                                ) {
-                                    Icon(
-                                        imageVector = MetrolistIcons.Rounded.Mic,
-                                        contentDescription = microphoneContentDescription,
-                                        modifier = Modifier.size(24.dp),
-                                    )
+                            } else {
+                                // MinMusic: music recognition sits at the end of the search field (replaces the old FAB).
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    if (onRecognizeClick != null) {
+                                        IconButton(
+                                            onClick = onRecognizeClick,
+                                            modifier = Modifier.size(48.dp),
+                                            shapes = IconButtonDefaults.shapes(),
+                                        ) {
+                                            Icon(
+                                                imageVector = MetrolistIcons.Outlined.AudioCapture,
+                                                contentDescription = recognizeContentDescription,
+                                                modifier = Modifier.size(24.dp),
+                                            )
+                                        }
+                                    }
+                                    if (onMicrophoneClick != null) {
+                                        IconButton(
+                                            onClick = onMicrophoneClick,
+                                            modifier = Modifier.size(48.dp),
+                                            shapes = IconButtonDefaults.shapes(),
+                                        ) {
+                                            Icon(
+                                                imageVector = MetrolistIcons.Rounded.Mic,
+                                                contentDescription = microphoneContentDescription,
+                                                modifier = Modifier.size(24.dp),
+                                            )
+                                        }
+                                    }
                                 }
                             }
                         },
@@ -461,8 +485,22 @@ fun SearchBar(
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
-                    } else if (onMicrophoneClick != null) {
-                        IconButton(
+                    } else {
+                        if (onRecognizeClick != null) {
+                            IconButton(
+                                onClick = onRecognizeClick,
+                                modifier = Modifier.size(barHeight).tvFocusHighlight(CircleShape, scale = 1f),
+                                shapes = IconButtonDefaults.shapes(),
+                            ) {
+                                Icon(
+                                    imageVector = MetrolistIcons.Outlined.AudioCapture,
+                                    contentDescription = recognizeContentDescription,
+                                    modifier = Modifier.size(iconSize),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                        if (onMicrophoneClick != null) IconButton(
                             onClick = onMicrophoneClick,
                             modifier = Modifier.size(barHeight).tvFocusHighlight(CircleShape, scale = 1f),
                             shapes = IconButtonDefaults.shapes(),

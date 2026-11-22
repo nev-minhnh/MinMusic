@@ -17,7 +17,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
@@ -59,6 +61,7 @@ import com.metrolist.shared.ui.LocalIsTv
 import com.metrolist.shared.ui.LocalPlayerImmersiveMode
 import com.metrolist.shared.ui.components.ModalBottomSheet
 import com.metrolist.shared.ui.components.PopupVisibility
+import com.metrolist.shared.ui.components.isWideSheetDialogWindow
 import com.metrolist.shared.ui.theme.ComponentShapes
 import com.metrolist.android.ui.component.DensityAwareDialog as Dialog
 import com.metrolist.shared.ui.components.ModalSheetState as SheetState
@@ -117,9 +120,16 @@ fun AdaptiveModalBottomSheet(
     contentWindowInsets: @Composable () -> WindowInsets = { WindowInsets.safeDrawing },
     properties: ModalBottomSheetProperties = ModalBottomSheetDefaults.properties,
     gesturesEnabled: Boolean = true,
+    // Wide windows show the sheet as a centred dialog of bounded height. Pass true when the content is a plain
+    // Column so a long one scrolls there; content with its own LazyColumn, weight or fillMaxHeight must not.
+    scrollDialogContent: Boolean = false,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    if (LocalIsTv.current) {
+    val isTv = LocalIsTv.current
+    // Owner decision: windows >= 840 dp show sheets as centred dialogs (width 560, radius 28, <= 86 % of the
+    // window height). The shared ModalBottomSheet does that itself, keeping the sheet state's show/hide/dismiss.
+    val wideWindow = !isTv && isWideSheetDialogWindow()
+    if (isTv) {
         Dialog(onDismissRequest = onDismissRequest) {
             ApplyPlayerImmersiveMode()
             val initialFocusRequester = remember { FocusRequester() }
@@ -169,7 +179,11 @@ fun AdaptiveModalBottomSheet(
             gesturesEnabled = gesturesEnabled,
             content = {
                 ApplyPlayerImmersiveMode()
-                content()
+                if (wideWindow && scrollDialogContent) {
+                    Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()), content = content)
+                } else {
+                    content()
+                }
             },
         )
     }
@@ -264,6 +278,7 @@ fun BottomSheetMenu(
 ) {
     val sheetState = rememberBottomSheetState(SheetValue.Hidden)
     val isTv = LocalIsTv.current
+    val wideWindow = !isTv && isWideSheetDialogWindow()
 
     if (isTv) {
         PopupVisibility(visible = state.isVisible) {
@@ -317,6 +332,8 @@ fun BottomSheetMenu(
             modifier =
                 Modifier
                     .fillMaxWidth()
+                    // Wide windows: the dialog is height-bounded, so long menus scroll instead of being cut off.
+                    .then(if (wideWindow) Modifier.verticalScroll(rememberScrollState()) else Modifier)
                     .padding(horizontal = 20.dp),
         ) {
             state.content(this)

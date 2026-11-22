@@ -82,6 +82,7 @@ fun MmPlayerMiniBar(
     playbackActionLabel: String? = null,
     titleModifier: Modifier = Modifier,
     artwork: (@Composable () -> Unit)? = null,
+    docked: Boolean = false,
 ) {
     val scheme = MaterialTheme.colorScheme
     val ink = scheme.onSurface
@@ -94,8 +95,9 @@ fun MmPlayerMiniBar(
     val loadingLabel = stringResource(Res.string.loading)
     PlayerSheetSurface(
         modifier = modifier.fillMaxWidth().height(MmPlayerMiniBarHeight),
-        color = scheme.surfaceContainer,
-        cornerRadius = MiniBarRadius,
+        // Docked (tablet default): a square surface1 bar across the window bottom instead of the floating card.
+        color = if (docked) scheme.surfaceContainerLow else scheme.surfaceContainer,
+        cornerRadius = if (docked) 0.dp else MiniBarRadius,
         elevation = 0.dp,
         onClick = onExpand,
     ) {

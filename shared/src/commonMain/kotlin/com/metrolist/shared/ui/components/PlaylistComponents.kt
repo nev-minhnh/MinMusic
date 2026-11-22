@@ -72,12 +72,14 @@ fun PlaylistHeader(
     titleModifier: Modifier = Modifier,
     actions: @Composable (() -> Unit)? = null,
     overline: String? = null,
+    wideArtworkSize: Dp? = null,
 ) {
     CollectionHeader(
         isWide = isWide,
         isMedium = isMedium,
         modifier = modifier,
         mediumArtworkSize = mediumArtworkSize,
+        wideArtworkSize = wideArtworkSize,
         artwork = { artworkModifier, cornerRadius ->
             PlaylistHeaderArtwork(
                 playlist = playlist,

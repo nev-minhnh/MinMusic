@@ -17,14 +17,9 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -46,11 +41,9 @@ import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -577,37 +570,13 @@ fun SearchScreen(
                             }
                         },
                         itemContainer = itemContainer,
-                        onMicrophoneClick =
-                            if (voiceSearchEnabled) {
-                                launchVoiceSearch
-                            } else {
-                                { navigator.navigate(Screen.Recognition) }
-                            },
+                        onMicrophoneClick = if (voiceSearchEnabled) launchVoiceSearch else null,
+                        // Owner decision: recognize music is the icon at the end of the search field (no FAB).
+                        onRecognizeClick = { navigator.navigate(Screen.Recognition) },
+                        recognizeContentDescription = stringResource(Res.string.recognize_music),
                         focusRequester = focusRequester,
                         searchBarEndPadding = searchBarEndPadding,
                         modifier = Modifier.fillMaxSize(),
-                    )
-                }
-            }
-
-            AnimatedVisibility(
-                visible = !isQuerySubmitted && (isTv || showFloatingAction) && !isImeVisible,
-                enter = fadeIn() + slideInVertically { it / 2 },
-                exit = fadeOut() + slideOutVertically { it / 2 },
-                modifier =
-                    Modifier
-                        .align(Alignment.BottomEnd)
-                        .padding(end = 16.dp, bottom = maxOf(imeBottomInset, floatingActionsBottomInset.value) + 16.dp),
-            ) {
-                FloatingActionButton(
-                    onClick = { navigator.navigate(Screen.Recognition) },
-                    shape = RoundedCornerShape(12.dp),
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                ) {
-                    Icon(
-                        imageVector = MetrolistIcons.Outlined.AudioCapture,
-                        contentDescription = stringResource(Res.string.recognize_music),
                     )
                 }
             }

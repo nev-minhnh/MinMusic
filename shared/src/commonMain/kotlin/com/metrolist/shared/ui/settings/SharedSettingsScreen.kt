@@ -208,8 +208,8 @@ internal fun SharedSettingsRegistryScreen(
     }
 
     var containerWidth by remember { mutableIntStateOf(0) }
-    val expanded =
-        !host.singlePane && with(LocalDensity.current) { containerWidth.toDp() >= 840.dp }
+    val containerWidthDp = with(LocalDensity.current) { containerWidth.toDp() }
+    val expanded = !host.singlePane && containerWidthDp >= 840.dp
     Box(
         modifier =
             modifier
@@ -234,7 +234,8 @@ internal fun SharedSettingsRegistryScreen(
                     onSearchResultSelected = { pageId, itemId ->
                         openPage(pageId, highlightedId = itemId)
                     },
-                    modifier = Modifier.width(360.dp).fillMaxHeight(),
+                    // Landscape tablets (840-1100 dp beside the sidebar) keep a readable detail pane.
+                    modifier = Modifier.width(if (containerWidthDp < 1100.dp) 300.dp else 360.dp).fillMaxHeight(),
                 )
                 Column(
                     modifier = Modifier.weight(1f).fillMaxHeight().padding(end = 12.dp, bottom = 12.dp),
