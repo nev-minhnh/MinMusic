@@ -198,6 +198,9 @@ import com.metrolist.android.ui.components.AccountMenu
 import com.metrolist.android.ui.components.DesktopCaptionBar
 import com.metrolist.android.ui.components.DesktopMiniPlayerHeight
 import com.metrolist.android.ui.components.MiniPlayer
+import com.metrolist.android.ui.components.TabletPlayerBar
+import com.metrolist.android.ui.components.TabletPlayerBarCompactHeight
+import com.metrolist.android.ui.components.TabletPlayerBarHeight
 import com.metrolist.android.ui.components.calculateMiniPlayerInsets
 import com.metrolist.android.ui.components.calculateNavigationContentInset
 import com.metrolist.android.ui.components.shouldUseDesktopCaption
@@ -909,6 +912,8 @@ fun MetrolistApp(
         val miniPlayerBottomSpacing =
             when {
                 dockedPlayerBar -> 0.dp
+                // Floating tablet bar: 8 dp above the gesture area (tablet spec 5.5).
+                useTabletNavigation -> 8.dp
                 isExpressiveMiniPlayer -> ModernMiniPlayerBottomSpacing
                 isModernMiniPlayer -> ModernMiniPlayerBottomSpacing
                 else -> 0.dp
@@ -921,8 +926,14 @@ fun MetrolistApp(
                 else -> navigationBarContentInset
             }
         val navigationConsumesSpace = hasBottomNavigation && !useFloatingNavBar
+        // Tablet player bar (spec 3.2 / 5.5): 72 dp, 64 dp with the compact layout on heights below 480 dp;
+        // the full layout from 840 dp window width.
+        val tabletBarShortHeight = useTabletNavigation && LocalConfiguration.current.screenHeightDp < 480
+        val tabletBarFullLayout = useTabletNavigation && !tabletBarShortHeight && LocalConfiguration.current.screenWidthDp >= 840
         val miniPlayerHeight =
-            if (useDesktopMiniPlayer) {
+            if (useTabletNavigation) {
+                if (tabletBarShortHeight) TabletPlayerBarCompactHeight else TabletPlayerBarHeight
+            } else if (useDesktopMiniPlayer) {
                 DesktopMiniPlayerHeight
             } else if (isExpressiveMiniPlayer) {
                 ExpressiveMiniPlayerHeight
@@ -2082,47 +2093,72 @@ fun MetrolistApp(
                             morphCollapsedContainer = true,
                             collapsedContent = {
                                 if (shouldRenderMiniPlayer) {
-                                    MiniPlayer(
-                                        useDesktopLayout = useDesktopMiniPlayer,
-                                        onExpand = {
-                                            focusManager.clearFocus(force = true)
-                                            keyboardController?.hide()
-                                            focusPlayPauseOnPlayerExpand = false
-                                            playerBottomSheetState.expandSoft()
-                                        },
-                                        onDpadExpand = {
-                                            focusManager.clearFocus(force = true)
-                                            keyboardController?.hide()
-                                            focusPlayPauseOnPlayerExpand = true
-                                            playerBottomSheetState.expandSoft()
-                                        },
-                                        bottomSheetState = playerBottomSheetState,
-                                        cardFocusRequester = miniPlayerFocusRequester,
-                                        docked = dockedPlayerBar,
-                                        modifier =
-                                            Modifier
-                                                .windowInsetsPadding(horizontalSystemBars.only(WindowInsetsSides.Horizontal))
-                                                .semantics {
-                                                    customActions =
-                                                        listOf(
-                                                            CustomAccessibilityAction(stopPlaybackLabel) {
-                                                                playerBottomSheetState.dismiss(playerConnection.prepareDismissal())
-                                                                true
-                                                            },
-                                                        )
-                                                }.onPreviewKeyEvent { event ->
-                                                    if (isAndroidTv && event.key == Key.DirectionUp) {
-                                                        event.type == KeyEventType.KeyUp ||
-                                                            contentFocusRequester.requestFocus(FocusDirection.Up)
-                                                    } else {
-                                                        false
-                                                    }
-                                                }.layout { measurable, constraints ->
-                                                    val start = miniPlayerRailPadding().roundToPx()
-                                                    val child = measurable.measure(constraints.offset(horizontal = -start))
-                                                    layout(child.width + start, child.height) { child.placeRelative(start, 0) }
-                                                },
-                                    )
+                                    val expandPlayer = {
+                                        focusManager.clearFocus(force = true)
+                                        keyboardController?.hide()
+                                        focusPlayPauseOnPlayerExpand = false
+                                        playerBottomSheetState.expandSoft()
+                                    }
+                                    val miniPlayerModifier =
+                                        Modifier
+                                            .windowInsetsPadding(horizontalSystemBars.only(WindowInsetsSides.Horizontal))
+                                            .semantics {
+                                                customActions =
+                                                    listOf(
+                                                        CustomAccessibilityAction(stopPlaybackLabel) {
+                                                            playerBottomSheetState.dismiss(playerConnection.prepareDismissal())
+                                                            true
+                                                        },
+                                                    )
+                                            }.onPreviewKeyEvent { event ->
+                                                if (isAndroidTv && event.key == Key.DirectionUp) {
+                                                    event.type == KeyEventType.KeyUp ||
+                                                        contentFocusRequester.requestFocus(FocusDirection.Up)
+                                                } else {
+                                                    false
+                                                }
+                                            }.layout { measurable, constraints ->
+                                                val start = miniPlayerRailPadding().roundToPx()
+                                                val child = measurable.measure(constraints.offset(horizontal = -start))
+                                                layout(child.width + start, child.height) { child.placeRelative(start, 0) }
+                                            }
+                                    if (useTabletNavigation) {
+                                        // Tablets: the real player bar (spec 5.5), docked or floating; phones keep the mini player.
+                                        TabletPlayerBar(
+                                            fullLayout = tabletBarFullLayout,
+                                            docked = dockedPlayerBar,
+                                            height = miniPlayerHeight,
+                                            pureBlack = pureBlack,
+                                            onExpand = expandPlayer,
+                                            onOpenEqualizer = { openEqualizer(null) },
+                                            onOpenLyrics = {
+                                                playerViewModel.setLyricsVisible(true)
+                                                expandPlayer()
+                                            },
+                                            onOpenQueue = {
+                                                playerViewModel.setQueueVisible(true)
+                                                expandPlayer()
+                                            },
+                                            bottomSheetState = playerBottomSheetState,
+                                            cardFocusRequester = miniPlayerFocusRequester,
+                                            modifier = miniPlayerModifier,
+                                        )
+                                    } else {
+                                        MiniPlayer(
+                                            useDesktopLayout = useDesktopMiniPlayer,
+                                            onExpand = expandPlayer,
+                                            onDpadExpand = {
+                                                focusManager.clearFocus(force = true)
+                                                keyboardController?.hide()
+                                                focusPlayPauseOnPlayerExpand = true
+                                                playerBottomSheetState.expandSoft()
+                                            },
+                                            bottomSheetState = playerBottomSheetState,
+                                            cardFocusRequester = miniPlayerFocusRequester,
+                                            docked = dockedPlayerBar,
+                                            modifier = miniPlayerModifier,
+                                        )
+                                    }
                                 }
                             },
                         ) {

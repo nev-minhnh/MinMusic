@@ -611,7 +611,7 @@ fun MiniPlayer(
     }
 }
 
-private fun Modifier.miniPlayerGestures(
+internal fun Modifier.miniPlayerGestures(
     layoutDirection: LayoutDirection,
     hapticManager: MetrolistHaptics,
     dragOffset: MutableState<Offset>,
