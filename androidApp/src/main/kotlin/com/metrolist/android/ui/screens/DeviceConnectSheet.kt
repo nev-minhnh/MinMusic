@@ -30,6 +30,7 @@ import com.metrolist.android.deviceconnect.AndroidDeviceConnect
 import com.metrolist.android.playback.LocalPlayerConnection
 import com.metrolist.android.ui.component.AdaptiveModalBottomSheet
 import com.metrolist.shared.cast.CastState
+import com.metrolist.shared.deviceconnect.rememberDeviceConnectControlledTarget
 import com.metrolist.shared.settings.Settings
 import com.metrolist.shared.ui.components.ConnectedDevicesContent
 import com.metrolist.shared.ui.settings.DeviceConnectSettingsHost
@@ -101,6 +102,7 @@ fun PlayerDeviceConnectSheet(
             onClose = onDismissRequest,
             permissionRequired = !permissionGranted && requiredPermission != null,
             onOpenIntegrations = onNavigateToIntegrations,
+            controlledTarget = rememberDeviceConnectControlledTarget(manager),
         )
     }
 }
@@ -140,5 +142,9 @@ fun rememberDeviceConnectSettingsHost(): DeviceConnectSettingsHost {
         onPair = manager::pair,
         onCancelPairing = manager::rejectPairing,
         onForget = { id -> scope.launch { manager.forget(id) } },
+        onUpdatePort = manager::updateListeningPort,
+        onForgetManualEndpoint = manager::forgetManualEndpoint,
+        onAcceptLink = manager::acceptConnectionLink,
+        onDismissLink = manager::dismissConnectionLink,
     )
 }

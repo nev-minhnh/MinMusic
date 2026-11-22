@@ -460,6 +460,13 @@ internal fun SettingsUiRegistryBuilder.registerAppearanceSettings(host: SharedSe
                         description = stringResource(Res.string.appearance_floating_top_bar_description),
                         checked = settings.floatingTopBar,
                     ) { settings.floatingTopBar = it }
+                    // Tablets (>= 600 dp): docked full-width player bar by default, floating bar on request.
+                    switch(
+                        id = "tabletFloatingPlayerBar",
+                        title = stringResource(Res.string.mm_settings_tablet_floating_player_bar),
+                        description = stringResource(Res.string.mm_settings_tablet_floating_player_bar_description),
+                        checked = settings.tabletFloatingPlayerBar,
+                    ) { settings.tabletFloatingPlayerBar = it }
                 }
                 if (host.platform == SettingsPlatform.ANDROID) {
                     switch(

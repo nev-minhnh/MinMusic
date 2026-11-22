@@ -379,6 +379,7 @@ fun SettingsScreen(
                         )
                     },
                     rememberMetroEqProfilePicker = { onPicked -> rememberMetroEqProfilePicker(onPicked) },
+                    deviceConnect = rememberDeviceConnectSettingsHost(),
                     onClose = onNavigateBack,
                     onOpenArtist = onNavigateToArtist,
                     homeSections = settingsHomeSections(homeState),

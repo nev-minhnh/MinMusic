@@ -85,6 +85,17 @@ data class AccountIdentitySnapshot(
     val resolved: Boolean,
 )
 
+/**
+ * The identity Device Connect pairs with. A signed-in account whose channel is not resolved pairs like a signed-out
+ * device: only mutual code approval authorizes it, and its pairs live in the signed-out scope.
+ */
+internal fun AccountIdentitySnapshot.forDeviceConnectPairing(): AccountIdentitySnapshot =
+    if (resolved) {
+        this
+    } else {
+        AccountIdentitySnapshot(secret = "", fingerprint = "", anonymous = true, resolved = true)
+    }
+
 private const val UNRESOLVED_SENTINEL = "device-connect-account-unresolved"
 private const val ACCOUNT_PROOF_LABEL = "metrolist-device-connect-v2/account-proof"
 private const val ACCOUNT_SCOPE_LABEL = "metrolist-device-connect-v2/account-scope"

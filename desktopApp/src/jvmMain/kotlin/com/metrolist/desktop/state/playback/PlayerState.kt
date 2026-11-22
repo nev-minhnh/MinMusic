@@ -46,6 +46,9 @@ import com.metrolist.shared.deviceconnect.DcPlaybackSnapshot
 import com.metrolist.shared.deviceconnect.DcRepeatMode
 import com.metrolist.shared.deviceconnect.DcScrobbleSession
 import com.metrolist.shared.deviceconnect.DeviceConnectPlaybackPort
+import com.metrolist.shared.deviceconnect.deviceConnectDisabledSource
+import com.metrolist.shared.deviceconnect.deviceConnectDisabledSourceMessage
+import com.metrolist.shared.deviceconnect.isDeviceConnectShareable
 import com.metrolist.shared.discord.DiscordRpcManager
 import com.metrolist.shared.generated.resources.Res
 import com.metrolist.shared.generated.resources.error_audio_output_unavailable
@@ -419,7 +422,7 @@ internal fun deviceConnectCanReusePlayback(
     return localQueue.withoutAccountTokens() == incomingQueue.withoutAccountTokens()
 }
 
-internal fun canResolveDeviceConnectTrack(song: SongItem): Boolean = song.isYouTube
+internal fun canResolveDeviceConnectTrack(song: SongItem): Boolean = song.isDeviceConnectShareable
 
 internal fun MusicPlayer.setPlaying(playing: Boolean) {
     if (playing) resume() else pause()
@@ -2356,7 +2359,14 @@ object PlayerState {
             val loaded = playTrackInternalSuspend(track, emptyList(), startPaused = true, shouldCommit = shouldCommit)
             if (!shouldCommit()) return@withContext
             syncSession.setReady(loaded)
-            if (!loaded) return@withContext
+            if (!loaded) {
+                // A song from a source that is off here: say so and move the shared queue on.
+                deviceConnectDisabledSource(track)?.let { source ->
+                    reportPlayerError(deviceConnectDisabledSourceMessage(source))
+                    deviceConnect.skipUnplayableTrack(snapshot.trackRevision)
+                }
+                return@withContext
+            }
             seekToPositionInternal(positionMs)
         }
         if (!shouldCommit()) return@withContext

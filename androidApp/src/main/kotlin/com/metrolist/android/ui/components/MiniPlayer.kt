@@ -191,6 +191,7 @@ fun MiniPlayer(
     onDpadExpand: () -> Unit = onExpand,
     bottomSheetState: BottomSheetState? = null,
     cardFocusRequester: FocusRequester? = null,
+    docked: Boolean = false,
 ) {
     val playerConnection = LocalPlayerConnection.current ?: return
 
@@ -359,7 +360,10 @@ fun MiniPlayer(
                         MiniPlayerHeight
                     },
                 ).then(
-                    if (isModern || isExpressiveMiniPlayer || isMinMusicMiniPlayer) {
+                    if (docked) {
+                        // Docked tablet bar: edge to edge (cutout/side bars only), no floating inset.
+                        Modifier.windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))
+                    } else if (isModern || isExpressiveMiniPlayer || isMinMusicMiniPlayer) {
                         Modifier
                             .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))
                             .padding(horizontal = if (isMinMusicMiniPlayer) MmPlayerMiniBarInset else ModernMiniPlayerHorizontalPadding)
@@ -419,6 +423,7 @@ fun MiniPlayer(
                 },
                 canSkipNext = canSkipNext && !isListenTogetherGuest,
                 titleModifier = marqueeModifier,
+                docked = docked,
                 modifier =
                     Modifier
                         .onSizeChanged { progressWidthPx = it.width }
@@ -606,7 +611,7 @@ fun MiniPlayer(
     }
 }
 
-private fun Modifier.miniPlayerGestures(
+internal fun Modifier.miniPlayerGestures(
     layoutDirection: LayoutDirection,
     hapticManager: MetrolistHaptics,
     dragOffset: MutableState<Offset>,

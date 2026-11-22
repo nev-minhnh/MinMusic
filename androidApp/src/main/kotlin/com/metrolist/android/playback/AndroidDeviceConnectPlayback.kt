@@ -2,6 +2,7 @@ package com.metrolist.android.playback
 
 import android.content.Context
 import android.os.SystemClock
+import android.widget.Toast
 import com.metrolist.android.deviceconnect.AndroidDeviceConnect
 import com.metrolist.android.deviceconnect.canUseDeviceConnectTrack
 import com.metrolist.android.deviceconnect.requiresDeviceConnectTrackReload
@@ -11,6 +12,8 @@ import com.metrolist.shared.deviceconnect.DcLocalPlaybackState
 import com.metrolist.shared.deviceconnect.DcPlaybackSnapshot
 import com.metrolist.shared.deviceconnect.DcScrobbleSession
 import com.metrolist.shared.deviceconnect.DeviceConnectPlaybackPort
+import com.metrolist.shared.deviceconnect.deviceConnectDisabledSource
+import com.metrolist.shared.deviceconnect.deviceConnectDisabledSourceMessage
 import com.metrolist.shared.discord.DiscordRpcManager
 import com.metrolist.shared.generated.resources.Res
 import com.metrolist.shared.generated.resources.playback_unable_to_play_queued_track
@@ -21,6 +24,7 @@ import com.metrolist.shared.scrobble.ScrobbleManager
 import com.metrolist.shared.settings.Settings
 import com.metrolist.shared.utils.Logger
 import com.metrolist.shared.youtube.playback.PlaybackResource
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.withContext
@@ -141,20 +145,32 @@ internal class AndroidDeviceConnectPlayback(
                             videoPlaybackEnabled = Settings.shared.musicVideoPlaybackEnabled,
                         )
                     val started =
-                        queue.withQueueLoading(isPlaybackLoading = true) {
-                            val resource =
-                                fetchPlaybackResource(song, wantVideo)
-                                    ?: throw IOException(getString(Res.string.playback_unable_to_play_queued_track))
-                            if (playbackReleased || !shouldCommit()) return@withQueueLoading false
-                            player.prepareAndPlay(
-                                song = song,
-                                resource = resource,
-                                positionMs = targetPosition(),
-                                resumePlayback = desired.playing,
-                                shouldCommit = { !playbackReleased && shouldCommit() },
-                                // A paused source cannot catch a moving target; remote drift correction seeks after the swap.
-                                playWhenReadyProvider = { desired.playing },
-                            )
+                        try {
+                            queue.withQueueLoading(isPlaybackLoading = true) {
+                                val resource =
+                                    fetchPlaybackResource(song, wantVideo)
+                                        ?: throw IOException(getString(Res.string.playback_unable_to_play_queued_track))
+                                if (playbackReleased || !shouldCommit()) return@withQueueLoading false
+                                player.prepareAndPlay(
+                                    song = song,
+                                    resource = resource,
+                                    positionMs = targetPosition(),
+                                    resumePlayback = desired.playing,
+                                    shouldCommit = { !playbackReleased && shouldCommit() },
+                                    // A paused source cannot catch a moving target; remote drift correction seeks after the swap.
+                                    playWhenReadyProvider = { desired.playing },
+                                )
+                            }
+                        } catch (error: Exception) {
+                            if (error is CancellationException) throw error
+                            // A song from a source that is off here: say so and move the shared queue on.
+                            val disabledSource = deviceConnectDisabledSource(song) ?: throw error
+                            syncTargetLoaded = false
+                            player.pause()
+                            if (playbackReleased || !shouldCommit()) return@withContext
+                            Toast.makeText(context, deviceConnectDisabledSourceMessage(disabledSource), Toast.LENGTH_LONG).show()
+                            AndroidDeviceConnect.manager.remote.skipUnplayableTrack(snapshot.trackRevision)
+                            return@withContext
                         }
                     if (playbackReleased || !shouldCommit()) return@withContext
                     if (!started) throw IOException(getString(Res.string.playback_unable_to_play_queued_track))

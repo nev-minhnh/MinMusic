@@ -31,6 +31,7 @@ fun rememberMetrolistSettingsRegistry(
     builder.registerContentSettings(host)
     builder.registerLyricsSettings(host)
     builder.registerPrivacySettings(host)
+    host.deviceConnect?.let { builder.deviceConnectPage(it) }
 
     @Composable
     fun customPage(
@@ -249,6 +250,9 @@ fun rememberMetrolistSettingsRegistry(
         SettingsTone.BLUE,
     )
 
+    if (host.deviceConnect != null) {
+        builder.rootGroup(stringResource(Res.string.device_connect_settings_group), SettingsPageId.DEVICE_CONNECT)
+    }
     builder.rootGroup(
         stringResource(Res.string.settings_interface),
         *listOf(SettingsPageId.APPEARANCE, SettingsPageId.CONTENT, SettingsPageId.SOURCES)

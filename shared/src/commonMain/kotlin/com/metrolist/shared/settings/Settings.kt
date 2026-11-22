@@ -200,6 +200,7 @@ import com.metrolist.shared.constants.YouTubeCanvasModeKey
 import com.metrolist.shared.constants.YouTubeCanvasQualityKey
 import com.metrolist.shared.constants.ZingSourceCookieKey
 import com.metrolist.shared.constants.ZingSourceEnabledKey
+import com.metrolist.shared.deviceconnect.DEVICE_CONNECT_DEFAULT_PORT
 import com.metrolist.shared.model.CollectionSort
 import com.metrolist.shared.model.LyricsProvider
 import com.metrolist.shared.model.PlaylistPickerSort
@@ -430,6 +431,11 @@ class Settings(
     // MinMusic: the floating rounded nav bar is the phone default (owner decision); a saved choice still wins.
     var floatingNavBar by preference(FloatingNavBarKey, true)
     var floatingTopBar by preference(FloatingTopBarKey, false)
+
+    // MinMusic tablets: left column expanded to the 240 dp sidebar (default: 72 dp rail) and the player bar style
+    // (default: docked full width; true = the floating rounded bar inside the content column).
+    var tabletSidebarExpanded by preference(false)
+    var tabletFloatingPlayerBar by preference(false)
     var floatingSearch by preference(false)
     var voiceSearchEnabled by preference(VoiceSearchEnabledKey, true)
 
@@ -699,6 +705,12 @@ class Settings(
     var deviceConnectDeviceName by preference("")
     var deviceConnectPairedDevices by preference("")
     var deviceConnectDefaultDeviceId by preference(DeviceConnectDefaultDeviceIdKey, "")
+
+    /** Fixed listening port for direct (VPN) connections; 0 picks a free port on every start. */
+    var deviceConnectPort by preference(DEVICE_CONNECT_DEFAULT_PORT)
+
+    /** Comma-separated `host:port` targets entered by hand, retried to reconnect paired devices across VPNs. */
+    var deviceConnectManualEndpoints by preference("")
 
     var swipeThumbnail by preference(false)
     var swipeSensitivity by preference(73f)
@@ -1385,6 +1397,8 @@ class Settings(
                     DeviceConnectExperimentalEnabledKey,
                     "deviceConnectDeviceId",
                     "deviceConnectLastUsedDeviceId",
+                    "deviceConnectPort",
+                    "deviceConnectManualEndpoints",
                     "listenTogetherAutoJoinPairedRoom",
                     "cachedAvailableUpdateJson",
                     "cachedUpdateReleasesJson",

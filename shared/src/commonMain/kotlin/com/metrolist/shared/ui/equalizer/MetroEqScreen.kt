@@ -19,6 +19,7 @@ import androidx.compose.foundation.gestures.drag
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
@@ -32,6 +33,7 @@ import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -557,244 +559,265 @@ private fun ProfilesPage(
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
             )
         }
-        Column(
-            Modifier
-                .fillMaxWidth()
-                .weight(1f)
-                .verticalScroll(rememberScrollState())
-                // Keeps the last controls clear of the mini player on the settings page and the full-screen route.
-                .padding(top = if (fullScreen) 8.dp else 16.dp, bottom = 16.dp + LocalSettingsPageBottomPadding.current),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            Surface(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                shape = RoundedCornerShape(20.dp),
-                color = MaterialTheme.colorScheme.surfaceContainer,
-            ) {
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.weight(1f)) {
-                        var selectingProfile by remember { mutableStateOf(false) }
-                        ListItem(
-                            modifier = Modifier.clip(MaterialTheme.shapes.large).clickable { selectingProfile = true },
-                            trailingContent = { Icon(MetrolistIcons.Outlined.ChevronRight, contentDescription = null) },
-                            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                        ) {
-                            Text(
-                                currentTitle ?: stringResource(Res.string.eq_disabled),
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                style = MaterialTheme.typography.titleMedium,
-                            )
-                        }
-                        DropdownMenu(expanded = selectingProfile, onDismissRequest = { selectingProfile = false }) {
-                            Text(
-                                stringResource(Res.string.metroeq_presets),
-                                modifier = Modifier.padding(start = 16.dp, top = 12.dp, end = 16.dp, bottom = 4.dp),
-                                color = MaterialTheme.colorScheme.primary,
-                                style = MaterialTheme.typography.labelLarge,
-                            )
-                            EqualizerPreset.entries.forEach { choice ->
-                                val title = presetName(choice)
-                                DropdownMenuItem(
-                                    text = { Text(title) },
-                                    onClick = {
-                                        selectingProfile = false
-                                        changeProfile { EqualizerProfiles.activatePreset(choice, title) }
-                                    },
-                                )
-                            }
-                            if (profiles.isNotEmpty()) {
-                                HorizontalDivider(Modifier.padding(vertical = 8.dp))
-                                Text(
-                                    stringResource(Res.string.metroeq_profiles),
-                                    modifier = Modifier.padding(start = 16.dp, top = 4.dp, end = 16.dp, bottom = 4.dp),
-                                    color = MaterialTheme.colorScheme.primary,
-                                    style = MaterialTheme.typography.labelLarge,
-                                )
-                                profiles.forEach { profile ->
-                                    DropdownMenuItem(
-                                        text = { Text(profile.name) },
-                                        onClick = {
-                                            selectingProfile = false
-                                            changeProfile { EqualizerProfiles.setActive(profile.id) }
-                                        },
-                                    )
-                                }
-                            }
-                        }
+        BoxWithConstraints(Modifier.fillMaxWidth().weight(1f)) {
+            // Tablet landscape (content >= 840 dp): graph + band faders | effects column (tablet spec §7). Phones and
+            // portrait tablets keep the single column with tabs.
+            val twoColumn = fullScreen && maxWidth >= 840.dp
+            val eqBandActions: @Composable () -> Unit = {
+                onSearchAutoEq?.let { search ->
+                    OutlinedButton(onClick = { changeProfile { search() } }, shapes = ButtonDefaults.shapes()) {
+                        Text(stringResource(Res.string.eq_wizard), maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
-                    if (savedProfile) {
-                        IconButton(onClick = { confirmingProfileDelete = true }, shapes = IconButtonDefaults.shapes()) {
-                            Icon(
-                                MetrolistIcons.Outlined.Delete,
-                                contentDescription = stringResource(Res.string.delete),
-                                tint = MaterialTheme.colorScheme.error,
-                            )
-                        }
-                    }
-                    // The full-screen top bar carries the enable switch.
-                    if (!fullScreen) {
-                        ExpressiveSwitch(
-                            checked = EqualizerProfiles.isEnabled,
-                            onCheckedChange = EqualizerProfiles::setEnabled,
-                            modifier =
-                                Modifier.padding(end = 12.dp).semantics {
-                                    contentDescription = equalizerLabel
-                                },
-                        )
+                }
+                onImportFile?.let { import ->
+                    OutlinedButton(onClick = { changeProfile { import() } }, shapes = ButtonDefaults.shapes()) {
+                        Text(stringResource(Res.string.import_from_file), maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 }
             }
-            EqualizerProfiles.outputDevice?.let { device ->
-                val deviceName = outputDeviceName(device)
+            Column(
+                Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    // Keeps the last controls clear of the mini player on the settings page and the full-screen route.
+                    .padding(top = if (fullScreen) 8.dp else 16.dp, bottom = 16.dp + LocalSettingsPageBottomPadding.current),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                Surface(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                    shape = RoundedCornerShape(20.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainer,
+                ) {
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Box(Modifier.weight(1f)) {
+                            var selectingProfile by remember { mutableStateOf(false) }
+                            ListItem(
+                                modifier = Modifier.clip(MaterialTheme.shapes.large).clickable { selectingProfile = true },
+                                trailingContent = { Icon(MetrolistIcons.Outlined.ChevronRight, contentDescription = null) },
+                                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                            ) {
+                                Text(
+                                    currentTitle ?: stringResource(Res.string.eq_disabled),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    style = MaterialTheme.typography.titleMedium,
+                                )
+                            }
+                            DropdownMenu(expanded = selectingProfile, onDismissRequest = { selectingProfile = false }) {
+                                Text(
+                                    stringResource(Res.string.metroeq_presets),
+                                    modifier = Modifier.padding(start = 16.dp, top = 12.dp, end = 16.dp, bottom = 4.dp),
+                                    color = MaterialTheme.colorScheme.primary,
+                                    style = MaterialTheme.typography.labelLarge,
+                                )
+                                EqualizerPreset.entries.forEach { choice ->
+                                    val title = presetName(choice)
+                                    DropdownMenuItem(
+                                        text = { Text(title) },
+                                        onClick = {
+                                            selectingProfile = false
+                                            changeProfile { EqualizerProfiles.activatePreset(choice, title) }
+                                        },
+                                    )
+                                }
+                                if (profiles.isNotEmpty()) {
+                                    HorizontalDivider(Modifier.padding(vertical = 8.dp))
+                                    Text(
+                                        stringResource(Res.string.metroeq_profiles),
+                                        modifier = Modifier.padding(start = 16.dp, top = 4.dp, end = 16.dp, bottom = 4.dp),
+                                        color = MaterialTheme.colorScheme.primary,
+                                        style = MaterialTheme.typography.labelLarge,
+                                    )
+                                    profiles.forEach { profile ->
+                                        DropdownMenuItem(
+                                            text = { Text(profile.name) },
+                                            onClick = {
+                                                selectingProfile = false
+                                                changeProfile { EqualizerProfiles.setActive(profile.id) }
+                                            },
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                        if (savedProfile) {
+                            IconButton(onClick = { confirmingProfileDelete = true }, shapes = IconButtonDefaults.shapes()) {
+                                Icon(
+                                    MetrolistIcons.Outlined.Delete,
+                                    contentDescription = stringResource(Res.string.delete),
+                                    tint = MaterialTheme.colorScheme.error,
+                                )
+                            }
+                        }
+                        // The full-screen top bar carries the enable switch.
+                        if (!fullScreen) {
+                            ExpressiveSwitch(
+                                checked = EqualizerProfiles.isEnabled,
+                                onCheckedChange = EqualizerProfiles::setEnabled,
+                                modifier =
+                                    Modifier.padding(end = 12.dp).semantics {
+                                        contentDescription = equalizerLabel
+                                    },
+                            )
+                        }
+                    }
+                }
+                EqualizerProfiles.outputDevice?.let { device ->
+                    val deviceName = outputDeviceName(device)
+                    Surface(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                        shape = RoundedCornerShape(20.dp),
+                        color = MaterialTheme.colorScheme.surfaceContainer,
+                    ) {
+                        Row(
+                            Modifier.fillMaxWidth().padding(start = 16.dp, end = 12.dp, top = 12.dp, bottom = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Column(Modifier.weight(1f).padding(end = 12.dp)) {
+                                Text(
+                                    stringResource(Res.string.metroeq_output_device, deviceName),
+                                    style = MaterialTheme.typography.titleSmall,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                                Text(
+                                    stringResource(Res.string.metroeq_use_for_device, deviceName),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                            // Only saved profiles can be restored when the device reconnects.
+                            ExpressiveSwitch(
+                                checked = activeId != null && EqualizerProfiles.deviceProfileId(device.key) == activeId,
+                                enabled = savedProfile,
+                                onCheckedChange = { use -> EqualizerProfiles.setDeviceProfile(device.key, activeId?.takeIf { use }) },
+                            )
+                        }
+                    }
+                }
+                error?.let {
+                    Text(
+                        stringResource(it),
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                    )
+                }
+                exportMessage?.let {
+                    Text(
+                        stringResource(it),
+                        color = if (it == Res.string.export_saved) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                    )
+                }
+                if (twoColumn) {
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
+                        Box(Modifier.weight(1f)) {
+                            EqualizerGraph(
+                                profile = activeProfile,
+                                rate = meter.sampleRate,
+                                levels = meter.levels,
+                                bandActions = eqBandActions,
+                            )
+                        }
+                        // 300 dp effect cards (each card adds its own 16 dp side insets).
+                        Column(Modifier.width(332.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                            activeProfile?.let { ToneControls(it) }
+                            PreampControl(activeProfile, meter.gainReductionDb)
+                        }
+                    }
+                } else if (fullScreen) {
+                    // On the effects tab the graph shrinks to a read-only preview so the effect controls fit.
+                    EqualizerGraph(
+                        profile = activeProfile,
+                        rate = meter.sampleRate,
+                        levels = meter.levels,
+                        compact = tab == EqualizerTab.EFFECTS,
+                        tabs = {
+                            EqualizerTabs(
+                                selected = tab,
+                                bandCount = activeProfile?.bands?.size ?: 0,
+                                onSelect = { tab = it },
+                            )
+                        },
+                        bandActions = eqBandActions,
+                    )
+                    if (tab == EqualizerTab.EFFECTS) {
+                        activeProfile?.let { ToneControls(it) }
+                        PreampControl(activeProfile, meter.gainReductionDb)
+                    }
+                } else {
+                    EqualizerGraph(activeProfile, meter.sampleRate, meter.levels)
+                    PreampControl(activeProfile, meter.gainReductionDb)
+                    activeProfile?.let { ToneControls(it) }
+                }
                 Surface(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
                     shape = RoundedCornerShape(20.dp),
                     color = MaterialTheme.colorScheme.surfaceContainer,
                 ) {
                     Row(
-                        Modifier.fillMaxWidth().padding(start = 16.dp, end = 12.dp, top = 12.dp, bottom = 12.dp),
+                        Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Column(Modifier.weight(1f).padding(end = 12.dp)) {
-                            Text(
-                                stringResource(Res.string.metroeq_output_device, deviceName),
-                                style = MaterialTheme.typography.titleSmall,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                            Text(
-                                stringResource(Res.string.metroeq_use_for_device, deviceName),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                        // Only saved profiles can be restored when the device reconnects.
-                        ExpressiveSwitch(
-                            checked = activeId != null && EqualizerProfiles.deviceProfileId(device.key) == activeId,
-                            enabled = savedProfile,
-                            onCheckedChange = { use -> EqualizerProfiles.setDeviceProfile(device.key, activeId?.takeIf { use }) },
+                        Text(
+                            stringResource(if (EqualizerProfiles.hasUnsavedChanges) Res.string.metroeq_unsaved_changes else Res.string.saved),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.weight(1f).padding(end = 8.dp),
                         )
-                    }
-                }
-            }
-            error?.let {
-                Text(
-                    stringResource(it),
-                    color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.padding(horizontal = 16.dp),
-                )
-            }
-            exportMessage?.let {
-                Text(
-                    stringResource(it),
-                    color = if (it == Res.string.export_saved) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.padding(horizontal = 16.dp),
-                )
-            }
-            if (fullScreen) {
-                // On the effects tab the graph shrinks to a read-only preview so the effect controls fit.
-                EqualizerGraph(
-                    profile = activeProfile,
-                    rate = meter.sampleRate,
-                    levels = meter.levels,
-                    compact = tab == EqualizerTab.EFFECTS,
-                    tabs = {
-                        EqualizerTabs(
-                            selected = tab,
-                            bandCount = activeProfile?.bands?.size ?: 0,
-                            onSelect = { tab = it },
-                        )
-                    },
-                    bandActions = {
-                        onSearchAutoEq?.let { search ->
-                            OutlinedButton(onClick = { changeProfile { search() } }, shapes = ButtonDefaults.shapes()) {
-                                Text(stringResource(Res.string.eq_wizard), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            }
-                        }
-                        onImportFile?.let { import ->
-                            OutlinedButton(onClick = { changeProfile { import() } }, shapes = ButtonDefaults.shapes()) {
-                                Text(stringResource(Res.string.import_from_file), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            }
-                        }
-                    },
-                )
-                if (tab == EqualizerTab.EFFECTS) {
-                    activeProfile?.let { ToneControls(it) }
-                    PreampControl(activeProfile, meter.gainReductionDb)
-                }
-            } else {
-                EqualizerGraph(activeProfile, meter.sampleRate, meter.levels)
-                PreampControl(activeProfile, meter.gainReductionDb)
-                activeProfile?.let { ToneControls(it) }
-            }
-            Surface(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                shape = RoundedCornerShape(20.dp),
-                color = MaterialTheme.colorScheme.surfaceContainer,
-            ) {
-                Row(
-                    Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        stringResource(if (EqualizerProfiles.hasUnsavedChanges) Res.string.metroeq_unsaved_changes else Res.string.saved),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.weight(1f).padding(end = 8.dp),
-                    )
-                    TextButton(
-                        onClick = { history.undo(activeProfile) },
-                        enabled = history.canUndo(activeProfile),
-                        shapes = ButtonDefaults.shapes(),
-                    ) {
-                        Text(stringResource(Res.string.undo))
-                    }
-                    TextButton(
-                        onClick = { history.redo(activeProfile) },
-                        enabled = history.redo.isNotEmpty(),
-                        shapes = ButtonDefaults.shapes(),
-                    ) {
-                        Text(stringResource(Res.string.redo))
-                    }
-                    if (fullScreen) {
-                        BrandButton(
-                            text = stringResource(Res.string.save),
-                            enabled = EqualizerProfiles.hasUnsavedChanges,
-                            onClick = { requestSave(false) },
-                        )
-                    } else {
                         TextButton(
-                            onClick = { requestSave(false) },
-                            enabled = EqualizerProfiles.hasUnsavedChanges,
+                            onClick = { history.undo(activeProfile) },
+                            enabled = history.canUndo(activeProfile),
                             shapes = ButtonDefaults.shapes(),
                         ) {
-                            Text(stringResource(Res.string.save))
+                            Text(stringResource(Res.string.undo))
                         }
-                        Box {
-                            var actionsExpanded by remember { mutableStateOf(false) }
-                            IconButton(
-                                modifier = Modifier.navigationPopupSource(),
-                                onClick = { actionsExpanded = true },
-                                shapes = IconButtonDefaults.shapes(),
+                        TextButton(
+                            onClick = { history.redo(activeProfile) },
+                            enabled = history.redo.isNotEmpty(),
+                            shapes = ButtonDefaults.shapes(),
+                        ) {
+                            Text(stringResource(Res.string.redo))
+                        }
+                        if (fullScreen) {
+                            BrandButton(
+                                text = stringResource(Res.string.save),
+                                enabled = EqualizerProfiles.hasUnsavedChanges,
+                                onClick = { requestSave(false) },
+                            )
+                        } else {
+                            TextButton(
+                                onClick = { requestSave(false) },
+                                enabled = EqualizerProfiles.hasUnsavedChanges,
+                                shapes = ButtonDefaults.shapes(),
                             ) {
-                                Icon(MetrolistIcons.Default.MoreVert, contentDescription = stringResource(Res.string.more_options))
+                                Text(stringResource(Res.string.save))
                             }
-                            DropdownMenu(expanded = actionsExpanded, onDismissRequest = { actionsExpanded = false }) {
-                                overflowItems { actionsExpanded = false }
+                            Box {
+                                var actionsExpanded by remember { mutableStateOf(false) }
+                                IconButton(
+                                    modifier = Modifier.navigationPopupSource(),
+                                    onClick = { actionsExpanded = true },
+                                    shapes = IconButtonDefaults.shapes(),
+                                ) {
+                                    Icon(MetrolistIcons.Default.MoreVert, contentDescription = stringResource(Res.string.more_options))
+                                }
+                                DropdownMenu(expanded = actionsExpanded, onDismissRequest = { actionsExpanded = false }) {
+                                    overflowItems { actionsExpanded = false }
+                                }
                             }
                         }
                     }
                 }
+                Text(
+                    stringResource(Res.string.equalizer_usage_warning),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 24.dp),
+                )
             }
-            Text(
-                stringResource(Res.string.equalizer_usage_warning),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = 24.dp),
-            )
         }
     }
     PopupVisibility(visible = namingProfile) {

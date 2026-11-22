@@ -37,7 +37,10 @@ private fun greetingFor(hour: Int): StringResource =
 
 /** Home top bar title: the 32 dp logo tile and a time-of-day greeting in the display style. */
 @Composable
-fun MmGreetingTitle(modifier: Modifier = Modifier) {
+fun MmGreetingTitle(
+    modifier: Modifier = Modifier,
+    showLogo: Boolean = true,
+) {
     val greeting =
         remember {
             greetingFor(Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).hour)
@@ -47,11 +50,14 @@ fun MmGreetingTitle(modifier: Modifier = Modifier) {
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Image(
-            painter = painterResource(Res.drawable.logo),
-            contentDescription = null,
-            modifier = Modifier.size(32.dp).clip(RoundedCornerShape(8.dp)),
-        )
+        // Tablets already show the logo in the navigation brand row on the same line.
+        if (showLogo) {
+            Image(
+                painter = painterResource(Res.drawable.logo),
+                contentDescription = null,
+                modifier = Modifier.size(32.dp).clip(RoundedCornerShape(8.dp)),
+            )
+        }
         // The top bar actions leave ~150 dp at 360 dp width: shrink the greeting to fit instead of ellipsizing it.
         val style = MaterialTheme.typography.headlineMedium
         Text(

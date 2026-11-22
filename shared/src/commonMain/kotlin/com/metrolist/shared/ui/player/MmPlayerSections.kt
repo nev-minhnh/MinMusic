@@ -7,12 +7,14 @@ package com.metrolist.shared.ui.player
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -34,9 +36,12 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.metrolist.shared.api.lyrics.LyricsUtils
 import com.metrolist.shared.cast.CastState
+import com.metrolist.shared.deviceconnect.DeviceConnectControlledTarget
+import com.metrolist.shared.deviceconnect.DeviceConnectControllerBanner
 import com.metrolist.shared.equalizer.EqualizerProfiles
 import com.metrolist.shared.generated.resources.Res
 import com.metrolist.shared.generated.resources.action_like
+import com.metrolist.shared.generated.resources.device_connect_controlling_overline
 import com.metrolist.shared.generated.resources.loading
 import com.metrolist.shared.generated.resources.lyrics
 import com.metrolist.shared.generated.resources.mm_player_eq_chip
@@ -110,9 +115,16 @@ internal fun Modifier.mmPlayerBleed(amount: Dp): Modifier =
     }
 
 /** Height of the bottom area that the queue sheet uses as its collapsed header. */
-internal fun mmPlayerBottomAreaHeight(showLyricsPeek: Boolean): Dp =
-    (if (showLyricsPeek) MmPlayerChipRowHeight + MmPlayerLyricsPeekHeight else MmPlayerChipRowHeight) +
-        MmPlayerQueueHandleTopGap + MmPlayerQueueHandleHeight + MmPlayerQueueHandleBottomGap
+internal fun mmPlayerBottomAreaHeight(
+    showLyricsPeek: Boolean,
+    tabletCardsHeight: Dp = 0.dp,
+): Dp =
+    if (showLyricsPeek && tabletCardsHeight > 0.dp) {
+        MmPlayerChipRowHeight + MmTabletCardsTopGap + tabletCardsHeight + MmTabletCardsBottomGap
+    } else {
+        (if (showLyricsPeek) MmPlayerChipRowHeight + MmPlayerLyricsPeekHeight else MmPlayerChipRowHeight) +
+            MmPlayerQueueHandleTopGap + MmPlayerQueueHandleHeight + MmPlayerQueueHandleBottomGap
+    }
 
 @Composable
 internal fun MmPlayerTopBarSection(
@@ -125,11 +137,19 @@ internal fun MmPlayerTopBarSection(
     onToggleVideoMode: () -> Unit,
     contentColor: Color,
     modifier: Modifier = Modifier,
+    controllingDeviceName: String? = null,
 ) {
     val playingFrom = queueTitle?.takeIf { it.isNotBlank() }
     MmPlayerTopBar(
-        overline = stringResource(if (playingFrom != null) Res.string.mm_player_playing_from else Res.string.now_playing),
-        title = playingFrom,
+        overline =
+            stringResource(
+                when {
+                    controllingDeviceName != null -> Res.string.device_connect_controlling_overline
+                    playingFrom != null -> Res.string.mm_player_playing_from
+                    else -> Res.string.now_playing
+                },
+            ),
+        title = controllingDeviceName ?: playingFrom,
         onCollapse = onCollapse,
         onMore = onMore,
         contentColor = contentColor,
@@ -209,103 +229,29 @@ internal fun MmPlayerBottomArea(
     modifier: Modifier = Modifier,
     nextSongTitle: String? = null,
     queueSize: Int = 0,
+    controlledTarget: DeviceConnectControlledTarget? = null,
+    tabletCardsHeight: Dp = 0.dp,
+    tabletBlockWidth: Dp = Dp.Unspecified,
+    upNext: List<PlayerViewModel.QueueItemUiModel> = emptyList(),
 ) {
     val haptics = rememberMetrolistHaptics()
-    val ink = MaterialTheme.colorScheme.onSurface
+    // Tablet portrait (spec section 6.2): the lyrics and up-next cards replace the peek card and the handle.
+    val showTabletCards = tabletCardsHeight > 0.dp && !isLyricsVisible
     Column(modifier = modifier.fillMaxWidth()) {
-        Row(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .height(MmPlayerChipRowHeight)
-                    .padding(start = 16.dp, end = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Row(
-                modifier = Modifier.weight(1f),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                val outputName =
-                    castState.device?.name?.takeIf { castState.isConnected && it.isNotBlank() }
-                        ?: EqualizerProfiles.outputDevice?.productName?.takeIf { it.isNotBlank() }
-                        ?: stringResource(Res.string.mm_player_this_device)
-                MmPlayerChip(
-                    label = outputName,
-                    icon = if (castState.isConnected) MetrolistIcons.Filled.Cast else MetrolistIcons.Outlined.Headphones,
-                    onClick = {
-                        if (onOpenCast != null) {
-                            haptics.perform(HapticEvent.PRESS)
-                            onOpenCast()
-                        }
-                    },
-                    active = castState.isConnected,
-                    modifier = Modifier.weight(1f, fill = false),
-                )
-                val profileName =
-                    EqualizerProfiles.activeProfile?.name?.takeIf { Settings.shared.equalizerEnabled && it.isNotBlank() }
-                MmPlayerChip(
-                    label =
-                        if (profileName != null) {
-                            stringResource(Res.string.mm_player_eq_chip_profile, profileName)
-                        } else {
-                            stringResource(Res.string.mm_player_eq_chip)
-                        },
-                    icon = MetrolistIcons.Outlined.Tune,
-                    onClick = {
-                        haptics.perform(HapticEvent.PRESS)
-                        onOpenEqualizer()
-                    },
-                    showBrandDot = profileName != null,
-                    modifier = Modifier.weight(1f, fill = false),
-                )
-            }
-            if (isLyricsVisible) {
-                IconButton(
-                    onClick = {
-                        haptics.toggle(false)
-                        onLyricsVisibleChange(false)
-                    },
-                ) {
-                    Icon(
-                        imageVector = MetrolistIcons.Outlined.Lyrics,
-                        contentDescription = stringResource(Res.string.lyrics),
-                        tint = MaterialTheme.colorScheme.primary,
-                    )
-                }
-            }
-            if (isListenTogetherGuest) {
-                MmPlayerGuestVolumeButton(contentColor = ink)
-            } else if (sleepTimerState.isActive) {
-                MmPlayerChip(
-                    label =
-                        sleepTimerState.remainingMs?.let(::formatSleepTimerRemaining)
-                            ?: sleepTimerContentDescription(sleepTimerState),
-                    icon = MetrolistIcons.Outlined.Bedtime,
-                    onClick = {
-                        haptics.perform(HapticEvent.PRESS)
-                        onShowSleepTimer()
-                    },
-                    active = true,
-                    contentDescription = sleepTimerContentDescription(sleepTimerState),
-                )
-            } else {
-                IconButton(
-                    onClick = {
-                        haptics.perform(HapticEvent.PRESS)
-                        onShowSleepTimer()
-                    },
-                ) {
-                    Icon(
-                        imageVector = MetrolistIcons.Outlined.Bedtime,
-                        contentDescription = sleepTimerContentDescription(sleepTimerState),
-                        tint = ink.copy(alpha = 0.76f),
-                    )
-                }
-            }
-        }
-        if (!isLyricsVisible) {
-            MmPlayerLyricsPeekSection(
+        MmPlayerChipRow(
+            isLyricsVisible = isLyricsVisible,
+            onLyricsVisibleChange = onLyricsVisibleChange,
+            castState = castState,
+            onOpenCast = onOpenCast,
+            onOpenEqualizer = onOpenEqualizer,
+            sleepTimerState = sleepTimerState,
+            onShowSleepTimer = onShowSleepTimer,
+            isListenTogetherGuest = isListenTogetherGuest,
+            controlledTarget = controlledTarget,
+            modifier = Modifier.align(Alignment.CenterHorizontally).widthIn(max = tabletBlockWidth),
+        )
+        if (showTabletCards && controlledTarget == null) {
+            MmTabletPlayerCards(
                 viewModel = viewModel,
                 lyrics = lyrics,
                 songId = songId,
@@ -313,32 +259,231 @@ internal fun MmPlayerBottomArea(
                 isPlaying = isPlaying,
                 isCasting = castState.isConnected,
                 isBuffering = castState.isBuffering,
-                isLoading = isLyricsLoading,
-                onOpen = {
+                isLyricsLoading = isLyricsLoading,
+                upNext = upNext,
+                queueSize = queueSize,
+                onOpenLyrics = {
                     haptics.toggle(true)
                     onLyricsVisibleChange(true)
                 },
-                shape = RoundedCornerShape(20.dp),
-                modifier = Modifier.padding(horizontal = 12.dp).height(MmPlayerLyricsPeekHeight),
+                onOpenQueue = {
+                    haptics.perform(HapticEvent.PRESS)
+                    onOpenQueue()
+                },
+                modifier =
+                    Modifier
+                        .padding(horizontal = MmTabletCardsInset)
+                        .padding(top = MmTabletCardsTopGap, bottom = MmTabletCardsBottomGap)
+                        .fillMaxWidth()
+                        .height(tabletCardsHeight),
+            )
+        } else {
+            MmPlayerPeekAndHandle(
+                viewModel = viewModel,
+                lyrics = lyrics,
+                songId = songId,
+                lyricsOffsetMs = lyricsOffsetMs,
+                isLyricsLoading = isLyricsLoading,
+                isLyricsVisible = isLyricsVisible,
+                onLyricsVisibleChange = onLyricsVisibleChange,
+                isPlaying = isPlaying,
+                castState = castState,
+                onOpenQueue = onOpenQueue,
+                nextSongTitle = nextSongTitle,
+                queueSize = queueSize,
+                handleMaxWidth = tabletBlockWidth,
+                controlledTarget = controlledTarget,
             )
         }
-        MmPlayerQueueHandle(
-            overline = stringResource(Res.string.mm_player_queue_up_next),
-            label =
-                nextSongTitle?.takeIf { it.isNotBlank() }
-                    ?: pluralStringResource(Res.plurals.mm_player_queue_song_count, queueSize, queueSize),
-            onOpen = {
-                haptics.perform(HapticEvent.PRESS)
-                onOpenQueue()
-            },
-            onClickLabel = stringResource(Res.string.mm_player_queue_open),
-            modifier =
-                Modifier
-                    .padding(horizontal = 12.dp)
-                    .padding(top = MmPlayerQueueHandleTopGap, bottom = MmPlayerQueueHandleBottomGap),
-        )
         Spacer(Modifier.height(navigationBarBottomPadding))
     }
+}
+
+/** Output device and EQ chips, the lyrics toggle while lyrics show, and the sleep timer (or guest volume). */
+@Composable
+internal fun MmPlayerChipRow(
+    isLyricsVisible: Boolean,
+    onLyricsVisibleChange: (Boolean) -> Unit,
+    castState: CastState,
+    onOpenCast: (() -> Unit)?,
+    onOpenEqualizer: () -> Unit,
+    sleepTimerState: SleepTimerState,
+    onShowSleepTimer: () -> Unit,
+    isListenTogetherGuest: Boolean,
+    modifier: Modifier = Modifier,
+    controlledTarget: DeviceConnectControlledTarget? = null,
+) {
+    val haptics = rememberMetrolistHaptics()
+    val ink = MaterialTheme.colorScheme.onSurface
+    Row(
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .height(MmPlayerChipRowHeight)
+                .padding(start = 16.dp, end = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Row(
+            modifier = Modifier.weight(1f),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            val outputName =
+                controlledTarget?.name
+                    ?: castState.device?.name?.takeIf { castState.isConnected && it.isNotBlank() }
+                    ?: EqualizerProfiles.outputDevice?.productName?.takeIf { it.isNotBlank() }
+                    ?: stringResource(Res.string.mm_player_this_device)
+            MmPlayerChip(
+                label = outputName,
+                icon =
+                    when {
+                        controlledTarget != null -> MetrolistIcons.Outlined.Devices
+                        castState.isConnected -> MetrolistIcons.Filled.Cast
+                        else -> MetrolistIcons.Outlined.Headphones
+                    },
+                onClick = {
+                    if (onOpenCast != null) {
+                        haptics.perform(HapticEvent.PRESS)
+                        onOpenCast()
+                    }
+                },
+                active = castState.isConnected || controlledTarget != null,
+                modifier = Modifier.weight(1f, fill = false),
+            )
+            val profileName =
+                EqualizerProfiles.activeProfile?.name?.takeIf { Settings.shared.equalizerEnabled && it.isNotBlank() }
+            MmPlayerChip(
+                label =
+                    if (profileName != null) {
+                        stringResource(Res.string.mm_player_eq_chip_profile, profileName)
+                    } else {
+                        stringResource(Res.string.mm_player_eq_chip)
+                    },
+                icon = MetrolistIcons.Outlined.Tune,
+                onClick = {
+                    haptics.perform(HapticEvent.PRESS)
+                    onOpenEqualizer()
+                },
+                showBrandDot = profileName != null,
+                modifier = Modifier.weight(1f, fill = false),
+            )
+        }
+        if (isLyricsVisible) {
+            IconButton(
+                onClick = {
+                    haptics.toggle(false)
+                    onLyricsVisibleChange(false)
+                },
+            ) {
+                Icon(
+                    imageVector = MetrolistIcons.Outlined.Lyrics,
+                    contentDescription = stringResource(Res.string.lyrics),
+                    tint = MaterialTheme.colorScheme.primary,
+                )
+            }
+        }
+        if (isListenTogetherGuest) {
+            MmPlayerGuestVolumeButton(contentColor = ink)
+        } else if (sleepTimerState.isActive) {
+            MmPlayerChip(
+                label =
+                    sleepTimerState.remainingMs?.let(::formatSleepTimerRemaining)
+                        ?: sleepTimerContentDescription(sleepTimerState),
+                icon = MetrolistIcons.Outlined.Bedtime,
+                onClick = {
+                    haptics.perform(HapticEvent.PRESS)
+                    onShowSleepTimer()
+                },
+                active = true,
+                contentDescription = sleepTimerContentDescription(sleepTimerState),
+            )
+        } else {
+            IconButton(
+                onClick = {
+                    haptics.perform(HapticEvent.PRESS)
+                    onShowSleepTimer()
+                },
+            ) {
+                Icon(
+                    imageVector = MetrolistIcons.Outlined.Bedtime,
+                    contentDescription = sleepTimerContentDescription(sleepTimerState),
+                    tint = ink.copy(alpha = 0.76f),
+                )
+            }
+        }
+    }
+}
+
+/** The phone's lyrics peek card (only while the lyrics are hidden) and the full-width queue handle. */
+@Composable
+private fun ColumnScope.MmPlayerPeekAndHandle(
+    viewModel: PlayerViewModel,
+    lyrics: List<LyricsEntry>,
+    songId: String?,
+    lyricsOffsetMs: Int,
+    isLyricsLoading: Boolean,
+    isLyricsVisible: Boolean,
+    onLyricsVisibleChange: (Boolean) -> Unit,
+    isPlaying: Boolean,
+    castState: CastState,
+    onOpenQueue: () -> Unit,
+    nextSongTitle: String?,
+    queueSize: Int,
+    handleMaxWidth: Dp,
+    controlledTarget: DeviceConnectControlledTarget? = null,
+) {
+    val haptics = rememberMetrolistHaptics()
+    if (!isLyricsVisible && controlledTarget != null) {
+        // While remote-controlling another device the peek slot shows who plays and the ways back.
+        DeviceConnectControllerBanner(
+            target = controlledTarget,
+            modifier =
+                Modifier
+                    .align(Alignment.CenterHorizontally)
+                    .widthIn(max = handleMaxWidth)
+                    .padding(horizontal = 12.dp)
+                    .height(MmPlayerLyricsPeekHeight),
+        )
+    } else if (!isLyricsVisible) {
+        MmPlayerLyricsPeekSection(
+            viewModel = viewModel,
+            lyrics = lyrics,
+            songId = songId,
+            timingOffsetMs = lyricsOffsetMs,
+            isPlaying = isPlaying,
+            isCasting = castState.isConnected,
+            isBuffering = castState.isBuffering,
+            isLoading = isLyricsLoading,
+            onOpen = {
+                haptics.toggle(true)
+                onLyricsVisibleChange(true)
+            },
+            shape = RoundedCornerShape(20.dp),
+            modifier =
+                Modifier
+                    .align(Alignment.CenterHorizontally)
+                    .widthIn(max = handleMaxWidth)
+                    .padding(horizontal = 12.dp)
+                    .height(MmPlayerLyricsPeekHeight),
+        )
+    }
+    MmPlayerQueueHandle(
+        overline = stringResource(Res.string.mm_player_queue_up_next),
+        label =
+            nextSongTitle?.takeIf { it.isNotBlank() }
+                ?: pluralStringResource(Res.plurals.mm_player_queue_song_count, queueSize, queueSize),
+        onOpen = {
+            haptics.perform(HapticEvent.PRESS)
+            onOpenQueue()
+        },
+        onClickLabel = stringResource(Res.string.mm_player_queue_open),
+        modifier =
+            Modifier
+                .align(Alignment.CenterHorizontally)
+                .widthIn(max = handleMaxWidth)
+                .padding(horizontal = 12.dp)
+                .padding(top = MmPlayerQueueHandleTopGap, bottom = MmPlayerQueueHandleBottomGap),
+    )
 }
 
 @Composable

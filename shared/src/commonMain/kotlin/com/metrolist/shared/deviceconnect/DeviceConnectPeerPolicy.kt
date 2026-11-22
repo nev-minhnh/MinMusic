@@ -1,5 +1,8 @@
 package com.metrolist.shared.deviceconnect
 
+import io.ktor.http.decodeURLQueryComponent
+import io.ktor.http.encodeURLParameter
+
 internal fun DeviceConnectManager.PeerState.isLiveConnectionState(): Boolean =
     this == DeviceConnectManager.PeerState.CONNECTING ||
         this == DeviceConnectManager.PeerState.HANDSHAKING ||
@@ -141,4 +144,166 @@ internal fun parseDeviceConnectEndpoint(value: String): DeviceConnectEndpoint? {
     if (!isDeviceConnectLanHost(host) || portText.isEmpty() || portText.any { it !in '0'..'9' }) return null
     val port = portText.toIntOrNull()?.takeIf { it in 1..65535 } ?: return null
     return DeviceConnectEndpoint(host, port)
+}
+
+/** The fixed listening port used by default, so peers across a VPN can dial `IP:port` without looking it up. */
+const val DEVICE_CONNECT_DEFAULT_PORT = 47821
+
+internal const val DEVICE_CONNECT_MIN_FIXED_PORT = 1024
+internal const val DEVICE_CONNECT_LINK_PREFIX = "metrolist://device-connect"
+private const val MAX_MANUAL_ENDPOINTS = 8
+private const val MAX_LINK_ENDPOINTS = 4
+
+/** LAN first, then Tailscale's 100.64.0.0/10, then IPv6. */
+internal fun deviceConnectAddressRank(host: String): Int =
+    when {
+        ':' in host -> 2
+        host.startsWith("100.") -> 1
+        else -> 0
+    }
+
+internal fun formatDeviceConnectEndpoint(
+    host: String,
+    port: Int,
+): String = if (':' in host) "[$host]:$port" else "$host:$port"
+
+/** A typed or remembered connection target: an allowed IP literal or a hostname, plus a port. */
+internal data class DeviceConnectAddressInput(
+    val host: String,
+    val port: Int,
+    val isHostname: Boolean,
+) {
+    val display: String get() = formatDeviceConnectEndpoint(host, port)
+}
+
+/**
+ * Accepts `IPv4:port`, `[IPv6]:port`, a bare allowed IP, `hostname` or `hostname:port` (e.g. Tailscale MagicDNS
+ * `pc-name` or `pc-name.tailnet.ts.net`). A missing port means [defaultPort]. Public IP literals are rejected here;
+ * hostnames are checked against the same allow-list after resolution.
+ */
+internal fun parseDeviceConnectAddressInput(
+    value: String,
+    defaultPort: Int = DEVICE_CONNECT_DEFAULT_PORT,
+): DeviceConnectAddressInput? {
+    val input = value.trim()
+    if (input.isEmpty()) return null
+    parseDeviceConnectEndpoint(input)?.let { return DeviceConnectAddressInput(it.host, it.port, isHostname = false) }
+    val bare = input.removePrefix("[").removeSuffix("]")
+    if (isDeviceConnectLanHost(bare)) return DeviceConnectAddressInput(bare, defaultPort, isHostname = false)
+    val colons = input.count { it == ':' }
+    if (colons > 1 || input.startsWith("[")) return null
+    val host = input.substringBefore(':')
+    val port =
+        if (colons == 0) {
+            defaultPort
+        } else {
+            val portText = input.substringAfter(':')
+            if (portText.isEmpty() || portText.any { it !in '0'..'9' }) return null
+            portText.toIntOrNull()?.takeIf { it in 1..65535 } ?: return null
+        }
+    if (!isDeviceConnectHostname(host)) return null
+    return DeviceConnectAddressInput(host.removeSuffix(".").lowercase(), port, isHostname = true)
+}
+
+/** A DNS name (letters, digits and hyphens per label). Dotted numbers are never names, so public IPs stay blocked. */
+internal fun isDeviceConnectHostname(value: String): Boolean {
+    val host = value.removeSuffix(".")
+    if (host.isEmpty() || host.length > 253) return false
+    val labels = host.split('.')
+    if (labels.all { label -> label.isNotEmpty() && label.all { it in '0'..'9' } }) return false
+    return labels.all { label ->
+        label.length in 1..63 && label.first() != '-' && label.last() != '-' &&
+            label.all { it in 'a'..'z' || it in 'A'..'Z' || it in '0'..'9' || it == '-' }
+    }
+}
+
+/**
+ * Resolves a hostname and keeps only addresses the direct-connection allow-list accepts (private IPv4, 100.64.0.0/10,
+ * local IPv6), preferring IPv4. Returns null when nothing allowed remains, so public addresses are never dialled.
+ */
+internal suspend fun resolveDeviceConnectAddressInput(input: DeviceConnectAddressInput): DeviceConnectEndpoint? {
+    if (!input.isHostname) return DeviceConnectEndpoint(input.host, input.port)
+    val allowed =
+        resolveDeviceConnectHostAddresses(input.host)
+            .map { it.removePrefix("[").removeSuffix("]") }
+            .filter(::isDeviceConnectLanHost)
+    val host =
+        allowed.firstOrNull { ':' !in it }
+            ?: allowed.firstOrNull { !it.lowercase().startsWith("fe80") }
+            ?: return null
+    return DeviceConnectEndpoint(host, input.port)
+}
+
+internal fun decodeDeviceConnectManualEndpoints(value: String): List<String> =
+    value
+        .split(',')
+        .mapNotNull { parseDeviceConnectAddressInput(it)?.display }
+        .distinct()
+        .take(MAX_MANUAL_ENDPOINTS)
+
+/** Puts [endpoint] first so the most recent manual target is retried first. */
+internal fun rememberDeviceConnectManualEndpoint(
+    stored: String,
+    endpoint: String,
+): String = (listOf(endpoint) + decodeDeviceConnectManualEndpoints(stored)).distinct().take(MAX_MANUAL_ENDPOINTS).joinToString(",")
+
+internal fun forgetDeviceConnectManualEndpoint(
+    stored: String,
+    endpoint: String,
+): String = decodeDeviceConnectManualEndpoints(stored).filter { it != endpoint }.joinToString(",")
+
+/** A pairing link shown as a QR code: this device's dialable IPv4 endpoints and its name. */
+internal data class DeviceConnectLink(
+    val endpoints: List<DeviceConnectEndpoint>,
+    val deviceName: String,
+)
+
+internal fun buildDeviceConnectLink(
+    addresses: List<String>,
+    port: Int,
+    deviceName: String,
+): String? {
+    val endpoints =
+        addresses
+            .filter { ':' !in it && isDeviceConnectLanHost(it) }
+            .take(MAX_LINK_ENDPOINTS)
+            .map { formatDeviceConnectEndpoint(it, port) }
+    if (endpoints.isEmpty() || port !in 1..65535) return null
+    val name = sanitizeDeviceName(deviceName).take(32).encodeURLParameter()
+    return "$DEVICE_CONNECT_LINK_PREFIX?a=${endpoints.joinToString(",")}&n=$name"
+}
+
+/** Parses [buildDeviceConnectLink] output. Only allowed IP literals are accepted from a link, never hostnames. */
+internal fun parseDeviceConnectLink(value: String): DeviceConnectLink? {
+    val input = value.trim()
+    if (!input.startsWith(DEVICE_CONNECT_LINK_PREFIX, ignoreCase = true)) return null
+    val parameters =
+        input
+            .substringAfter('?', "")
+            .split('&')
+            .mapNotNull { part ->
+                val key = part.substringBefore('=', "")
+                if (key.isEmpty()) null else key to part.substringAfter('=')
+            }.toMap()
+    val endpoints =
+        parameters["a"]
+            .orEmpty()
+            .split(',')
+            .take(MAX_LINK_ENDPOINTS)
+            .mapNotNull { parseDeviceConnectEndpoint(it) }
+    if (endpoints.isEmpty()) return null
+    val name = parameters["n"]?.let { runCatching { it.decodeURLQueryComponent() }.getOrNull() }.orEmpty()
+    return DeviceConnectLink(endpoints, sanitizeDeviceName(name))
+}
+
+/** Prefers an endpoint on this device's own /24 (same LAN), then Tailscale when this device is on it. */
+internal fun selectDeviceConnectLinkEndpoint(
+    endpoints: List<DeviceConnectEndpoint>,
+    localAddresses: List<String>,
+): DeviceConnectEndpoint? {
+    val localPrefixes = localAddresses.mapNotNull { it.ipv424Prefix() }.toSet()
+    val hasCgnat = localAddresses.any { deviceConnectAddressRank(it) == 1 }
+    return endpoints.firstOrNull { endpoint -> endpoint.host.ipv424Prefix()?.let { it in localPrefixes } == true }
+        ?: endpoints.firstOrNull { hasCgnat && deviceConnectAddressRank(it.host) == 1 }
+        ?: endpoints.firstOrNull()
 }
