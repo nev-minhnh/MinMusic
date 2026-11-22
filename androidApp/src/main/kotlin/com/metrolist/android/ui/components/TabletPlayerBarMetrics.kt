@@ -87,7 +87,8 @@ internal fun tabletPlayerBarHeight(
     val gap = if (seekRowHeight > 0.dp) seekGap else 0.dp
     val content =
         if (fullLayout) {
-            maxOf(TabletBarFullControlSize + gap + seekRowHeight, songZoneHeight) + TabletBarFullVerticalPadding * 2
+            // The gap is mirrored above the controls so play sits as far from the top edge as from the seek bar.
+            maxOf(gap + TabletBarFullControlSize + gap + seekRowHeight, songZoneHeight) + TabletBarFullVerticalPadding * 2
         } else {
             maxOf(TabletBarCompactControlSize, songZoneHeight) + TabletBarCompactVerticalPadding * 2
         }

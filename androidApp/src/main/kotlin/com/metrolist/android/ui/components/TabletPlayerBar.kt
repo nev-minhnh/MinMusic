@@ -547,8 +547,13 @@ private fun TabletBarFullLayout(
             Column(
                 modifier = Modifier.width(centreWidth).fillMaxHeight(),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center,
+                verticalArrangement =
+                    if (Settings.shared.showExpressiveMiniPlayerProgress) Arrangement.Top else Arrangement.Center,
             ) {
+                if (Settings.shared.showExpressiveMiniPlayerProgress) {
+                    // Play sits as far from the bar's top edge as from the seek bar (owner, 1.0.7).
+                    Spacer(Modifier.height(TabletBarFullSeekGap - TabletBarFullVerticalPadding))
+                }
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp),

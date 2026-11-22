@@ -17,6 +17,15 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.windowInsetsTopHeight
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -342,6 +351,25 @@ fun MetrolistNavigationScaffold(
                             .consumeWindowInsets(PaddingValues(bottom = tabletNavigationBottomInset)),
                 )
             }
+            // Frosted strip under the status bar so scrolled content never mixes with the notification icons
+            // (owner, 1.0.7). A translucent tint plus a hairline: cheap, no backdrop blur pass.
+            Box(
+                Modifier
+                    .align(Alignment.TopStart)
+                    .fillMaxWidth()
+                    .windowInsetsTopHeight(WindowInsets.statusBars)
+                    .background(
+                        Brush.verticalGradient(
+                            listOf(tabletNavigationColor.copy(alpha = 0.94f), tabletNavigationColor.copy(alpha = 0.82f)),
+                        ),
+                    ).drawBehind {
+                        drawRect(
+                            color = Color.White.copy(alpha = 0.06f),
+                            topLeft = Offset(0f, size.height - 1.dp.toPx()),
+                            size = Size(size.width, 1.dp.toPx()),
+                        )
+                    },
+            )
         }
     }
 }
