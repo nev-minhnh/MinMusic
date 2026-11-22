@@ -60,6 +60,9 @@ internal fun CollectionHeader(
     isMedium: Boolean,
     modifier: Modifier = Modifier,
     mediumArtworkSize: Dp = 176.dp,
+    // Tablet header column (tablet spec §5.4): fixed artwork size by height class and no info card.
+    // Null keeps the desktop column (full-width artwork above an info card).
+    wideArtworkSize: Dp? = null,
     artwork: @Composable (Modifier, Dp) -> Unit,
     actions: @Composable (() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit,
@@ -90,6 +93,10 @@ internal fun CollectionHeader(
                 artwork(Modifier.size(PhoneCollectionArtworkSize), 16.dp)
                 Column(Modifier.weight(1f), content = content)
             }
+        } else if (wideArtworkSize != null) {
+            artwork(Modifier.size(wideArtworkSize), 16.dp)
+            Spacer(Modifier.height(24.dp))
+            Column(Modifier.fillMaxWidth(), content = content)
         } else {
             artwork(Modifier.fillMaxWidth().aspectRatio(1f), uiEnhanced(8.dp, 20.dp))
             Spacer(Modifier.height(16.dp))

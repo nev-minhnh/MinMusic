@@ -193,7 +193,7 @@ fun AlbumContent(
             title = {
                 BoxWithConstraints(Modifier.fillMaxWidth()) {
                     AnimatedVisibility(
-                        visible = maxWidth < 960.dp && showCollapsedTitle && !isSearchOpen && !selectionActive,
+                        visible = maxWidth < 840.dp && showCollapsedTitle && !isSearchOpen && !selectionActive,
                         enter = fadeIn(MaterialTheme.motionScheme.fastEffectsSpec()),
                         exit = fadeOut(MaterialTheme.motionScheme.fastEffectsSpec()),
                     ) {
@@ -210,8 +210,18 @@ fun AlbumContent(
             selectionControls = selectionControls.takeIf { selectionActive },
         ) {
             BoxWithConstraints(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
-                val isWide = maxWidth >= 960.dp
+                // Tablet spec §5.4: header as a left column once the content is >= 840 dp (landscape).
+                val isWide = maxWidth >= 840.dp
                 val isMedium = maxWidth >= 600.dp && !isWide
+                val headerViewportHeight = maxHeight - contentPadding.calculateTopPadding() - contentPadding.calculateBottomPadding()
+                // Touch tablets: artwork by height class (136 / 184 / 200) in a 320 dp column; desktop keeps its column.
+                val wideArtworkSize =
+                    when {
+                        isDesktop -> null
+                        headerViewportHeight < 400.dp -> 136.dp
+                        headerViewportHeight < 760.dp -> 184.dp
+                        else -> 200.dp
+                    }
                 LaunchedEffect(effectiveQuery.isNotBlank(), isWide) {
                     if (effectiveQuery.isNotBlank() && !isWide) {
                         searchListState.animateScrollToItem(listOfNotNull(header).size + 1)
@@ -229,7 +239,8 @@ fun AlbumContent(
                             maxHeight - contentPadding.calculateTopPadding() - contentPadding.calculateBottomPadding(),
                         )
                     } else {
-                        176.dp
+                        // Tablet portrait: horizontal header with 200 dp artwork beside the title.
+                        200.dp
                     }
                 val playbackActions: @Composable (() -> Unit)? =
                     if (showPlayback || onFavorite != null) {
@@ -269,7 +280,7 @@ fun AlbumContent(
                             Column(
                                 modifier =
                                     Modifier
-                                        .width(384.dp)
+                                        .width(if (wideArtworkSize != null) 368.dp else 384.dp)
                                         .padding(horizontal = 24.dp)
                                         .verticalScrollWithDrag(rememberScrollState()),
                                 horizontalAlignment = Alignment.Start,
@@ -288,6 +299,7 @@ fun AlbumContent(
                                     showMoreLabel = text.showMore,
                                     showLessLabel = text.showLess,
                                     actions = playbackActions,
+                                    wideArtworkSize = wideArtworkSize,
                                 )
                                 Spacer(Modifier.height(contentPadding.calculateBottomPadding()))
                             }

@@ -56,12 +56,14 @@ fun AlbumHeader(
     mediumArtworkSize: Dp = 176.dp,
     actions: @Composable (() -> Unit)? = null,
     titleModifier: Modifier = Modifier,
+    wideArtworkSize: Dp? = null,
 ) {
     CollectionHeader(
         isWide = isWide,
         isMedium = isMedium,
         modifier = modifier,
         mediumArtworkSize = mediumArtworkSize,
+        wideArtworkSize = wideArtworkSize,
         artwork = { artworkModifier, cornerRadius -> AlbumHeaderArtwork(album, artworkModifier, cornerRadius) },
         actions = actions,
     ) {
