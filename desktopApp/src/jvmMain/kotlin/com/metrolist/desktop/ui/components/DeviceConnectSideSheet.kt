@@ -49,6 +49,7 @@ import androidx.compose.ui.window.PopupProperties
 import com.metrolist.desktop.deviceconnect.DesktopDeviceConnect
 import com.metrolist.desktop.state.app.UiState
 import com.metrolist.desktop.state.playback.PlayerState
+import com.metrolist.shared.deviceconnect.rememberDeviceConnectControlledTarget
 import com.metrolist.shared.generated.resources.Res
 import com.metrolist.shared.generated.resources.close
 import com.metrolist.shared.generated.resources.device_connect_picker_title
@@ -218,6 +219,7 @@ private fun DeviceConnectPanelSurface(
                 UiState.showIntegrationsSettings = true
             },
             closeButtonModifier = closeButtonModifier,
+            controlledTarget = rememberDeviceConnectControlledTarget(manager),
         )
     }
 }

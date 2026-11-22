@@ -9,6 +9,7 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.unit.Dp
 import com.metrolist.shared.api.artwork.CanvasContentSource
 import com.metrolist.shared.api.artwork.YouTubeCanvasClip
+import com.metrolist.shared.deviceconnect.DeviceConnectControlledTarget
 import com.metrolist.shared.model.SongItem
 import com.metrolist.shared.ui.components.PlayerMenuAction
 import com.metrolist.shared.viewmodels.PlayerViewModel
@@ -38,6 +39,10 @@ interface PlayerPlatform {
 
     @Composable
     fun isDeviceConnectActive(): Boolean
+
+    /** The device this one remote-controls through Device Connect, or null while it plays (or is the target) itself. */
+    @Composable
+    fun deviceConnectControlledTarget(): DeviceConnectControlledTarget? = null
 
     @Composable
     fun isTouchExplorationEnabled(): Boolean

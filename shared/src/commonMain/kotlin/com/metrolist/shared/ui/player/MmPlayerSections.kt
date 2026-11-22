@@ -34,9 +34,12 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.metrolist.shared.api.lyrics.LyricsUtils
 import com.metrolist.shared.cast.CastState
+import com.metrolist.shared.deviceconnect.DeviceConnectControlledTarget
+import com.metrolist.shared.deviceconnect.DeviceConnectControllerBanner
 import com.metrolist.shared.equalizer.EqualizerProfiles
 import com.metrolist.shared.generated.resources.Res
 import com.metrolist.shared.generated.resources.action_like
+import com.metrolist.shared.generated.resources.device_connect_controlling_overline
 import com.metrolist.shared.generated.resources.loading
 import com.metrolist.shared.generated.resources.lyrics
 import com.metrolist.shared.generated.resources.mm_player_eq_chip
@@ -125,11 +128,19 @@ internal fun MmPlayerTopBarSection(
     onToggleVideoMode: () -> Unit,
     contentColor: Color,
     modifier: Modifier = Modifier,
+    controllingDeviceName: String? = null,
 ) {
     val playingFrom = queueTitle?.takeIf { it.isNotBlank() }
     MmPlayerTopBar(
-        overline = stringResource(if (playingFrom != null) Res.string.mm_player_playing_from else Res.string.now_playing),
-        title = playingFrom,
+        overline =
+            stringResource(
+                when {
+                    controllingDeviceName != null -> Res.string.device_connect_controlling_overline
+                    playingFrom != null -> Res.string.mm_player_playing_from
+                    else -> Res.string.now_playing
+                },
+            ),
+        title = controllingDeviceName ?: playingFrom,
         onCollapse = onCollapse,
         onMore = onMore,
         contentColor = contentColor,
@@ -209,6 +220,7 @@ internal fun MmPlayerBottomArea(
     modifier: Modifier = Modifier,
     nextSongTitle: String? = null,
     queueSize: Int = 0,
+    controlledTarget: DeviceConnectControlledTarget? = null,
 ) {
     val haptics = rememberMetrolistHaptics()
     val ink = MaterialTheme.colorScheme.onSurface
@@ -227,19 +239,25 @@ internal fun MmPlayerBottomArea(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 val outputName =
-                    castState.device?.name?.takeIf { castState.isConnected && it.isNotBlank() }
+                    controlledTarget?.name
+                        ?: castState.device?.name?.takeIf { castState.isConnected && it.isNotBlank() }
                         ?: EqualizerProfiles.outputDevice?.productName?.takeIf { it.isNotBlank() }
                         ?: stringResource(Res.string.mm_player_this_device)
                 MmPlayerChip(
                     label = outputName,
-                    icon = if (castState.isConnected) MetrolistIcons.Filled.Cast else MetrolistIcons.Outlined.Headphones,
+                    icon =
+                        when {
+                            controlledTarget != null -> MetrolistIcons.Outlined.Devices
+                            castState.isConnected -> MetrolistIcons.Filled.Cast
+                            else -> MetrolistIcons.Outlined.Headphones
+                        },
                     onClick = {
                         if (onOpenCast != null) {
                             haptics.perform(HapticEvent.PRESS)
                             onOpenCast()
                         }
                     },
-                    active = castState.isConnected,
+                    active = castState.isConnected || controlledTarget != null,
                     modifier = Modifier.weight(1f, fill = false),
                 )
                 val profileName =
@@ -304,7 +322,13 @@ internal fun MmPlayerBottomArea(
                 }
             }
         }
-        if (!isLyricsVisible) {
+        if (!isLyricsVisible && controlledTarget != null) {
+            // While remote-controlling another device the peek slot shows who plays and the ways back.
+            DeviceConnectControllerBanner(
+                target = controlledTarget,
+                modifier = Modifier.padding(horizontal = 12.dp).height(MmPlayerLyricsPeekHeight),
+            )
+        } else if (!isLyricsVisible) {
             MmPlayerLyricsPeekSection(
                 viewModel = viewModel,
                 lyrics = lyrics,

@@ -1278,6 +1278,12 @@ fun MetrolistApp(
                                 navigator.navigate(Screen.LastFm)
                             }
 
+                            is IncomingDestination.DeviceConnect -> {
+                                // Only shows the offer; the user still has to accept it and approve the pairing code.
+                                AndroidDeviceConnect.manager.offerConnectionLink(destination.link)
+                                navigator.navigate(Screen.SettingsPage(SettingsPageId.DEVICE_CONNECT))
+                            }
+
                             IncomingDestination.Player -> {
                                 pendingOpenPlayer = true
                             }
@@ -2079,7 +2085,7 @@ fun MetrolistApp(
                                 },
                                 onNavigateToIntegrations = {
                                     playerBottomSheetState.collapseSoft()
-                                    navigator.navigate(Screen.Integrations)
+                                    navigator.navigate(Screen.SettingsPage(SettingsPageId.DEVICE_CONNECT))
                                 },
                             )
                         }
@@ -2405,6 +2411,11 @@ sealed class IncomingDestination {
 
     object Player : IncomingDestination()
 
+    /** A Device Connect pairing link (QR code shown by the PC). */
+    data class DeviceConnect(
+        val link: String,
+    ) : IncomingDestination()
+
     data class Search(
         val query: String?,
     ) : IncomingDestination()
@@ -2492,6 +2503,7 @@ fun Intent.toIncomingDestination(): IncomingDestination? {
 }
 
 private fun incomingUrlDestination(rawUri: String): IncomingDestination? {
+    if (rawUri.startsWith(DEVICE_CONNECT_LINK_SCHEME_PREFIX, ignoreCase = true)) return IncomingDestination.DeviceConnect(rawUri)
     parseYouTubePodcastId(rawUri)?.let { return IncomingDestination.Podcast(it) }
     parseListenTogetherInvitation(rawUri)?.let { return IncomingDestination.ListenTogether(it) }
     extractListenTogetherRoomCode(rawUri)?.let { return IncomingDestination.ListenTogether(it) }
@@ -3044,3 +3056,5 @@ private fun NavigationContentProvider(
 }
 
 val LocalImmersiveContent = staticCompositionLocalOf<MutableState<Boolean>> { mutableStateOf(false) }
+
+private const val DEVICE_CONNECT_LINK_SCHEME_PREFIX = "metrolist://device-connect"

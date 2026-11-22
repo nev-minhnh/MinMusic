@@ -54,6 +54,8 @@ import com.metrolist.shared.api.artwork.YouTubeCanvasClip
 import com.metrolist.shared.api.lyrics.LyricsUtils
 import com.metrolist.shared.db.MusicDatabase
 import com.metrolist.shared.db.entities.KIND_DOWNLOAD
+import com.metrolist.shared.deviceconnect.DeviceConnectControlledTarget
+import com.metrolist.shared.deviceconnect.rememberDeviceConnectControlledTarget
 import com.metrolist.shared.generated.resources.Res
 import com.metrolist.shared.generated.resources.cast_permission_required
 import com.metrolist.shared.generated.resources.queued_songs
@@ -111,6 +113,10 @@ class AndroidPlayerPlatform(
             .collectAsState()
         return state.sessionId != null
     }
+
+    @Composable
+    override fun deviceConnectControlledTarget(): DeviceConnectControlledTarget? =
+        rememberDeviceConnectControlledTarget(AndroidDeviceConnect.manager)
 
     @Composable
     override fun isTouchExplorationEnabled(): Boolean {
