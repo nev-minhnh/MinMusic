@@ -111,6 +111,7 @@ import com.metrolist.shared.ui.components.VideoShelf
 import com.metrolist.shared.ui.components.YTGridItem
 import com.metrolist.shared.ui.components.YTListItem
 import com.metrolist.shared.ui.components.carouselArtworkShape
+import com.metrolist.shared.ui.components.minmusic.ArtworkOnPageBackground
 import com.metrolist.shared.ui.components.minmusic.MmQuickPickTile
 import com.metrolist.shared.ui.components.rememberItemPlayback
 import com.metrolist.shared.ui.utils.DragScrollableColumn
@@ -1033,25 +1034,27 @@ private fun HomeSpeedDialShelf(
     val horizontalPadding = if (isWide) 24.dp else 16.dp
     val gridState = rememberLazyGridState()
     DesktopHorizontalScrollControls(gridState) {
-        SpeedDialGrid(
-            items = shelf.items,
-            pinnedIds = shelf.speedDialPinnedIds ?: emptyList(),
-            surprisePinned = shelf.speedDialSurprisePinned ?: false,
-            onItemClick = onItemClick,
-            onShowSpeedDialMenu = onShowSpeedDialMenu,
-            onShowSpeedDialSecondaryMenu = onShowSpeedDialSecondaryMenu,
-            onShowSurpriseMenu = onShowSurpriseMenu,
-            onShowSurpriseSecondaryMenu = onShowSurpriseSecondaryMenu,
-            currentSongId = currentSongId,
-            isPlaying = isPlaying,
-            isItemEnabled = isItemEnabled,
-            isLandscape = isLandscape,
-            surpriseAtEndOfFirstPage = speedDialSurpriseAtEndOfFirstPage,
-            modifier = if (isLandscape) Modifier else Modifier.padding(horizontal = horizontalPadding),
-            contentPadding = if (isLandscape) PaddingValues(horizontal = horizontalPadding) else PaddingValues(0.dp),
-            landscapeMaxItemSize = if (isWide) 170.dp else 136.dp,
-            gridState = gridState,
-        )
+        ArtworkOnPageBackground {
+            SpeedDialGrid(
+                items = shelf.items,
+                pinnedIds = shelf.speedDialPinnedIds ?: emptyList(),
+                surprisePinned = shelf.speedDialSurprisePinned ?: false,
+                onItemClick = onItemClick,
+                onShowSpeedDialMenu = onShowSpeedDialMenu,
+                onShowSpeedDialSecondaryMenu = onShowSpeedDialSecondaryMenu,
+                onShowSurpriseMenu = onShowSurpriseMenu,
+                onShowSurpriseSecondaryMenu = onShowSurpriseSecondaryMenu,
+                currentSongId = currentSongId,
+                isPlaying = isPlaying,
+                isItemEnabled = isItemEnabled,
+                isLandscape = isLandscape,
+                surpriseAtEndOfFirstPage = speedDialSurpriseAtEndOfFirstPage,
+                modifier = if (isLandscape) Modifier else Modifier.padding(horizontal = horizontalPadding),
+                contentPadding = if (isLandscape) PaddingValues(horizontal = horizontalPadding) else PaddingValues(0.dp),
+                landscapeMaxItemSize = if (isWide) 170.dp else 136.dp,
+                gridState = gridState,
+            )
+        }
     }
 }
 

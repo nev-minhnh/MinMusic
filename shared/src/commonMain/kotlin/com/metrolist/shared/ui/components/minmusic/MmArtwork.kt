@@ -10,7 +10,11 @@
 
 package com.metrolist.shared.ui.components.minmusic
 
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.composed
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -23,6 +27,7 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.isSpecified
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 
@@ -99,7 +104,32 @@ fun DrawScope.drawMmArtworkEdgeMask(
  * transparent. Replaces a plain `clip(shape)` on artwork containers; the fade follows the straight edges and the
  * shape keeps the rounded corners.
  */
+/**
+ * Flat colour directly behind the artworks below this point, or [Color.Unspecified] (default) when unknown.
+ *
+ * With a known flat backdrop the fade is painted as a backdrop-coloured gradient on top of the artwork instead of
+ * cutting alpha in an offscreen layer. Over that backdrop the pixels are identical (artwork * a + backdrop * (1 - a)),
+ * but each artwork no longer costs an offscreen render pass on every frame, which dominated GPU time while
+ * scrolling grids of covers on large desktop windows. Provide it only where the artwork really sits on that colour.
+ */
+val LocalMmArtworkBackdrop = staticCompositionLocalOf { Color.Unspecified }
+
+/** Flat page background behind artwork-only grids; the desktop provides its content surface. Unspecified on mobile. */
+val LocalMmArtworkPageBackground = staticCompositionLocalOf { Color.Unspecified }
+
+/** Marks [content] as artwork placed straight on the page background (no card behind it). */
+@Composable
+fun ArtworkOnPageBackground(content: @Composable () -> Unit) {
+    CompositionLocalProvider(LocalMmArtworkBackdrop provides LocalMmArtworkPageBackground.current, content = content)
+}
+
 fun Modifier.mmArtworkEdge(shape: Shape = RectangleShape): Modifier =
+    composed {
+        val backdrop = LocalMmArtworkBackdrop.current
+        if (backdrop.isSpecified) backdropArtworkEdge(shape, backdrop) else offscreenArtworkEdge(shape)
+    }
+
+private fun Modifier.offscreenArtworkEdge(shape: Shape): Modifier =
     graphicsLayer {
         this.shape = shape
         clip = true
@@ -116,3 +146,53 @@ fun Modifier.mmArtworkEdge(shape: Shape = RectangleShape): Modifier =
             }
         }
     }
+
+private fun Modifier.backdropArtworkEdge(
+    shape: Shape,
+    backdrop: Color,
+): Modifier =
+    graphicsLayer {
+        this.shape = shape
+        clip = true
+    }.drawWithCache {
+        val fade = mmArtworkFadePx(size.minDimension)
+        val zoom = mmArtworkZoom(size.minDimension)
+        val brushes = if (fade > 0f) mmBackdropBrushes(size, fade, backdrop) else null
+        onDrawWithContent {
+            scale(zoom) { this@onDrawWithContent.drawContent() }
+            if (brushes != null) {
+                drawRect(brush = brushes.first)
+                drawRect(brush = brushes.second)
+            }
+        }
+    }
+
+/** The complement of [mmEdgeBrushes]: backdrop at the edge, clear inside; two passes multiply like the two masks. */
+private fun mmBackdropBrushes(
+    size: Size,
+    fade: Float,
+    backdrop: Color,
+): Pair<Brush, Brush> {
+    val fx = (fade / size.width).coerceIn(0f, 0.5f)
+    val fy = (fade / size.height).coerceIn(0f, 0.5f)
+    val clear = backdrop.copy(alpha = 0f)
+    val horizontal =
+        Brush.horizontalGradient(
+            0f to backdrop,
+            fx to clear,
+            (1f - fx) to clear,
+            1f to backdrop,
+            startX = 0f,
+            endX = size.width,
+        )
+    val vertical =
+        Brush.verticalGradient(
+            0f to backdrop,
+            fy to clear,
+            (1f - fy) to clear,
+            1f to backdrop,
+            startY = 0f,
+            endY = size.height,
+        )
+    return horizontal to vertical
+}

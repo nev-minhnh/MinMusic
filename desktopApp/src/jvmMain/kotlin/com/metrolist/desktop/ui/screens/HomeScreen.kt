@@ -107,6 +107,7 @@ import com.metrolist.shared.ui.components.HomeLoadingPlaceholder
 import com.metrolist.shared.ui.components.PlayerMenuAction
 import com.metrolist.shared.ui.components.YTGridItem
 import com.metrolist.shared.ui.components.images.AsyncImage
+import com.metrolist.shared.ui.components.minmusic.ArtworkOnPageBackground
 import com.metrolist.shared.ui.components.minmusic.MmChartTab
 import com.metrolist.shared.ui.components.minmusic.MmChip
 import com.metrolist.shared.ui.components.minmusic.MmSourceColors
@@ -823,32 +824,34 @@ private fun DesktopCardShelf(
                     onClick = { scroll(true) },
                 )
             }
-            LazyRow(
-                state = rowState,
-                modifier = Modifier.fillMaxWidth(),
-                contentPadding = PaddingValues(horizontal = gutter),
-                horizontalArrangement = Arrangement.spacedBy(cardGap),
-            ) {
-                items(
-                    items = cards,
-                    key = { item -> canonicalHomeItemId(item) },
-                    contentType = { item -> item::class.simpleName },
-                ) { item ->
-                    Box(Modifier.width(cardWidth)) {
-                        YTGridItem(
-                            item = item,
-                            onClick = { onItemClick(item) },
-                            onLongClick = { onItemMenu(item) },
-                            onShowMenu = onItemMenu,
-                            onArtistClick = ArtistState::fetchArtistData,
-                            onAlbumClick = PlaylistAlbumState::fetchAlbumData,
-                            onAlbumPlay = (item as? AlbumItem)?.let { album -> { PlaylistAlbumState.playAlbum(album.id) } },
-                            imageSize = cardWidth,
-                            isCurrent = item.id == currentSongId,
-                            isPlaying = item.id == currentSongId && isPlaying,
-                            largeText = true,
-                            showDurationBadge = item is EpisodeItem,
-                        )
+            ArtworkOnPageBackground {
+                LazyRow(
+                    state = rowState,
+                    modifier = Modifier.fillMaxWidth(),
+                    contentPadding = PaddingValues(horizontal = gutter),
+                    horizontalArrangement = Arrangement.spacedBy(cardGap),
+                ) {
+                    items(
+                        items = cards,
+                        key = { item -> canonicalHomeItemId(item) },
+                        contentType = { item -> item::class.simpleName },
+                    ) { item ->
+                        Box(Modifier.width(cardWidth)) {
+                            YTGridItem(
+                                item = item,
+                                onClick = { onItemClick(item) },
+                                onLongClick = { onItemMenu(item) },
+                                onShowMenu = onItemMenu,
+                                onArtistClick = ArtistState::fetchArtistData,
+                                onAlbumClick = PlaylistAlbumState::fetchAlbumData,
+                                onAlbumPlay = (item as? AlbumItem)?.let { album -> { PlaylistAlbumState.playAlbum(album.id) } },
+                                imageSize = cardWidth,
+                                isCurrent = item.id == currentSongId,
+                                isPlaying = item.id == currentSongId && isPlaying,
+                                largeText = true,
+                                showDurationBadge = item is EpisodeItem,
+                            )
+                        }
                     }
                 }
             }

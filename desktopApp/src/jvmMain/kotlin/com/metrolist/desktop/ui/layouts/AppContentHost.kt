@@ -25,6 +25,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -79,6 +80,7 @@ import com.metrolist.shared.ui.components.LoadingScreen
 import com.metrolist.shared.ui.components.PopupContent
 import com.metrolist.shared.ui.components.UnavailableSongSnackbar
 import com.metrolist.shared.ui.components.lyrics.LyricsTranslationSnackbar
+import com.metrolist.shared.ui.components.minmusic.LocalMmArtworkPageBackground
 import com.metrolist.shared.ui.icons.MetrolistIcons
 import com.metrolist.shared.ui.listentogether.ListenTogetherBlockedUsersScreen
 import com.metrolist.shared.ui.listentogether.ListenTogetherGlobalEvents
@@ -142,115 +144,118 @@ fun AppContentHost(
     Box(
         modifier = modifier.background(colorScheme.surface, contentShape).clip(contentShape),
     ) {
-        key(LayoutUtils.contentRefreshKey) {
-            NavigationTransition(route = route) { destination ->
-                when (destination) {
-                    is Screen.Artist -> {
-                        if (ArtistState.selectedArtistId == destination.id ||
-                            ArtistState.loadedArtistId == destination.id
-                        ) {
-                            ArtistScreenHost()
-                        } else {
-                            CollectionHeaderNavigation({ navigator.goBack() }) { LoadingScreen() }
+        // Pages paint on this surface; artwork grids placed straight on it fade into it without offscreen layers.
+        CompositionLocalProvider(LocalMmArtworkPageBackground provides colorScheme.surface) {
+            key(LayoutUtils.contentRefreshKey) {
+                NavigationTransition(route = route) { destination ->
+                    when (destination) {
+                        is Screen.Artist -> {
+                            if (ArtistState.selectedArtistId == destination.id ||
+                                ArtistState.loadedArtistId == destination.id
+                            ) {
+                                ArtistScreenHost()
+                            } else {
+                                CollectionHeaderNavigation({ navigator.goBack() }) { LoadingScreen() }
+                            }
                         }
-                    }
-
-                    is Screen.AboutArtist -> {
-                        if (ArtistState.selectedArtistId == destination.id) {
-                            AboutArtistScreenHost(destination.id, destination.name, destination.artist)
-                        } else {
-                            LoadingScreen()
+    
+                        is Screen.AboutArtist -> {
+                            if (ArtistState.selectedArtistId == destination.id) {
+                                AboutArtistScreenHost(destination.id, destination.name, destination.artist)
+                            } else {
+                                LoadingScreen()
+                            }
                         }
-                    }
-
-                    is Screen.Playlist -> {
-                        if (PlaylistAlbumState.selectedPlaylistId == destination.id) {
-                            PlaylistScreen(colorScheme, destination)
-                        } else {
-                            CollectionHeaderNavigation({ navigator.goBack() }) { LoadingScreen() }
+    
+                        is Screen.Playlist -> {
+                            if (PlaylistAlbumState.selectedPlaylistId == destination.id) {
+                                PlaylistScreen(colorScheme, destination)
+                            } else {
+                                CollectionHeaderNavigation({ navigator.goBack() }) { LoadingScreen() }
+                            }
                         }
-                    }
-
-                    is Screen.Album -> {
-                        AlbumScreen(destination.id, colorScheme)
-                    }
-
-                    is Screen.HomeSection -> {
-                        BrowseScreen(colorScheme, destination)
-                    }
-
-                    is Screen.Browse -> {
-                        if (
-                            BrowseState.selectedBrowseId == destination.browseId &&
-                            BrowseState.selectedBrowseParams == destination.params
-                        ) {
-                            BrowseScreen(colorScheme)
-                        } else {
-                            CollectionHeaderNavigation({ navigator.goBack() }) { LoadingScreen() }
+    
+                        is Screen.Album -> {
+                            AlbumScreen(destination.id, colorScheme)
                         }
-                    }
-
-                    is Screen.Podcast -> {
-                        if (PodcastState.selectedPodcastId == destination.id) PodcastScreen(colorScheme) else LoadingScreen()
-                    }
-
-                    Screen.Search -> {
-                        SearchResultsList(
-                            colorScheme = colorScheme,
-                            onBack = {
-                                SearchState.reset()
-                                onSearchChange("")
-                                navigator.goBack()
-                            },
-                        )
-                    }
-
-                    is Screen.AutoPlaylist -> {
-                        LocalPlaylistScreen(destination.type)
-                    }
-
-                    Screen.ListenTogetherBlockedUsers -> {
-                        ListenTogetherBlockedUsersScreen(
-                            manager = ListenTogetherState.listenTogetherManager,
-                            onNavigateBack = { navigator.goBack() },
-                        )
-                    }
-
-                    Screen.Library, Screen.Statistics, Screen.ListenTogether -> {
-                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
-                            Box(Modifier.widthIn(max = 1400.dp).fillMaxSize()) {
-                                when (destination) {
-                                    Screen.Library -> {
-                                        LibraryScreen(
-                                            LibraryContentState.librarySections,
-                                            colorScheme,
-                                            libraryGridState,
-                                            onScrollStateChange = onLibraryScrollStateChange,
-                                        )
-                                    }
-
-                                    Screen.Statistics -> {
-                                        StatsScreen()
-                                    }
-
-                                    else -> {
-                                        ListenTogetherScreen(ListenTogetherState.listenTogetherManager)
+    
+                        is Screen.HomeSection -> {
+                            BrowseScreen(colorScheme, destination)
+                        }
+    
+                        is Screen.Browse -> {
+                            if (
+                                BrowseState.selectedBrowseId == destination.browseId &&
+                                BrowseState.selectedBrowseParams == destination.params
+                            ) {
+                                BrowseScreen(colorScheme)
+                            } else {
+                                CollectionHeaderNavigation({ navigator.goBack() }) { LoadingScreen() }
+                            }
+                        }
+    
+                        is Screen.Podcast -> {
+                            if (PodcastState.selectedPodcastId == destination.id) PodcastScreen(colorScheme) else LoadingScreen()
+                        }
+    
+                        Screen.Search -> {
+                            SearchResultsList(
+                                colorScheme = colorScheme,
+                                onBack = {
+                                    SearchState.reset()
+                                    onSearchChange("")
+                                    navigator.goBack()
+                                },
+                            )
+                        }
+    
+                        is Screen.AutoPlaylist -> {
+                            LocalPlaylistScreen(destination.type)
+                        }
+    
+                        Screen.ListenTogetherBlockedUsers -> {
+                            ListenTogetherBlockedUsersScreen(
+                                manager = ListenTogetherState.listenTogetherManager,
+                                onNavigateBack = { navigator.goBack() },
+                            )
+                        }
+    
+                        Screen.Library, Screen.Statistics, Screen.ListenTogether -> {
+                            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+                                Box(Modifier.widthIn(max = 1400.dp).fillMaxSize()) {
+                                    when (destination) {
+                                        Screen.Library -> {
+                                            LibraryScreen(
+                                                LibraryContentState.librarySections,
+                                                colorScheme,
+                                                libraryGridState,
+                                                onScrollStateChange = onLibraryScrollStateChange,
+                                            )
+                                        }
+    
+                                        Screen.Statistics -> {
+                                            StatsScreen()
+                                        }
+    
+                                        else -> {
+                                            ListenTogetherScreen(ListenTogetherState.listenTogetherManager)
+                                        }
                                     }
                                 }
                             }
                         }
-                    }
-
-                    Screen.History -> {
-                        HistoryScreen()
-                    }
-
-                    is Screen.SourceCharts -> {
-                        SourceChartsScreen(destination.sourceKey, destination.chartKey)
-                    }
-
-                    else -> {
-                        HomeScreen()
+    
+                        Screen.History -> {
+                            HistoryScreen()
+                        }
+    
+                        is Screen.SourceCharts -> {
+                            SourceChartsScreen(destination.sourceKey, destination.chartKey)
+                        }
+    
+                        else -> {
+                            HomeScreen()
+                        }
                     }
                 }
             }
