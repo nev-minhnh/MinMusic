@@ -33,6 +33,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
@@ -300,12 +301,18 @@ val WideSheetDialogShape = RoundedCornerShape(28.dp)
 const val WideSheetDialogMaxHeightFraction = 0.86f
 
 /**
- * True when bottom sheets should be centred dialogs: touch windows >= 840 dp wide (tablets, unfolded foldables,
- * phones in landscape). Phones in portrait, TV and the desktop app keep their own presentation.
+ * True on tablet-class devices (smallest width >= 600 dp: tablets, unfolded foldables). Provided by the Android app;
+ * false by default, so phones (also in landscape, where they can be >= 840 dp wide) keep the 1.0.1 phone layouts.
+ */
+val LocalTabletWindow = staticCompositionLocalOf { false }
+
+/**
+ * True when bottom sheets should be centred dialogs: tablet windows >= 840 dp wide (tablets, unfolded foldables).
+ * Phones in portrait and landscape, TV and the desktop app keep their own presentation.
  */
 @Composable
 fun isWideSheetDialogWindow(): Boolean {
-    if (LocalIsTv.current || isDesktop) return false
+    if (LocalIsTv.current || isDesktop || !LocalTabletWindow.current) return false
     val widthPx = LocalWindowInfo.current.containerSize.width
     if (widthPx <= 0) return false
     return with(LocalDensity.current) { widthPx.toDp() } >= WideSheetDialogMinWidth

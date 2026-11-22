@@ -69,6 +69,7 @@ import com.metrolist.shared.ui.components.ContainedLoadingIndicator
 import com.metrolist.shared.ui.components.GroupedListItem
 import com.metrolist.shared.ui.components.InlineSearchRow
 import com.metrolist.shared.ui.components.LazyListScrollbar
+import com.metrolist.shared.ui.components.LocalTabletWindow
 import com.metrolist.shared.ui.components.PlaylistHeader
 import com.metrolist.shared.ui.components.PlaylistHeaderActions
 import com.metrolist.shared.ui.components.ReorderMenu
@@ -174,6 +175,7 @@ fun PlaylistContent(
     isUserAlbum: Boolean = false,
     showSourceBadges: Boolean = isUserAlbum,
 ) {
+    val wideHeaderMinWidth = if (LocalTabletWindow.current) 840.dp else 960.dp
     val currentSongIdState = rememberUpdatedState(currentSongId)
     val headerOverline = if (isUserAlbum) stringResource(Res.string.mm_user_album_overline) else null
     val isPlayingState = rememberUpdatedState(isPlaying)
@@ -280,7 +282,7 @@ fun PlaylistContent(
             title = {
                 BoxWithConstraints(Modifier.fillMaxWidth()) {
                     AnimatedVisibility(
-                        visible = maxWidth < 840.dp && showCollapsedTitle && !isSearchOpen && !selectionActive && loadingHeader == null,
+                        visible = maxWidth < wideHeaderMinWidth && showCollapsedTitle && !isSearchOpen && !selectionActive && loadingHeader == null,
                         enter = fadeIn(MaterialTheme.motionScheme.fastEffectsSpec()),
                         exit = fadeOut(MaterialTheme.motionScheme.fastEffectsSpec()),
                     ) {
@@ -297,8 +299,9 @@ fun PlaylistContent(
             selectionControls = selectionControls.takeIf { selectionActive },
         ) {
             BoxWithConstraints(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
-                // Tablet spec §5.4: header as a left column once the content is >= 840 dp (landscape).
-                val isWide = maxWidth >= 840.dp
+                // Tablet spec §5.4: header as a left column once the content is >= 840 dp (tablet landscape);
+                // phones and the desktop keep the 1.0.1 threshold of 960 dp.
+                val isWide = maxWidth >= wideHeaderMinWidth
                 val isMedium = maxWidth >= 600.dp && !isWide
                 val headerViewportHeight = maxHeight - contentPadding.calculateTopPadding() - contentPadding.calculateBottomPadding()
                 // Touch tablets: artwork by height class (136 / 184 / 200) in a 320 dp column; desktop keeps its column.

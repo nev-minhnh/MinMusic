@@ -147,6 +147,7 @@ import com.metrolist.shared.ui.components.ChipShelf
 import com.metrolist.shared.ui.components.CollectionPreviews
 import com.metrolist.shared.ui.components.ContainedLoadingIndicator
 import com.metrolist.shared.ui.components.FittingText
+import com.metrolist.shared.ui.components.LocalTabletWindow
 import com.metrolist.shared.ui.components.PlaylistCoverImage
 import com.metrolist.shared.ui.components.PopupContent
 import com.metrolist.shared.ui.components.PopupVisibility
@@ -286,8 +287,8 @@ fun SearchContent(
 
     BoxWithConstraints(modifier = modifier.fillMaxSize()) {
         val isWide = maxWidth >= 960.dp
-        // Tablet landscape: top result | songs side by side once the content column is >= 880 dp wide.
-        val isTwoPane = maxWidth >= 880.dp
+        // Tablet landscape: top result | songs side by side once the content column is >= 880 dp wide (not on phones).
+        val isTwoPane = maxWidth >= 880.dp && LocalTabletWindow.current
 
         AnimatedContent(
             targetState = contentState,

@@ -370,8 +370,8 @@ private fun MetrolistAdaptiveScaffold(
         containerColor = Color.Transparent,
         isSidebarExpanded = false,
         isSidebarExpandable = false,
-        // Touch rails are top-aligned like the MinMusic rail; a centred rail floats away from the top bar. TV keeps centring.
-        navigationItemVerticalArrangement = if (LocalIsTv.current) Arrangement.Center else Arrangement.Top,
+        // Only phones in landscape (and TV) reach this rail; tablets use TabletNavigation. Centred as in 1.0.1.
+        navigationItemVerticalArrangement = Arrangement.Center,
         itemModifier = itemModifier,
         content = { content() },
     )
