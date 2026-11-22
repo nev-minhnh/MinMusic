@@ -229,7 +229,7 @@ private fun MetadataText(
             }
         }
     CompositionLocalProvider(LocalViewConfiguration provides linkConfiguration) {
-        Text(
+        LinkText(
             text = text,
             modifier = modifier,
             style = style,

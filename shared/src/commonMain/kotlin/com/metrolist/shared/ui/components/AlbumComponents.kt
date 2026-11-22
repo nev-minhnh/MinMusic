@@ -73,7 +73,7 @@ fun AlbumHeader(
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
         )
-        Text(
+        LinkText(
             text = artistLinksText(album.artists, onArtistClick) ?: AnnotatedString(""),
             style = if (isWide) MaterialTheme.typography.titleLarge else MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.primary,

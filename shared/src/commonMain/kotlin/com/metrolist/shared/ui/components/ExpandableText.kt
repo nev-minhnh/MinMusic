@@ -83,7 +83,7 @@ fun ExpandableText(
                 .then(modifier)
                 .animateContentSize(finishedListener = { _, _ -> if (isExpanded) onExpansionFinished?.invoke() }),
     ) {
-        Text(
+        LinkText(
             text = annotatedText,
             style = MaterialTheme.typography.bodyMedium.copy(color = bodyColor),
             maxLines = if (isExpanded) Int.MAX_VALUE else collapsedMaxLines,

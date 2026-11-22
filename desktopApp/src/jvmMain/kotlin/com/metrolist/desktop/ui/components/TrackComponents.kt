@@ -100,6 +100,7 @@ import com.metrolist.shared.settings.displayName
 import com.metrolist.shared.settings.displayTitle
 import com.metrolist.shared.state.SongMetadataState
 import com.metrolist.shared.ui.components.CollectionPreviews
+import com.metrolist.shared.ui.components.LinkText
 import com.metrolist.shared.ui.components.ListItemTitle
 import com.metrolist.shared.ui.components.animateCurrentSongColors
 import com.metrolist.shared.ui.components.animatedCurrentSongArtworkShape
@@ -444,7 +445,7 @@ fun YTListItem(
                                 }
                             }
                         }
-                    Text(
+                    LinkText(
                         text = subtitle,
                         style = MaterialTheme.typography.bodyMedium.copy(color = colorScheme.onSurfaceVariant),
                         maxLines = 1,

@@ -129,6 +129,7 @@ import com.metrolist.shared.settings.PlayerBackgroundStyle
 import com.metrolist.shared.settings.Settings
 import com.metrolist.shared.settings.zoomedLyricsTextSize
 import com.metrolist.shared.ui.components.ContainedLoadingIndicator
+import com.metrolist.shared.ui.components.LinkText
 import com.metrolist.shared.ui.components.expressiveEntrance
 import com.metrolist.shared.ui.components.lyrics.words.FixedMotionDurationScale
 import com.metrolist.shared.ui.components.lyrics.words.LocalLyricsAnimationVisible
@@ -1571,7 +1572,7 @@ fun LyricsView(
                                                         )
                                                     }
                                                     if (lyricsAttribution != null) {
-                                                        Text(
+                                                        LinkText(
                                                             text = lyricsAttribution,
                                                             style = MaterialTheme.typography.labelMedium,
                                                             color = secondaryTextColor,
@@ -1595,7 +1596,7 @@ fun LyricsView(
                                                                     )
                                                                 }
                                                             }
-                                                        Text(
+                                                        LinkText(
                                                             text = annotatedProviderText,
                                                             style = MaterialTheme.typography.labelMedium,
                                                             color = secondaryTextColor,

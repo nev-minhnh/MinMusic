@@ -104,6 +104,7 @@ import androidx.compose.ui.unit.round
 import com.metrolist.shared.generated.resources.*
 import com.metrolist.shared.ui.LocalIsTv
 import com.metrolist.shared.ui.components.ExpressiveSwitch
+import com.metrolist.shared.ui.components.LinkText
 import com.metrolist.shared.ui.components.SwipeBackLayout
 import com.metrolist.shared.ui.components.focusOutline
 import com.metrolist.shared.ui.components.singleLineMarquee
@@ -1166,7 +1167,7 @@ private fun SettingsItemRow(
                     )
                 }
                 (item.annotatedDescription ?: item.description?.let(::AnnotatedString))?.let {
-                    Text(
+                    LinkText(
                         it,
                         style = MaterialTheme.typography.bodySmall,
                         color = descriptionColor.copy(alpha = if (item.enabled) 1f else 0.38f),
