@@ -835,14 +835,14 @@ object PlayerState {
     val isVideoAvailable: Boolean get() = video.isVideoAvailable
     val isVideoResolving: Boolean get() = video.isVideoResolving
     val isVideoActive: Boolean get() = video.isVideoActive
-    private var videoWindowVisible by mutableStateOf(false)
+    private var videoWindowShown by mutableStateOf(false)
     private val isVideoPresented: Boolean
         get() =
             Settings.shared.musicVideoPlaybackEnabled && !deviceConnect.isFollowing && currentTrack != null &&
-                shouldPresentDesktopVideo(videoWindowVisible, UiState.showVideoViewer, UiState.showVideoFullscreen, isExpanded)
+                shouldPresentDesktopVideo(videoWindowShown, UiState.showVideoViewer, UiState.showVideoFullscreen, isExpanded)
 
     fun setVideoWindowVisible(visible: Boolean) {
-        videoWindowVisible = visible
+        videoWindowShown = visible
     }
 
     val mvPositionMap: CounterpartPositionMap? get() = video.mvPositionMap
