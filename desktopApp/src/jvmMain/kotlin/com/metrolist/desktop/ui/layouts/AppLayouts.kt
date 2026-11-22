@@ -757,7 +757,8 @@ private fun ColumnScope.MainLayoutContent(
                         },
                     )
                 }
-                AnimatedVisibility(
+                // Fully qualified: inside this Box the outer ColumnScope overload would otherwise be picked.
+                androidx.compose.animation.AnimatedVisibility(
                     visible = isPaneOpen,
                     modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight(),
                     enter = slideInHorizontally(animationSpec = tween(220)) { it } + fadeIn(animationSpec = tween(150)),
