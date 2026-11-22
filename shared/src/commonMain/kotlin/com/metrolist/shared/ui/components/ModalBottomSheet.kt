@@ -14,9 +14,11 @@ import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
@@ -43,6 +45,7 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.semantics.collapse
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.dismiss
@@ -57,10 +60,12 @@ import com.metrolist.shared.generated.resources.Res
 import com.metrolist.shared.generated.resources.bottom_sheet_pane_title
 import com.metrolist.shared.generated.resources.dismiss
 import com.metrolist.shared.generated.resources.expand
+import com.metrolist.shared.ui.LocalIsTv
 import com.metrolist.shared.ui.navigation.LocalNavigationContainerState
 import com.metrolist.shared.ui.navigation.blockInput
 import com.metrolist.shared.ui.theme.ComponentShapes
 import com.metrolist.shared.ui.utils.mouseWheelScroll
+import com.metrolist.shared.utils.isDesktop
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
 import kotlin.math.roundToInt
@@ -149,6 +154,11 @@ fun ModalBottomSheet(
     val scrimAlpha by animateFloatAsState(if (visible) 1f else 0f, MaterialTheme.motionScheme.fastEffectsSpec())
     val containers = LocalNavigationContainerState.current
     remember { containers?.takePopupSource() }
+    // Owner decision: on windows >= 840 dp the sheet is a centred dialog (width 560, radius 28, <= 86 % of the
+    // window height). The sheet state still runs underneath, so show/hide/dismiss callbacks behave as before.
+    val wideDialog = isWideSheetDialogWindow()
+    val wideDialogMaxHeightPx = (LocalWindowInfo.current.containerSize.height * WideSheetDialogMaxHeightFraction).roundToInt()
+    val sheetGesturesEnabled = gesturesEnabled && !wideDialog
     ModalSheetDialog(onDismissRequest = dismissSheet, properties = properties, contentColor = contentColor) { backProgress ->
         CompositionLocalProvider(LocalDensity provides density) {
             Box(Modifier.fillMaxSize().blockInput(!requestedVisible || !sheetState.acceptsInput)) {
@@ -173,18 +183,30 @@ fun ModalBottomSheet(
                 Layout(
                     modifier =
                         Modifier.fillMaxSize().clipToBounds().windowInsetsPadding(
-                            contentWindowInsets().only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal),
+                            if (wideDialog) {
+                                contentWindowInsets()
+                            } else {
+                                contentWindowInsets().only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)
+                            },
                         ),
                     content = {
                         Surface(
                             modifier =
                                 modifier
                                     .graphicsLayer {
-                                        applySheetBackTransform(backProgress, sheetState.offset)
-                                    }.widthIn(max = sheetMaxWidth)
+                                        if (wideDialog) {
+                                            // Dialogs fade and scale instead of sliding; back shrinks them slightly.
+                                            alpha = scrimAlpha
+                                            val scale = 1f - 0.04f * (1f - scrimAlpha) - 0.04f * backProgress
+                                            scaleX = scale
+                                            scaleY = scale
+                                        } else {
+                                            applySheetBackTransform(backProgress, sheetState.offset)
+                                        }
+                                    }.widthIn(max = if (wideDialog) WideSheetDialogWidth else sheetMaxWidth)
                                     .fillMaxWidth()
                                     .then(
-                                        if (gesturesEnabled) {
+                                        if (sheetGesturesEnabled) {
                                             Modifier
                                                 .nestedScroll(nestedScrollConnection)
                                                 .mouseWheelScroll(horizontal = false) { delta ->
@@ -216,19 +238,24 @@ fun ModalBottomSheet(
                                             true
                                         }
                                     },
-                            shape = shape,
+                            shape = if (wideDialog) WideSheetDialogShape else shape,
                             color = containerColor,
                             contentColor = contentColor,
                             tonalElevation = tonalElevation,
                         ) {
                             Column(
-                                Modifier
-                                    .windowInsetsPadding(contentWindowInsets().only(WindowInsetsSides.Bottom))
-                                    .graphicsLayer {
-                                        applySheetBackContentTransform(backProgress)
-                                    },
+                                if (wideDialog) {
+                                    // No drag handle on a dialog: keep the space it gave the content instead.
+                                    Modifier.padding(top = if (dragHandle != null) 16.dp else 0.dp, bottom = 16.dp)
+                                } else {
+                                    Modifier
+                                        .windowInsetsPadding(contentWindowInsets().only(WindowInsetsSides.Bottom))
+                                        .graphicsLayer {
+                                            applySheetBackContentTransform(backProgress)
+                                        }
+                                },
                             ) {
-                                if (dragHandle != null) {
+                                if (dragHandle != null && !wideDialog) {
                                     val expanded = sheetState.anchorsState.settledValue == SheetValue.Expanded
                                     Box(
                                         Modifier.fillMaxWidth().clickable(
@@ -248,15 +275,40 @@ fun ModalBottomSheet(
                         }
                     },
                 ) { measurables, constraints ->
-                    val sheet = measurables.single().measure(constraints.copy(minWidth = 0, minHeight = 0))
+                    val sheetConstraints =
+                        if (wideDialog && wideDialogMaxHeightPx > 0) {
+                            constraints.copy(minWidth = 0, minHeight = 0, maxHeight = minOf(constraints.maxHeight, wideDialogMaxHeightPx))
+                        } else {
+                            constraints.copy(minWidth = 0, minHeight = 0)
+                        }
+                    val sheet = measurables.single().measure(sheetConstraints)
                     sheetState.updateBounds(constraints.maxHeight.toFloat(), sheet.height.toFloat())
                     layout(constraints.maxWidth, constraints.maxHeight) {
-                        sheet.placeRelativeWithLayer((constraints.maxWidth - sheet.width) / 2, sheetState.offset.roundToInt())
+                        val y = if (wideDialog) (constraints.maxHeight - sheet.height) / 2 else sheetState.offset.roundToInt()
+                        sheet.placeRelativeWithLayer((constraints.maxWidth - sheet.width) / 2, y)
                     }
                 }
             }
         }
     }
+}
+
+/** Windows at least this wide show bottom sheets as centred dialogs (owner decision, tablet spec 7). */
+val WideSheetDialogMinWidth = 840.dp
+val WideSheetDialogWidth = 560.dp
+val WideSheetDialogShape = RoundedCornerShape(28.dp)
+const val WideSheetDialogMaxHeightFraction = 0.86f
+
+/**
+ * True when bottom sheets should be centred dialogs: touch windows >= 840 dp wide (tablets, unfolded foldables,
+ * phones in landscape). Phones in portrait, TV and the desktop app keep their own presentation.
+ */
+@Composable
+fun isWideSheetDialogWindow(): Boolean {
+    if (LocalIsTv.current || isDesktop) return false
+    val widthPx = LocalWindowInfo.current.containerSize.width
+    if (widthPx <= 0) return false
+    return with(LocalDensity.current) { widthPx.toDp() } >= WideSheetDialogMinWidth
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
