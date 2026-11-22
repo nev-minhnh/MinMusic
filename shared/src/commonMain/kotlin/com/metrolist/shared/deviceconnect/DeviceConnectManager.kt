@@ -83,6 +83,8 @@ class DeviceConnectManager
         private val localAddressProvider: () -> Set<String> = { getLocalIpV4Addresses().toSet() },
         private val pairingTimeSource: TimeSource = TimeSource.Monotonic,
         dispatcher: CoroutineDispatcher = Dispatchers.Default,
+        // App instances listen on the user's fixed port (Settings.deviceConnectPort) instead of [requestedServerPort].
+        private val useConfiguredServerPort: Boolean = false,
     ) {
         constructor(
             serverPort: Int = 0,
@@ -92,6 +94,7 @@ class DeviceConnectManager
             AccountIdentity::snapshot,
             { buildLocalDeviceInfo(localDeviceType) },
             requestedServerPort = serverPort,
+            useConfiguredServerPort = serverPort == 0,
         )
 
         enum class PeerState {
@@ -132,6 +135,12 @@ class DeviceConnectManager
             val deviceType: DeviceConnectDeviceType = DeviceConnectDeviceType.UNKNOWN,
         )
 
+        /** A pairing link (QR code) the user opened; it connects only after they accept it. */
+        data class LinkOffer(
+            val deviceName: String,
+            val address: String,
+        )
+
         data class State(
             val enabled: Boolean = false,
             val localDeviceId: String = "",
@@ -143,6 +152,11 @@ class DeviceConnectManager
             val directConnectionFailed: Boolean = false,
             val serverPort: Int = 0,
             val localAddress: String = "",
+            // Every address peers can dial directly (LAN, Tailscale, VPN), LAN first.
+            val reachableAddresses: List<String> = emptyList(),
+            // The configured fixed port was busy, so the listener fell back to a free one.
+            val fixedPortUnavailable: Boolean = false,
+            val linkOffer: LinkOffer? = null,
             val requiresPermission: Boolean = false,
             val anonymous: Boolean = false,
             val peers: List<PeerDevice> = emptyList(),
@@ -283,7 +297,18 @@ class DeviceConnectManager
                 val local = localInfoProvider()
                 this.localInfo = local
                 localAddresses = localAddressProvider()
-                val actualPort = startServer(requestedServerPort)
+                val preferredPort =
+                    if (useConfiguredServerPort) {
+                        settings.deviceConnectPort.takeIf { it in DEVICE_CONNECT_MIN_FIXED_PORT..65535 } ?: 0
+                    } else {
+                        requestedServerPort
+                    }
+                var actualPort = startServer(preferredPort)
+                val fixedPortUnavailable = actualPort <= 0 && preferredPort != 0
+                if (fixedPortUnavailable) {
+                    logWarn("Port $preferredPort is in use; listening on a free port instead.")
+                    actualPort = startServer(0)
+                }
                 if (actualPort <= 0) {
                     stateMutex.withLock { _state.value = _state.value.copy(serverFailed = true) }
                     logError("Failed to start local server.")
@@ -302,6 +327,8 @@ class DeviceConnectManager
                             serverRunning = true,
                             serverPort = actualPort,
                             localAddress = localAddresses.sorted().firstOrNull().orEmpty(),
+                            reachableAddresses = getDeviceConnectReachableAddresses(),
+                            fixedPortUnavailable = fixedPortUnavailable,
                             requiresPermission = false,
                             pairedDevices = pairedDevices,
                         )
@@ -309,7 +336,90 @@ class DeviceConnectManager
                 startDiscovery(local, actualPort)
                 startHeartbeat()
                 logInfo("DeviceConnect enabled on port $actualPort (id=${local.deviceId}).")
+                pendingLinkAddress?.let { address ->
+                    pendingLinkAddress = null
+                    connectDirect(address)
+                }
+                reconnectManualEndpoints()
             }
+
+        // Accepted while Device Connect was off; connected once the listener runs.
+        @Volatile private var pendingLinkAddress: String? = null
+
+        // Guarded by [stateMutex]; keyed by the remembered endpoint text.
+        private val manualEndpointRetry = DeviceConnectAutoConnectRetry()
+
+        /** Restarts the listener on a new fixed port; 0 lets the system pick a free port on every start. */
+        fun updateListeningPort(port: Int) {
+            if (port != 0 && port !in DEVICE_CONNECT_MIN_FIXED_PORT..65535) return
+            if (settings.deviceConnectPort == port) return
+            settings.deviceConnectPort = port
+            scope.launch {
+                lifecycleMutex.withLock {
+                    if (_state.value.enabled) disposeLocked()
+                }
+                enableRuntime(context)
+            }
+        }
+
+        /** Shows a pairing link from a QR code; nothing connects until [acceptConnectionLink]. */
+        fun offerConnectionLink(link: String): Boolean {
+            val parsed = parseDeviceConnectLink(link) ?: return false
+            val endpoint = selectDeviceConnectLinkEndpoint(parsed.endpoints, getDeviceConnectReachableAddresses()) ?: return false
+            val offer = LinkOffer(parsed.deviceName, formatDeviceConnectEndpoint(endpoint.host, endpoint.port))
+            scope.launch { stateMutex.withLock { _state.value = _state.value.copy(linkOffer = offer) } }
+            return true
+        }
+
+        fun acceptConnectionLink() {
+            val offer = _state.value.linkOffer ?: return
+            dismissConnectionLink()
+            if (_state.value.serverRunning) connectDirect(offer.address) else pendingLinkAddress = offer.address
+        }
+
+        fun dismissConnectionLink() {
+            scope.launch { stateMutex.withLock { _state.value = _state.value.copy(linkOffer = null) } }
+        }
+
+        fun forgetManualEndpoint(endpoint: String) {
+            settings.deviceConnectManualEndpoints = forgetDeviceConnectManualEndpoint(settings.deviceConnectManualEndpoints, endpoint)
+        }
+
+        /** Retries hand-entered targets (e.g. a PC's Tailscale address) so paired devices reconnect across VPNs. */
+        private fun reconnectManualEndpoints() {
+            val endpoints = decodeDeviceConnectManualEndpoints(settings.deviceConnectManualEndpoints)
+            if (endpoints.isEmpty()) return
+            scope.launch {
+                val current = _state.value
+                val allPairedConnected =
+                    current.pairedDevices.all { paired ->
+                        current.peers.any { it.id == paired.deviceId && it.state == PeerState.CONNECTED }
+                    }
+                if (!current.serverRunning || allPairedConnected) return@launch
+                for (entry in endpoints) {
+                    if (!stateMutex.withLock { manualEndpointRetry.isDue(entry, autoConnectNowMs()) }) continue
+                    val input = parseDeviceConnectAddressInput(entry) ?: continue
+                    val endpoint = resolveDeviceConnectAddressInput(input) ?: continue
+                    val attempt =
+                        stateMutex.withLock {
+                            val live =
+                                peerById.values.any {
+                                    it.host == endpoint.host && it.port == endpoint.port && it.state.isLiveConnectionState()
+                                }
+                            if (live) {
+                                manualEndpointRetry.reset(entry)
+                            } else {
+                                // Each attempt pushes the next back (30 s doubling to 10 min) until the link is live.
+                                manualEndpointRetry.failed(entry, autoConnectNowMs())
+                                // A finished direct link leaves its per-attempt entry in flight; start it fresh.
+                                autoConnectRetry.reset("direct:${endpoint.host}:${endpoint.port}")
+                            }
+                            !live
+                        }
+                    if (attempt) connectTo(endpoint.host, endpoint.port, null, input.host, "", allowNewPairing = false)
+                }
+            }
+        }
 
         fun disable() {
             settings.deviceConnectEnabled = false
@@ -343,6 +453,8 @@ class DeviceConnectManager
                             directConnectionFailed = false,
                             serverPort = 0,
                             localAddress = "",
+                            reachableAddresses = emptyList(),
+                            fixedPortUnavailable = false,
                             requiresPermission = false,
                             pairingRequests = emptyList(),
                         )
@@ -368,6 +480,7 @@ class DeviceConnectManager
                 peerById.clear()
                 discoveredEndpoints.clear()
                 autoConnectRetry.clear()
+                manualEndpointRetry.clear()
                 _state.value =
                     _state.value.copy(
                         enabled = false,
@@ -399,13 +512,26 @@ class DeviceConnectManager
         }
 
         fun connectDirect(address: String) {
-            val endpoint =
-                parseDeviceConnectEndpoint(address) ?: run {
-                    logWarn("Direct connection rejected: \"$address\" is not a LAN or VPN IPv4:port or [IPv6]:port endpoint.")
+            // A pasted pairing link (text of the PC's QR code) picks the endpoint that suits this device's network.
+            val linkAddress =
+                parseDeviceConnectLink(address)
+                    ?.let { selectDeviceConnectLinkEndpoint(it.endpoints, getDeviceConnectReachableAddresses()) }
+                    ?.let { formatDeviceConnectEndpoint(it.host, it.port) }
+            val input =
+                parseDeviceConnectAddressInput(linkAddress ?: address) ?: run {
+                    logWarn("Direct connection rejected: \"$address\" is not a LAN or VPN address, hostname or endpoint.")
                     return
                 }
             scope.launch {
-                connectTo(endpoint.host, endpoint.port, null, endpoint.host, "", allowNewPairing = true)
+                val endpoint =
+                    resolveDeviceConnectAddressInput(input) ?: run {
+                        logWarn("Direct connection rejected: ${input.host} does not resolve to a LAN or VPN address.")
+                        reportDirectConnectionFailure()
+                        return@launch
+                    }
+                settings.deviceConnectManualEndpoints =
+                    rememberDeviceConnectManualEndpoint(settings.deviceConnectManualEndpoints, input.display)
+                connectTo(endpoint.host, endpoint.port, null, input.host, "", allowNewPairing = true)
             }
         }
 
@@ -983,7 +1109,7 @@ class DeviceConnectManager
                 val message = "[$connId] rejecting outgoing connection: limit ($MAX_CONNECTIONS) reached."
                 if (allowNewPairing) logWarn(message) else logDebug(message)
                 finishFailedConnectAttempt(deviceId, host, port, serviceName, if (expectedDeviceId == null) null else PeerState.ERROR)
-                if (expectedDeviceId == null) reportDirectConnectionFailure()
+                if (expectedDeviceId == null && allowNewPairing) reportDirectConnectionFailure()
                 return
             }
             var ownsSlot = true
@@ -1048,7 +1174,7 @@ class DeviceConnectManager
                         allowNewPairing || autoConnectRetry.failed(deviceId, autoConnectNowMs())
                     }
                 finishFailedConnectAttempt(deviceId, host, port, serviceName)
-                if (expectedDeviceId == null) reportDirectConnectionFailure()
+                if (expectedDeviceId == null && allowNewPairing) reportDirectConnectionFailure()
                 val message =
                     "Connection endpoint for $safeName ($host:$port) is unavailable; discovery remains active: ${e.message}"
                 if (firstFailure) logWarn(message, e) else logDebug(message)
@@ -1102,6 +1228,7 @@ class DeviceConnectManager
                         if (!_state.value.serverRunning) break
                         refreshAccountIdentity()
                         stateMutex.withLock { peerById.keys.toList() }.forEach(::autoConnect)
+                        reconnectManualEndpoints()
                         restartDiscoveryIfPairedDeviceMissing()
                         remote.discoverPlayback()
                         val now =
@@ -1137,6 +1264,12 @@ class DeviceConnectManager
 
         private suspend fun refreshDiscoveryAfterNetworkChange() {
             val addresses = localAddressProvider()
+            val reachable = getDeviceConnectReachableAddresses()
+            stateMutex.withLock {
+                if (_state.value.serverRunning && _state.value.reachableAddresses != reachable) {
+                    _state.value = _state.value.copy(reachableAddresses = reachable)
+                }
+            }
             lifecycleMutex.withLock {
                 val current = _state.value
                 if (!current.serverRunning || localAddresses == addresses) return@withLock
@@ -2363,7 +2496,9 @@ class DeviceConnectManager
                 pairingMutex.withLock { rollbackUnconfirmedPair() }
                 logInfo("$logTag session closed.")
                 val id = device.id
-                if (!isIncoming && expectedPeerId == null && device.state != PeerState.CONNECTED && !intentionalClosure) {
+                if (!isIncoming && expectedPeerId == null && allowNewPairing && device.state != PeerState.CONNECTED &&
+                    !intentionalClosure
+                ) {
                     reportDirectConnectionFailure()
                 }
                 clearPairingRequest()

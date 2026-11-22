@@ -18,9 +18,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.metrolist.shared.generated.resources.Res
 import com.metrolist.shared.generated.resources.connect
-import com.metrolist.shared.generated.resources.device_connect_direct_address
+import com.metrolist.shared.generated.resources.device_connect_direct_address_or_host
 import com.metrolist.shared.generated.resources.device_connect_direct_failed
-import com.metrolist.shared.generated.resources.device_connect_direct_hint
+import com.metrolist.shared.generated.resources.device_connect_direct_hint_vpn
 import com.metrolist.shared.generated.resources.device_connect_direct_title
 import org.jetbrains.compose.resources.stringResource
 
@@ -31,9 +31,9 @@ fun DeviceConnectDirectConnection(
     onConnect: (String) -> Unit,
 ) {
     if (!state.serverRunning) return
-    var expanded by remember { mutableStateOf(false) }
+    var expanded by remember { mutableStateOf(true) }
     var address by remember { mutableStateOf("") }
-    val endpoint = parseDeviceConnectEndpoint(address)
+    val endpoint = parseDeviceConnectAddressInput(address) ?: parseDeviceConnectLink(address)
     val connecting =
         state.peers.any {
             it.state == DeviceConnectManager.PeerState.CONNECTING || it.state == DeviceConnectManager.PeerState.HANDSHAKING
@@ -44,13 +44,13 @@ fun DeviceConnectDirectConnection(
         }
         if (expanded) {
             Text(
-                stringResource(Res.string.device_connect_direct_hint, state.serverPort),
+                stringResource(Res.string.device_connect_direct_hint_vpn, DEVICE_CONNECT_DEFAULT_PORT),
                 style = MaterialTheme.typography.bodySmall,
             )
             OutlinedTextField(
                 value = address,
                 onValueChange = { address = it },
-                label = { Text(stringResource(Res.string.device_connect_direct_address)) },
+                label = { Text(stringResource(Res.string.device_connect_direct_address_or_host)) },
                 singleLine = true,
                 isError = address.isNotBlank() && endpoint == null,
                 modifier = Modifier.fillMaxWidth(),

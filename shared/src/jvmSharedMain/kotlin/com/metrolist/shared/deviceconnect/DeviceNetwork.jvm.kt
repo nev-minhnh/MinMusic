@@ -1,5 +1,7 @@
 package com.metrolist.shared.deviceconnect
 
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.net.Inet4Address
 import java.net.InetAddress
 import java.net.NetworkInterface
@@ -61,3 +63,36 @@ internal fun isDeviceConnectAllowedClientAddress(value: String?): Boolean {
     return address.isLoopbackAddress || address.isLinkLocalAddress || address.isSiteLocalAddress || isUniqueLocalIpv6 ||
         isDeviceConnectLanHost(address.hostAddress.orEmpty())
 }
+
+internal actual fun getDeviceConnectReachableAddresses(): List<String> =
+    runCatching {
+        NetworkInterface
+            .getNetworkInterfaces()
+            .toList()
+            .filter {
+                runCatching {
+                    it.isUp && !it.isLoopback && isDeviceConnectDialableInterfaceName(it.name, it.displayName.orEmpty())
+                }.getOrDefault(false)
+            }.flatMap { it.inetAddresses.toList() }
+            .filter { !it.isLoopbackAddress && !it.isLinkLocalAddress && !it.isMulticastAddress }
+            .mapNotNull { it.hostAddress?.substringBefore('%') }
+            .filter(::isDeviceConnectLanHost)
+            .distinct()
+            .sortedWith(compareBy<String>({ deviceConnectAddressRank(it) }, { it }))
+    }.getOrDefault(emptyList())
+
+/** Container and hypervisor bridges are never the way another device reaches this one; VPN tunnels are. */
+internal fun isDeviceConnectDialableInterfaceName(
+    name: String,
+    displayName: String = name,
+): Boolean {
+    val normalized = name.lowercase()
+    val display = displayName.lowercase()
+    return listOf("docker", "veth", "br-", "virbr", "vmnet", "vboxnet").none(normalized::startsWith) &&
+        listOf("vethernet", "hyper-v", "virtualbox", "vmware").none { it in normalized || it in display }
+}
+
+internal actual suspend fun resolveDeviceConnectHostAddresses(host: String): List<String> =
+    withContext(Dispatchers.IO) {
+        runCatching { InetAddress.getAllByName(host).mapNotNull { it.hostAddress } }.getOrDefault(emptyList())
+    }
