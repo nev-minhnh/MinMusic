@@ -21,6 +21,9 @@ import com.metrolist.desktop.state.app.DesktopNavigation
 import com.metrolist.desktop.state.app.UiState
 import com.metrolist.desktop.state.playback.LyricsState
 import com.metrolist.desktop.state.playback.PlayerState
+import com.metrolist.desktop.ui.components.FullPlayerLyricsMode
+import com.metrolist.desktop.ui.layouts.DesktopLayoutMetricsState
+import com.metrolist.desktop.ui.layouts.DesktopWidthClass
 import com.metrolist.desktop.web.DesktopWebViewAvailability
 import com.metrolist.shared.settings.Settings
 import com.metrolist.shared.ui.navigation.NavigationBackHandler
@@ -363,6 +366,28 @@ internal fun handleShortcut(
         return true
     }
 
+    // MinMusic desktop layout: Ctrl B toggles the sidebar (Expanded: docked <-> rail; Medium: overlay).
+    if (primary && !shift && !alt && keyCodeMatches(keyCode, Key.B, AwtKeyEvent.VK_B)) {
+        when (DesktopLayoutMetricsState.current.widthClass) {
+            DesktopWidthClass.EXPANDED -> Settings.shared.desktopSidebarDocked = !Settings.shared.desktopSidebarDocked
+            DesktopWidthClass.MEDIUM -> UiState.showOverlaySidebar = !UiState.showOverlaySidebar
+            DesktopWidthClass.COMPACT -> Unit
+        }
+        return true
+    }
+
+    // MinMusic: Ctrl E opens the equalizer page.
+    if (primary && !shift && !alt && keyCodeMatches(keyCode, Key.E, AwtKeyEvent.VK_E)) {
+        UiState.openEqualizer()
+        return true
+    }
+
+    // MinMusic: F11 in the full player toggles lyrics fullscreen.
+    if (!ctrl && !meta && !alt && !shift && PlayerState.isExpanded && keyCodeMatches(keyCode, Key.F11, AwtKeyEvent.VK_F11)) {
+        FullPlayerLyricsMode.toggle()
+        return true
+    }
+
     if (primary &&
         (keyCodeMatches(keyCode, Key.Grave, AwtKeyEvent.VK_BACK_QUOTE) || (keyCode is Int && keyCode == AwtKeyEvent.VK_DEAD_GRAVE))
     ) {
@@ -383,6 +408,12 @@ internal fun handleShortcut(
 
             UiState.showFloatingSearch -> {
                 UiState.showFloatingSearch = false
+                true
+            }
+
+            // MinMusic: the Medium overlay sidebar peels before the pages.
+            UiState.showOverlaySidebar -> {
+                UiState.showOverlaySidebar = false
                 true
             }
 
@@ -419,6 +450,20 @@ internal fun handleShortcut(
 
             UiState.showVideoFullscreen -> {
                 UiState.showVideoFullscreen = false
+                true
+            }
+
+            // MinMusic: lyrics fullscreen peels before the full player.
+            PlayerState.isExpanded && FullPlayerLyricsMode.fullscreen -> {
+                FullPlayerLyricsMode.fullscreen = false
+                true
+            }
+
+            // MinMusic: the "Tiep theo / Loi bai hat" pane overlaying the content closes on Esc (a docked one stays).
+            !PlayerState.isExpanded && UiState.supportingPaneOverlays && PlayerState.currentTrack != null &&
+                (UiState.showLyricsDrawer || UiState.showPersistentPlayerDrawer) -> {
+                UiState.showLyricsDrawer = false
+                UiState.showPersistentPlayerDrawer = false
                 true
             }
 

@@ -7,21 +7,28 @@
 package com.metrolist.desktop.ui.screens
 
 import androidx.compose.foundation.VerticalScrollbar
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.defaultScrollbarStyle
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.rememberScrollbarAdapter
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ColorScheme
@@ -30,6 +37,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuDefaults
 import androidx.compose.material3.OutlinedTextField
@@ -47,9 +55,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.metrolist.desktop.state.app.AppState
@@ -68,9 +80,14 @@ import com.metrolist.desktop.ui.components.LibraryItemContextMenu
 import com.metrolist.desktop.ui.components.PlaylistContextMenu
 import com.metrolist.desktop.ui.components.PodcastContextMenu
 import com.metrolist.desktop.ui.components.SongContextMenu
+import com.metrolist.desktop.ui.layouts.DesktopLayoutRules
+import com.metrolist.desktop.ui.layouts.LocalDesktopLayoutMetrics
+import com.metrolist.shared.db.MusicDatabase
+import com.metrolist.shared.db.entities.toPlaylistItem
 import com.metrolist.shared.db.isHistoryPlaylistId
 import com.metrolist.shared.generated.resources.Res
 import com.metrolist.shared.generated.resources.action_cannot_be_undone
+import com.metrolist.shared.generated.resources.action_like
 import com.metrolist.shared.generated.resources.artist
 import com.metrolist.shared.generated.resources.artists
 import com.metrolist.shared.generated.resources.cancel
@@ -96,6 +113,7 @@ import com.metrolist.shared.generated.resources.remove_from_library
 import com.metrolist.shared.generated.resources.rename_playlist_dialog_title
 import com.metrolist.shared.generated.resources.restore
 import com.metrolist.shared.generated.resources.sort_options
+import com.metrolist.shared.generated.resources.unlike
 import com.metrolist.shared.model.AlbumItem
 import com.metrolist.shared.model.ArtistItem
 import com.metrolist.shared.model.EpisodeItem
@@ -104,7 +122,9 @@ import com.metrolist.shared.model.PodcastItem
 import com.metrolist.shared.model.SongItem
 import com.metrolist.shared.model.UserPlaylist
 import com.metrolist.shared.model.YTItem
+import com.metrolist.shared.model.previewThumbnailUrl
 import com.metrolist.shared.model.toSongItem
+import com.metrolist.shared.settings.BlockedContent
 import com.metrolist.shared.settings.HiddenLibraryItems
 import com.metrolist.shared.settings.LibraryFilterType
 import com.metrolist.shared.settings.LibraryViewType
@@ -113,9 +133,11 @@ import com.metrolist.shared.settings.initialLibraryFilter
 import com.metrolist.shared.ui.components.AlertDialog
 import com.metrolist.shared.ui.components.FabMenuPopup
 import com.metrolist.shared.ui.components.LibraryItemContainer
+import com.metrolist.shared.ui.components.NowPlayingBars
 import com.metrolist.shared.ui.components.PopupContent
 import com.metrolist.shared.ui.components.PopupVisibility
 import com.metrolist.shared.ui.components.ScrollingAddButton
+import com.metrolist.shared.ui.components.SourceQualityBadges
 import com.metrolist.shared.ui.components.images.AsyncImage
 import com.metrolist.shared.ui.components.rememberScrollingFabState
 import com.metrolist.shared.ui.icons.MetrolistIcons
@@ -130,11 +152,20 @@ import com.metrolist.shared.ui.screens.LibraryFilter
 import com.metrolist.shared.ui.screens.libraryAutoPlaylists
 import com.metrolist.shared.ui.screens.libraryContentText
 import com.metrolist.shared.ui.screens.rememberLibrarySearchScrollState
+import com.metrolist.shared.state.SongMetadataState
 import com.metrolist.shared.ui.theme.MdSpacing
+import com.metrolist.shared.ui.theme.MinType
 import com.metrolist.shared.ui.utils.verticalScrollWithDrag
+import com.metrolist.shared.utils.formatDuration
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.getString
 import org.jetbrains.compose.resources.stringResource
+import org.koin.core.context.GlobalContext
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
 
 @Composable
 fun LibraryScreen(
@@ -188,10 +219,43 @@ fun LibraryScreen(
     val hiddenItemKeys = remember(hiddenItemVersion) { HiddenLibraryItems.keys() }
     val hiddenItems = remember(hiddenItemVersion) { HiddenLibraryItems.all() }
     val autoPlaylists = libraryAutoPlaylists()
-    val items = remember(sections) { sections.values.flatten() }
+    // MinMusic: "My albums" and "Downloaded" overview sections, from the same sources as the sidebar and the downloads page.
+    val database = remember { GlobalContext.get().get<MusicDatabase>() }
+    val userAlbums by remember(database) {
+        database.dao().userAlbums().map { albums -> albums.map { it.toPlaylistItem(it.remoteSongCount ?: 0) } }
+    }.collectAsState(emptyList())
+    val downloadedFiles = LibraryState.downloadedFiles
+    val contentFilterVersion by BlockedContent.version.collectAsState()
+    val downloadedPreview =
+        remember(downloadedFiles, contentFilterVersion) {
+            val newest = downloadedFiles.sortedByDescending { it.downloadDate }.take(DOWNLOADED_PREVIEW_COUNT * 2)
+            BlockedContent.filterSongs(newest.map { it.toSongItem() }).take(DOWNLOADED_PREVIEW_COUNT)
+        }
+    val items =
+        remember(sections, userAlbums) {
+            val userAlbumIds = userAlbums.mapTo(mutableSetOf()) { it.id }
+            sections.values.flatten().filterNot { it is PlaylistItem && it.id in userAlbumIds }
+        }
+    val metrics = LocalDesktopLayoutMetrics.current
+    // The shared grid already pads 16 on each side; the rest of the gutter goes around it.
+    val extraGutter = (metrics.gutter - 16.dp).coerceAtLeast(0.dp)
+    val manualSongOrder = Settings.shared.librarySorting(gridFilter).sort.name == "MANUAL"
 
-    Box(Modifier.fillMaxSize()) {
-        Column(Modifier.fillMaxSize()) {
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val contentWidth = minOf(maxWidth, DesktopLayoutRules.ContentMaxWidth + metrics.gutter * 2) - metrics.gutter * 2
+        val songColumns =
+            LibrarySongColumns(
+                album = metrics.isExpanded && DesktopLayoutRules.showAlbumColumn(contentWidth),
+                added = metrics.isExpanded && DesktopLayoutRules.showAddedColumn(contentWidth),
+                like = metrics.isExpanded,
+            )
+        Column(
+            Modifier
+                .align(Alignment.TopCenter)
+                .widthIn(max = DesktopLayoutRules.ContentMaxWidth + metrics.gutter * 2)
+                .fillMaxSize()
+                .padding(horizontal = extraGutter),
+        ) {
             LibraryContent(
                 presentation = LibraryContentState.presentation,
                 text = libraryContentText(),
@@ -250,6 +314,13 @@ fun LibraryScreen(
                 onLoadMoreContentMatches = LibraryContentState::loadMoreContentMatches,
                 onSearchDescendingChange = LibraryContentState::setSearchDescending,
                 scrollState = activeLibraryGridState,
+                userAlbums = userAlbums,
+                downloadedPreview = downloadedPreview,
+                downloadedSongCount = downloadedFiles.size,
+                onOpenDownloads = { LibraryState.navigateToAutoPlaylist("downloaded") },
+                // Like the phone: a user album is made from downloaded songs, so "new album" opens the downloads.
+                onCreateUserAlbum = { LibraryState.navigateToAutoPlaylist("downloaded") },
+                onDownloadedSongClick = { songs, index -> PlayerState.playTrack(songs[index], songs) },
                 itemContainer = { hiddenItem, item, isGridView, onClick, itemContent ->
                     val playlist = item as? PlaylistItem
                     val contextMenu = rememberCursorContextMenuState()
@@ -259,7 +330,17 @@ fun LibraryScreen(
                         onMenuClick = contextMenu::open,
                         modifier = Modifier.cursorContextMenu(contextMenu).clickable(onClick = onClick),
                     ) {
-                        itemContent()
+                        // Songs in list view use the desktop table row; manual order keeps the shared row and its drag handle.
+                        if (item is SongItem && !isGridView && !manualSongOrder) {
+                            LibrarySongTableRow(
+                                song = item,
+                                columns = songColumns,
+                                isCurrent = PlayerState.currentTrack?.id == item.id,
+                                isPlaying = PlayerState.isPlaying,
+                            )
+                        } else {
+                            itemContent()
+                        }
                     }
                     val hideFromLibrary = {
                         HiddenLibraryItems.hide(hiddenItem)
@@ -584,6 +665,135 @@ private fun openLibraryItem(item: YTItem) {
         }
 
         else -> {}
+    }
+}
+
+private const val DOWNLOADED_PREVIEW_COUNT = 3
+
+private val SongArtShape = RoundedCornerShape(8.dp)
+private val SongAlbumColumnWidth = 200.dp
+private val SongAddedColumnWidth = 112.dp
+private val SongDurationColumnWidth = 40.dp
+
+/** Optional song-table columns; they hide right to left as the content narrows (layout spec 3.4). */
+private data class LibrarySongColumns(
+    val album: Boolean,
+    val added: Boolean,
+    val like: Boolean,
+)
+
+private fun formatAddedDate(epochMillis: Long): String =
+    Instant
+        .ofEpochMilli(epochMillis)
+        .atZone(ZoneId.systemDefault())
+        .toLocalDate()
+        .format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM))
+
+/**
+ * Desktop library song row: art 40 · title with source/quality badges and artists under it · album · added · ♥ · ⏱.
+ * The "…" button and the context menu come from [LibraryItemContainer]. Compact windows drop the optional columns, which
+ * leaves the stacked 56 dp row.
+ */
+@Composable
+private fun LibrarySongTableRow(
+    song: SongItem,
+    columns: LibrarySongColumns,
+    isCurrent: Boolean,
+    isPlaying: Boolean,
+) {
+    val colors = MaterialTheme.colorScheme
+    val displayed = SongMetadataState.apply(song)
+    val artists = remember(displayed.artists) { displayed.artists.joinToString(", ") { it.name } }
+    val numberStyle = MaterialTheme.typography.labelSmall.copy(fontFeatureSettings = MinType.TabularFigures)
+    Row(
+        modifier = Modifier.fillMaxWidth().height(56.dp).padding(start = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(Modifier.size(40.dp), contentAlignment = Alignment.Center) {
+            AsyncImage(
+                url = song.previewThumbnailUrl,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                shape = SongArtShape,
+                modifier = Modifier.size(40.dp).clip(SongArtShape).background(colors.surfaceContainerHigh),
+            )
+            if (isCurrent) {
+                Box(
+                    Modifier.size(40.dp).clip(SongArtShape).background(Color.Black.copy(alpha = 0.45f)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    NowPlayingBars(isPlaying = isPlaying, color = Color.White, modifier = Modifier.size(20.dp))
+                }
+            }
+        }
+        Column(Modifier.weight(1f)) {
+            Text(
+                text = displayed.title,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = if (isCurrent) colors.primary else colors.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                SourceQualityBadges(songId = song.id)
+                if (artists.isNotEmpty()) {
+                    Text(
+                        text = artists,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = colors.outline,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false),
+                    )
+                }
+            }
+        }
+        if (columns.album) {
+            Text(
+                text = displayed.album?.name.orEmpty(),
+                style = MaterialTheme.typography.bodyMedium,
+                color = colors.outline,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.width(SongAlbumColumnWidth),
+            )
+        }
+        if (columns.added) {
+            val addedAt = song.libraryAddedAt
+            val added = remember(addedAt) { addedAt?.takeIf { it > 0 }?.let(::formatAddedDate).orEmpty() }
+            Text(
+                text = added,
+                style = numberStyle,
+                color = colors.outline,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.width(SongAddedColumnWidth),
+            )
+        }
+        if (columns.like) {
+            val liked = PlayerState.isLiked(song.id)
+            IconButton(onClick = { PlayerState.toggleLike(song) }, modifier = Modifier.size(32.dp)) {
+                Icon(
+                    imageVector = if (liked) MetrolistIcons.Default.Favorite else MetrolistIcons.Outlined.FavoriteBorder,
+                    contentDescription = stringResource(if (liked) Res.string.unlike else Res.string.action_like),
+                    tint = if (liked) colors.primary else colors.onSurfaceVariant,
+                    modifier = Modifier.size(20.dp),
+                )
+            }
+        }
+        Text(
+            text = displayed.duration?.takeIf { it > 0 }?.let { formatDuration(it * 1000L) }.orEmpty(),
+            style = numberStyle,
+            color = colors.outline,
+            textAlign = TextAlign.End,
+            maxLines = 1,
+            modifier = Modifier.width(SongDurationColumnWidth),
+        )
     }
 }
 

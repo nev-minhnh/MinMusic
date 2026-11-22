@@ -10,6 +10,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -111,6 +112,9 @@ fun PlayerContentColumn(
     scale: Float,
     modifier: Modifier = Modifier,
     toggleWindowFullscreen: () -> Unit,
+    artworkSize: Dp? = null,
+    showPeekCards: Boolean = true,
+    verticalPadding: PaddingValues? = null,
 ) {
     // verticalScroll measures unbounded, so stretch to the viewport to keep Arrangement.Center working.
     Column(
@@ -118,7 +122,7 @@ fun PlayerContentColumn(
             modifier
                 .verticalScrollWithDrag(rememberScrollState())
                 .heightIn(min = availableHeight)
-                .padding(top = 78.dp * scale, bottom = 62.dp * scale),
+                .padding(verticalPadding ?: PaddingValues(top = 78.dp * scale, bottom = 62.dp * scale)),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
@@ -128,10 +132,17 @@ fun PlayerContentColumn(
             availableHeight = (availableHeight - 140.dp * scale).coerceAtLeast(0.dp),
             scale = scale,
             toggleWindowFullscreen = toggleWindowFullscreen,
+            artworkSize = artworkSize,
+            showPeekCards = showPeekCards,
         )
     }
 }
 
+/**
+ * [artworkSize]: a fixed artwork edge from the desktop full-player formula (desktop-layout-spec 3.7); the controls
+ * then take the artwork's width and the column scrolls instead of shrinking the art. [showPeekCards]: the MinMusic
+ * lyrics card and "Up next" handle, which the two-pane player replaces with its right pane.
+ */
 @Composable
 fun PlayerCoreContent(
     currentTrack: SongItem?,
@@ -139,6 +150,8 @@ fun PlayerCoreContent(
     availableHeight: Dp,
     scale: Float,
     toggleWindowFullscreen: () -> Unit,
+    artworkSize: Dp? = null,
+    showPeekCards: Boolean = true,
 ) {
     val playerMenu = rememberCursorContextMenuState()
     val castState by PlayerState.castManager.state.collectAsState()
@@ -161,6 +174,8 @@ fun PlayerCoreContent(
             )
         }
 
+    // MinMusic: radius 20 with the soft edge (AsyncImage applies mmArtworkEdge with this shape).
+    val artworkShape = RoundedCornerShape(if (mmStyle) 20.dp else 28.dp)
     val content = @Composable {
         Box(
             modifier = Modifier.desktopPlayerArtwork(currentTrack?.id),
@@ -174,14 +189,15 @@ fun PlayerCoreContent(
                     Modifier
                         .fillMaxSize()
                         .alpha(if (hasAnimatedFrame) 0f else 1f)
-                        .clip(RoundedCornerShape(28.dp))
-                        .shadow(24.dp, RoundedCornerShape(28.dp)),
+                        .clip(artworkShape)
+                        .shadow(24.dp, artworkShape),
+                shape = artworkShape,
                 contentScale = if (Settings.shared.cropAlbumArt) ContentScale.Crop else ContentScale.Fit,
             )
             AnimatedCover(
                 url = PlayerState.animatedCoverUrl,
                 active = PlayerState.isPlaying && !UiState.videoFullscreenObscuresPlayer,
-                modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(28.dp)),
+                modifier = Modifier.fillMaxSize().clip(artworkShape),
                 contentScale = ContentScale.Crop,
                 onFrameAvailabilityChanged = { hasAnimatedFrame = it },
             )
@@ -210,8 +226,14 @@ fun PlayerCoreContent(
                 ) {
                     Text(
                         currentTrack?.title ?: stringResource(Res.string.not_playing),
-                        style = MaterialTheme.typography.headlineMedium.copy(fontSize = 24.sp, lineHeight = 32.sp),
-                        fontWeight = FontWeight.Bold,
+                        // MinMusic desktop: title 28/36 SemiBold (desktop-layout-spec 3.7).
+                        style =
+                            if (mmStyle) {
+                                MaterialTheme.typography.headlineMedium.copy(fontSize = 28.sp, lineHeight = 36.sp)
+                            } else {
+                                MaterialTheme.typography.headlineMedium.copy(fontSize = 24.sp, lineHeight = 32.sp)
+                            },
+                        fontWeight = if (mmStyle) FontWeight.SemiBold else FontWeight.Bold,
                         color = textBackgroundColor,
                         maxLines = 1,
                         softWrap = false,
@@ -240,8 +262,13 @@ fun PlayerCoreContent(
                         fallbackText = "",
                         iterations = 1,
                         initialDelayMillis = 2000,
-                        style = MaterialTheme.typography.titleMedium.copy(fontSize = 12.sp, lineHeight = 16.sp),
-                        color = textBackgroundColor.copy(alpha = 0.8f),
+                        style =
+                            if (mmStyle) {
+                                MaterialTheme.typography.titleMedium.copy(fontSize = 14.sp, lineHeight = 20.sp)
+                            } else {
+                                MaterialTheme.typography.titleMedium.copy(fontSize = 12.sp, lineHeight = 16.sp)
+                            },
+                        color = textBackgroundColor.copy(alpha = if (mmStyle) 0.76f else 0.8f),
                         modifier = Modifier.fillMaxWidth(),
                     )
                     if (mmStyle) {
@@ -429,12 +456,14 @@ fun PlayerCoreContent(
                 // Output / EQ chips, the lyrics card (until the lyrics pane is open) and "Up next".
                 Spacer(Modifier.height(16.dp * scale))
                 MmDesktopPlayerChips(onOpenCast = if (!isListenTogetherGuest) ({ showCastDialog = true }) else null)
-                if (!UiState.showLyricsDrawer) {
+                if (showPeekCards) {
+                    if (!UiState.showLyricsDrawer) {
+                        Spacer(Modifier.height(12.dp * scale))
+                        MmDesktopLyricsPeek(Modifier.fillMaxWidth())
+                    }
                     Spacer(Modifier.height(12.dp * scale))
-                    MmDesktopLyricsPeek(Modifier.fillMaxWidth())
+                    MmDesktopQueueHandle(Modifier.fillMaxWidth())
                 }
-                Spacer(Modifier.height(12.dp * scale))
-                MmDesktopQueueHandle(Modifier.fillMaxWidth())
             }
         }
     }
@@ -442,29 +471,34 @@ fun PlayerCoreContent(
         content = content,
         modifier =
             Modifier
+                // A fixed artwork size also caps the controls to the artwork's width (plus the 24 dp side padding).
+                .then(if (artworkSize != null) Modifier.widthIn(max = artworkSize + 48.dp) else Modifier)
                 .fillMaxWidth()
                 .padding(horizontal = 24.dp)
                 .cursorContextMenu(playerMenu),
     ) { measurables, constraints ->
         val controls = measurables[1].measure(constraints.copy(minWidth = 0, minHeight = 0, maxHeight = Constraints.Infinity))
+        // With a fixed size the art keeps it and the parent column scrolls; otherwise it shrinks to fit.
+        val fitHeightPx = if (artworkSize != null) Constraints.Infinity / 2 else availableHeight.roundToPx()
+        val fitControlsPx = if (artworkSize != null) 0 else controls.height
         val targetArtworkSize =
             fullscreenArtworkSize(
                 constraints.maxWidth,
-                availableHeight.roundToPx(),
-                controls.height,
+                fitHeightPx,
+                fitControlsPx,
                 artworkRatio,
-                (556.dp * scale).roundToPx(),
+                artworkSize?.roundToPx() ?: (556.dp * scale).roundToPx(),
             )
         targetArtworkHeight = targetArtworkSize.height.takeIf { it > 0 }?.toDp()
-        val artworkSize =
+        val artworkBox =
             fullscreenArtworkSize(
                 constraints.maxWidth,
-                availableHeight.roundToPx(),
-                controls.height,
+                fitHeightPx,
+                fitControlsPx,
                 artworkRatio,
                 animatedArtworkHeight?.value?.roundToPx() ?: targetArtworkSize.height,
             )
-        val artwork = measurables[0].measure(Constraints.fixed(artworkSize.width, artworkSize.height))
+        val artwork = measurables[0].measure(Constraints.fixed(artworkBox.width, artworkBox.height))
         layout(constraints.maxWidth, artwork.height + controls.height) {
             artwork.placeRelative((constraints.maxWidth - artwork.width) / 2, 0)
             controls.placeRelative((constraints.maxWidth - controls.width) / 2, artwork.height)

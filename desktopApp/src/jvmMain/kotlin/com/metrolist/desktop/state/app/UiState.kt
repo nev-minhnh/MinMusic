@@ -119,6 +119,12 @@ object UiState {
     // MinMusic: full-window MetroEQ page, drawn above the player and the content (Esc closes it first).
     var showEqualizer by mutableStateOf(false)
 
+    // MinMusic desktop layout: the Medium-width sidebar opened over the content (Ctrl B / the rail's menu button).
+    var showOverlaySidebar by mutableStateOf(false)
+
+    // True while the "Tiếp theo / Lời bài hát" pane overlays the content instead of docking beside it (Esc closes it).
+    var supportingPaneOverlays by mutableStateOf(false)
+
     fun openEqualizer() {
         showSettings = false
         showEqualizer = true

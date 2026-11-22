@@ -1,6 +1,13 @@
 package com.metrolist.desktop.source
 
 import com.metrolist.desktop.auth.readWindowsLoginHelperOutput
+import com.metrolist.shared.generated.resources.Res
+import com.metrolist.shared.generated.resources.cancel
+import com.metrolist.shared.generated.resources.mm_desk_open_in_browser
+import com.metrolist.shared.generated.resources.mm_desk_zing_read_only
+import com.metrolist.shared.generated.resources.mm_desk_zing_waiting
+import com.metrolist.shared.generated.resources.mm_desk_zing_window_title
+import com.metrolist.shared.generated.resources.source_zing_login_privacy
 import com.metrolist.shared.source.SourceAccount
 import com.metrolist.shared.source.SourceEntitlement
 import com.metrolist.shared.source.SourceHealth
@@ -18,6 +25,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import org.jetbrains.compose.resources.getString
 import org.koin.mp.KoinPlatform
 import java.io.File
 
@@ -55,7 +63,8 @@ object DesktopSourceLogins {
             if (!OsUtil.isWindows) throw DesktopSourceLoginException(DesktopSourceLoginException.Reason.UNSUPPORTED)
             val helper = resolveWindowsLoginHelper()
             if (!helper.isFile) throw DesktopSourceLoginException(DesktopSourceLoginException.Reason.HELPER_MISSING)
-            val content = readWindowsLoginHelperOutput(ProcessBuilder(helper.absolutePath, "--provider", "zing"))
+            val command = listOf(helper.absolutePath, "--provider", "zing") + zingWindowTextArgs()
+            val content = readWindowsLoginHelperOutput(ProcessBuilder(command))
             if (content.isEmpty()) throw DesktopSourceLoginException(DesktopSourceLoginException.Reason.CANCELLED)
             val header =
                 runCatching {
@@ -160,6 +169,32 @@ object DesktopSourceLogins {
     fun health(source: SourceId): SourceHealth = registry?.health(source) ?: SourceHealth.HEALTHY
 
     private fun entitlement(vip: Boolean): SourceEntitlement = if (vip) SourceEntitlement.VIP else SourceEntitlement.FREE
+
+    /**
+     * Localized text for the Zing login window chrome (desktop layout spec 6): title, read-only address bar label, privacy
+     * banner and footer. Display text only; an older helper ignores these flags. Falls back to the helper's English text.
+     */
+    private suspend fun zingWindowTextArgs(): List<String> =
+        try {
+            listOf(
+                "--title",
+                getString(Res.string.mm_desk_zing_window_title),
+                "--read-only-label",
+                getString(Res.string.mm_desk_zing_read_only),
+                "--banner",
+                getString(Res.string.source_zing_login_privacy),
+                "--status",
+                getString(Res.string.mm_desk_zing_waiting),
+                "--open-browser-label",
+                getString(Res.string.mm_desk_open_in_browser),
+                "--cancel-label",
+                getString(Res.string.cancel),
+            ).map { it.replace("\"", "'") }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            emptyList()
+        }
 
     // Prefer the instances the app registered so cookie, key and token caches are shared with playback.
     private val registry: SourceRegistry?

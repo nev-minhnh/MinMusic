@@ -5,9 +5,11 @@
 
 package com.metrolist.desktop.ui.screens.settings
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -33,7 +35,6 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -51,6 +52,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.liveRegion
@@ -62,12 +69,16 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import com.metrolist.desktop.source.DesktopSourceLoginException
 import com.metrolist.desktop.source.DesktopSourceLogins
 import com.metrolist.shared.auth.hasSupportedYouTubeAuthCookie
 import com.metrolist.shared.generated.resources.Res
 import com.metrolist.shared.generated.resources.action_login
 import com.metrolist.shared.generated.resources.action_logout
 import com.metrolist.shared.generated.resources.cancel
+import com.metrolist.shared.generated.resources.close
 import com.metrolist.shared.generated.resources.password
 import com.metrolist.shared.generated.resources.settings_sources_description
 import com.metrolist.shared.generated.resources.source_auto_best_quality
@@ -91,9 +102,7 @@ import com.metrolist.shared.generated.resources.source_nct_login_network_error
 import com.metrolist.shared.generated.resources.source_nct_login_subtitle
 import com.metrolist.shared.generated.resources.source_nct_logout
 import com.metrolist.shared.generated.resources.source_nct_privacy_password
-import com.metrolist.shared.generated.resources.source_nct_privacy_title
 import com.metrolist.shared.generated.resources.source_nct_privacy_token_desktop
-import com.metrolist.shared.generated.resources.source_nct_use_free
 import com.metrolist.shared.generated.resources.source_nct_username
 import com.metrolist.shared.generated.resources.source_nhaccuatui
 import com.metrolist.shared.generated.resources.source_quality_128
@@ -276,7 +285,8 @@ fun SourcesSettingsScreen() {
 
     fun health(id: SourceId): SourceHealth = registry?.health(id) ?: SourceHealth.HEALTHY
 
-    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+    // Desktop layout spec 3.4: the detail column is at most 760 wide, next to the settings categories.
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopStart) {
         Column(
             modifier =
                 Modifier
@@ -328,30 +338,35 @@ fun SourcesSettingsScreen() {
                     badges = { PlanBadges(plan = zingState.plan, degraded = zingDegraded) },
                     checked = settings.zingSourceEnabled,
                     onCheckedChange = { settings.zingSourceEnabled = it },
+                    action = {
+                        AccountActionButton(
+                            signedIn = zingState.signedIn,
+                            busy = zingLoggingIn,
+                            onSignIn = {
+                                if (!zingLoggingIn) {
+                                    zingLoggingIn = true
+                                    zingError = null
+                                    scope.launch {
+                                        try {
+                                            DesktopSourceLogins
+                                                .loginZing()
+                                                .onSuccess { refreshKey++ }
+                                                .onFailure { zingError = zingFailedMessage }
+                                        } finally {
+                                            zingLoggingIn = false
+                                        }
+                                    }
+                                }
+                            },
+                            onSignOut = { pendingLogout = SourceId.ZING },
+                        )
+                    },
                 )
                 AccountActionRow(
                     signedIn = zingState.signedIn,
                     displayName = zingState.displayName,
-                    busy = zingLoggingIn,
                     error = zingError,
                     footnote = stringResource(Res.string.source_zing_login_privacy),
-                    onSignIn = {
-                        if (!zingLoggingIn) {
-                            zingLoggingIn = true
-                            zingError = null
-                            scope.launch {
-                                try {
-                                    DesktopSourceLogins
-                                        .loginZing()
-                                        .onSuccess { refreshKey++ }
-                                        .onFailure { zingError = zingFailedMessage }
-                                } finally {
-                                    zingLoggingIn = false
-                                }
-                            }
-                        }
-                    },
-                    onSignOut = { pendingLogout = SourceId.ZING },
                 )
                 SourceDivider()
                 val nctDegraded = settings.nctSourceEnabled && health(SourceId.NCT) == SourceHealth.DEGRADED
@@ -372,15 +387,20 @@ fun SourcesSettingsScreen() {
                     },
                     checked = settings.nctSourceEnabled,
                     onCheckedChange = { settings.nctSourceEnabled = it },
+                    action = {
+                        AccountActionButton(
+                            signedIn = nctState.signedIn,
+                            busy = false,
+                            onSignIn = { showNctLogin = true },
+                            onSignOut = { pendingLogout = SourceId.NCT },
+                        )
+                    },
                 )
                 AccountActionRow(
                     signedIn = nctState.signedIn,
                     displayName = nctState.displayName,
-                    busy = false,
                     error = null,
                     footnote = null,
-                    onSignIn = { showNctLogin = true },
-                    onSignOut = { pendingLogout = SourceId.NCT },
                 )
                 SourceDivider()
                 val soundCloudDegraded = settings.soundCloudSourceEnabled && health(SourceId.SC) == SourceHealth.DEGRADED
@@ -488,11 +508,15 @@ private fun NctLoginDialog(
                 if (failure == null) {
                     onLoggedIn()
                 } else {
+                    // loginNct wraps NCT failures in DesktopSourceLoginException; map its reason to the inline message.
+                    val reason = (failure as? DesktopSourceLoginException)?.reason
                     error =
                         getString(
-                            when (failure) {
-                                is NctException.AuthFailed -> Res.string.source_nct_login_failed
-                                is NctException.Network -> Res.string.source_nct_login_network_error
+                            when {
+                                failure is NctException.AuthFailed ||
+                                    reason == DesktopSourceLoginException.Reason.AUTH_FAILED -> Res.string.source_nct_login_failed
+                                failure is NctException.Network ||
+                                    reason == DesktopSourceLoginException.Reason.NETWORK -> Res.string.source_nct_login_network_error
                                 else -> Res.string.source_nct_login_error
                             },
                         )
@@ -508,152 +532,196 @@ private fun NctLoginDialog(
     }
 
     val errorMessage = error
-    AlertDialog(
+    val colors = MaterialTheme.colorScheme
+    // Layout spec 6: centred, 448 wide (360..90 % of the window), radius 28, surface1 + 1 dp line, scrim black 60 % (42 % light).
+    val scrim = Color.Black.copy(alpha = if (colors.surface.luminance() < 0.5f) 0.6f else 0.42f)
+    Dialog(
         onDismissRequest = { if (!isLoggingIn) onDismiss() },
-        title = {
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(stringResource(Res.string.source_nct_login))
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    TagBadge(text = stringResource(Res.string.source_experimental))
-                    Text(
-                        text = stringResource(Res.string.source_nct_login_subtitle),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.outline,
-                    )
-                }
-            }
-        },
-        text = {
-            Column(
-                modifier = Modifier.widthIn(min = 360.dp, max = 440.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
+        properties =
+            DialogProperties(
+                usePlatformDefaultWidth = false,
+                dismissOnBackPress = true,
+                dismissOnClickOutside = false,
+                scrimColor = scrim,
+            ),
+    ) {
+        BoxWithConstraints {
+            val dialogWidth = minOf(NctDialogWidth, maxWidth * 0.9f).coerceAtLeast(minOf(NctDialogMinWidth, maxWidth))
+            Surface(
+                shape = NctDialogShape,
+                color = colors.surfaceContainer,
+                border = BorderStroke(1.dp, colors.outlineVariant),
+                shadowElevation = 12.dp,
+                modifier =
+                    Modifier
+                        .width(dialogWidth)
+                        .onPreviewKeyEvent { event ->
+                            // Enter is the primary action anywhere in the dialog; Esc goes through onDismissRequest.
+                            val isEnter = event.key == Key.Enter || event.key == Key.NumPadEnter
+                            if (isEnter && event.type == KeyEventType.KeyDown && canSubmit) {
+                                submit()
+                                true
+                            } else {
+                                false
+                            }
+                        },
             ) {
-                OutlinedTextField(
-                    value = username,
-                    onValueChange = {
-                        username = it
-                        error = null
-                    },
-                    label = { Text(stringResource(Res.string.source_nct_username)) },
-                    leadingIcon = { Icon(MetrolistIcons.Outlined.Person, contentDescription = null) },
-                    singleLine = true,
-                    enabled = !isLoggingIn,
-                    isError = errorMessage != null,
-                    shape = RoundedCornerShape(12.dp),
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                OutlinedTextField(
-                    value = password,
-                    onValueChange = {
-                        password = it
-                        error = null
-                    },
-                    label = { Text(stringResource(Res.string.password)) },
-                    leadingIcon = { Icon(MetrolistIcons.Rounded.Lock, contentDescription = null) },
-                    trailingIcon = {
-                        IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                            Icon(
-                                imageVector = if (passwordVisible) MetrolistIcons.Filled.VisibilityOff else MetrolistIcons.Filled.Visibility,
-                                contentDescription =
-                                    stringResource(
-                                        if (passwordVisible) Res.string.source_hide_password else Res.string.source_show_password,
-                                    ),
+                Column(
+                    modifier = Modifier.verticalScrollWithDrag(rememberScrollState()).padding(24.dp),
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        SourceTile(NctColor, Res.string.source_badge_nct)
+                        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Text(
+                                text = stringResource(Res.string.source_nct_login),
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.SemiBold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
                             )
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                TagBadge(text = stringResource(Res.string.source_experimental))
+                                Text(
+                                    text = stringResource(Res.string.source_nct_login_subtitle),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = colors.outline,
+                                )
+                            }
                         }
-                    },
-                    visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                    singleLine = true,
-                    enabled = !isLoggingIn,
-                    isError = errorMessage != null,
-                    shape = RoundedCornerShape(12.dp),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
-                    keyboardActions = KeyboardActions(onDone = { submit() }),
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                if (errorMessage != null) {
+                        IconButton(
+                            onClick = onDismiss,
+                            enabled = !isLoggingIn,
+                            modifier = Modifier.align(Alignment.Top),
+                        ) {
+                            Icon(MetrolistIcons.Default.Close, contentDescription = stringResource(Res.string.close))
+                        }
+                    }
+                    OutlinedTextField(
+                        value = username,
+                        onValueChange = {
+                            username = it
+                            error = null
+                        },
+                        label = { Text(stringResource(Res.string.source_nct_username)) },
+                        leadingIcon = { Icon(MetrolistIcons.Outlined.Person, contentDescription = null) },
+                        singleLine = true,
+                        enabled = !isLoggingIn,
+                        isError = errorMessage != null,
+                        shape = RoundedCornerShape(12.dp),
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                        modifier = Modifier.fillMaxWidth().padding(top = 24.dp),
+                    )
+                    OutlinedTextField(
+                        value = password,
+                        onValueChange = {
+                            password = it
+                            error = null
+                        },
+                        label = { Text(stringResource(Res.string.password)) },
+                        leadingIcon = { Icon(MetrolistIcons.Rounded.Lock, contentDescription = null) },
+                        trailingIcon = {
+                            IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                                Icon(
+                                    imageVector =
+                                        if (passwordVisible) MetrolistIcons.Filled.VisibilityOff else MetrolistIcons.Filled.Visibility,
+                                    contentDescription =
+                                        stringResource(
+                                            if (passwordVisible) Res.string.source_hide_password else Res.string.source_show_password,
+                                        ),
+                                )
+                            }
+                        },
+                        // Errors stay inline under the field (never a toast).
+                        supportingText =
+                            if (errorMessage != null) {
+                                {
+                                    Text(
+                                        text = errorMessage,
+                                        modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+                                    )
+                                }
+                            } else {
+                                null
+                            },
+                        visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                        singleLine = true,
+                        enabled = !isLoggingIn,
+                        isError = errorMessage != null,
+                        shape = RoundedCornerShape(12.dp),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
+                        keyboardActions = KeyboardActions(onDone = { submit() }),
+                        modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
+                    )
+                    // Accent-container privacy banner: the password is sent once, only the token is kept.
                     Row(
                         modifier =
                             Modifier
+                                .padding(top = 16.dp)
                                 .fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(MaterialTheme.colorScheme.errorContainer)
-                                .padding(horizontal = 12.dp, vertical = 10.dp)
-                                .semantics { liveRegion = LiveRegionMode.Polite },
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                .clip(RoundedCornerShape(16.dp))
+                                .background(colors.primaryContainer)
+                                .padding(horizontal = 16.dp, vertical = 12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
                         Icon(
-                            imageVector = MetrolistIcons.Filled.Error,
+                            MetrolistIcons.Outlined.Shield,
                             contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onErrorContainer,
+                            tint = colors.onPrimaryContainer,
                             modifier = Modifier.size(20.dp),
                         )
-                        Text(
-                            text = errorMessage,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onErrorContainer,
-                        )
-                    }
-                }
-                Surface(
-                    color = MaterialTheme.colorScheme.surfaceContainerLow,
-                    shape = RoundedCornerShape(16.dp),
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Icon(MetrolistIcons.Outlined.Shield, contentDescription = null, modifier = Modifier.size(20.dp))
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Text(
-                                text = stringResource(Res.string.source_nct_privacy_title),
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.SemiBold,
+                                text = stringResource(Res.string.source_nct_privacy_password),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = colors.onPrimaryContainer,
+                            )
+                            Text(
+                                text = stringResource(Res.string.source_nct_privacy_token_desktop),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = colors.onPrimaryContainer,
                             )
                         }
-                        Text(
-                            text = stringResource(Res.string.source_nct_privacy_password),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        Text(
-                            text = stringResource(Res.string.source_nct_privacy_token_desktop),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(top = 20.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+                    ) {
+                        TextButton(onClick = onDismiss, enabled = !isLoggingIn) {
+                            Text(stringResource(Res.string.cancel))
+                        }
+                        val showGradient = canSubmit || isLoggingIn
+                        Button(
+                            onClick = { submit() },
+                            enabled = canSubmit,
+                            colors =
+                                ButtonDefaults.buttonColors(
+                                    containerColor = Color.Transparent,
+                                    contentColor = brand.onGradient,
+                                    disabledContainerColor = if (isLoggingIn) Color.Transparent else colors.surfaceContainerHigh,
+                                ),
+                            modifier =
+                                Modifier
+                                    .height(40.dp)
+                                    .clip(CircleShape)
+                                    .then(if (showGradient) Modifier.background(brand.gradient) else Modifier),
+                        ) {
+                            if (isLoggingIn) {
+                                CircularProgressIndicator(Modifier.size(20.dp), color = brand.onGradient, strokeWidth = 2.dp)
+                            } else {
+                                Text(stringResource(Res.string.action_login), fontWeight = FontWeight.SemiBold)
+                            }
+                        }
                     }
                 }
             }
-        },
-        confirmButton = {
-            Button(
-                onClick = { submit() },
-                enabled = canSubmit,
-                colors =
-                    ButtonDefaults.buttonColors(
-                        containerColor = Color.Transparent,
-                        contentColor = brand.onGradient,
-                        disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    ),
-                modifier =
-                    Modifier
-                        .height(48.dp)
-                        .clip(CircleShape)
-                        .then(if (canSubmit) Modifier.background(brand.gradient) else Modifier),
-            ) {
-                if (isLoggingIn) {
-                    CircularProgressIndicator(Modifier.size(20.dp), color = brand.onGradient, strokeWidth = 2.dp)
-                } else {
-                    Text(stringResource(Res.string.action_login), fontWeight = FontWeight.SemiBold)
-                }
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss, enabled = !isLoggingIn) {
-                Text(stringResource(Res.string.source_nct_use_free))
-            }
-        },
-    )
+        }
+    }
 }
+
+private val NctDialogWidth = 448.dp
+private val NctDialogMinWidth = 360.dp
+private val NctDialogShape = RoundedCornerShape(28.dp)
 
 @Composable
 private fun joinStatus(
@@ -743,6 +811,7 @@ private fun SourceRow(
     subtitleIsError: Boolean = false,
     checked: Boolean? = null,
     onCheckedChange: (Boolean) -> Unit = {},
+    action: (@Composable () -> Unit)? = null,
 ) {
     Row(
         modifier =
@@ -778,49 +847,57 @@ private fun SourceRow(
                 color = if (subtitleIsError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline,
             )
         }
+        action?.invoke()
         if (checked != null) {
             ExpressiveSwitch(checked = checked, onCheckedChange = null)
         }
     }
 }
 
-/** Sign-in (or sign-out) under a source with accounts, aligned with the text column; errors stay inline. */
+/** Desktop mockup: the account action sits in the source row, before the switch (sign out = text, sign in = tonal). */
+@Composable
+private fun AccountActionButton(
+    signedIn: Boolean,
+    busy: Boolean,
+    onSignIn: () -> Unit,
+    onSignOut: () -> Unit,
+) {
+    if (signedIn) {
+        TextButton(onClick = onSignOut) { Text(stringResource(Res.string.action_logout)) }
+    } else {
+        FilledTonalButton(onClick = onSignIn, enabled = !busy) {
+            if (busy) {
+                CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
+                Spacer(Modifier.width(8.dp))
+            }
+            Text(stringResource(Res.string.source_sign_in_vip))
+        }
+    }
+}
+
+/** Account name, inline error and privacy note under a source with accounts, aligned with the text column. */
 @Composable
 private fun AccountActionRow(
     signedIn: Boolean,
     displayName: String?,
-    busy: Boolean,
     error: String?,
     footnote: String?,
-    onSignIn: () -> Unit,
-    onSignOut: () -> Unit,
 ) {
+    val name = displayName?.takeIf { signedIn && it.isNotBlank() }
+    val note = footnote?.takeIf { !signedIn }
+    if (name == null && error == null && note == null) return
     Column(
         modifier = Modifier.fillMaxWidth().padding(start = 68.dp, end = 16.dp, bottom = 12.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            if (signedIn) {
-                OutlinedButton(onClick = onSignOut) { Text(stringResource(Res.string.action_logout)) }
-                displayName?.takeIf { it.isNotBlank() }?.let { name ->
-                    Text(
-                        text = name,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.outline,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.padding(start = 12.dp),
-                    )
-                }
-            } else {
-                FilledTonalButton(onClick = onSignIn, enabled = !busy) {
-                    if (busy) {
-                        CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
-                        Spacer(Modifier.width(8.dp))
-                    }
-                    Text(stringResource(Res.string.source_sign_in_vip))
-                }
-            }
+        if (name != null) {
+            Text(
+                text = name,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.outline,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
         }
         if (error != null) {
             Text(
@@ -830,9 +907,9 @@ private fun AccountActionRow(
                 modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
             )
         }
-        if (!signedIn && footnote != null) {
+        if (note != null) {
             Text(
-                text = footnote,
+                text = note,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.outline,
             )

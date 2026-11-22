@@ -29,6 +29,7 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
@@ -62,6 +63,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.LoadingIndicator
+import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Slider
@@ -72,6 +74,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.material3.rememberSliderState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -85,13 +88,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -107,6 +113,7 @@ import com.metrolist.desktop.state.content.PlaylistAlbumState
 import com.metrolist.desktop.state.playback.ListenTogetherState
 import com.metrolist.desktop.state.playback.LyricsState
 import com.metrolist.desktop.state.playback.PlayerState
+import com.metrolist.desktop.ui.layouts.LocalDesktopLayoutMetrics
 import com.metrolist.shared.db.MusicDatabase
 import com.metrolist.shared.generated.resources.Res
 import com.metrolist.shared.generated.resources.cancel
@@ -443,7 +450,10 @@ fun LiveProgressBar(
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun StandardPlayerProgress(colorScheme: ColorScheme) {
+private fun StandardPlayerProgress(
+    colorScheme: ColorScheme,
+    inline: Boolean = false,
+) {
     if (UiState.videoFullscreenObscuresPlayer) return
     val playerPosition = rememberPlaybackSecondPosition()
     val playerBufferedPosition by PlayerState.playbackBufferedPosition.collectAsSecondsState()
@@ -494,10 +504,16 @@ private fun StandardPlayerProgress(colorScheme: ColorScheme) {
         }
     }
 
+    // MinMusic bar (spec 3.6): inline under the transport as time / progress / time; otherwise the stock top row.
+    val timeStyle = if (inline) MaterialTheme.typography.labelSmall else MaterialTheme.typography.labelMedium
+    val timeMinWidth = if (inline) 40.dp else 52.dp
     Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 2.dp),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = if (inline) 0.dp else 24.dp, vertical = if (inline) 0.dp else 2.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(14.dp),
+        horizontalArrangement = Arrangement.spacedBy(if (inline) 8.dp else 14.dp),
     ) {
         if (isLive) {
             LiveBadge()
@@ -507,17 +523,17 @@ private fun StandardPlayerProgress(colorScheme: ColorScheme) {
             )
             PlayerProgressTime(
                 positionProvider = displayPosition,
-                style = MaterialTheme.typography.labelMedium,
+                style = timeStyle,
                 color = colorScheme.onSurfaceVariant,
-                modifier = Modifier.widthIn(min = 52.dp),
+                modifier = Modifier.widthIn(min = timeMinWidth),
                 textAlign = TextAlign.Center,
             )
         } else {
             PlayerProgressTime(
                 positionProvider = displayPosition,
-                style = MaterialTheme.typography.labelMedium,
+                style = timeStyle,
                 color = colorScheme.onSurfaceVariant,
-                modifier = Modifier.widthIn(min = 52.dp),
+                modifier = Modifier.widthIn(min = timeMinWidth),
                 textAlign = TextAlign.Center,
             )
             PlayerSlider(
@@ -557,9 +573,9 @@ private fun StandardPlayerProgress(colorScheme: ColorScheme) {
             )
             Text(
                 text = formatDuration(playerDuration),
-                style = MaterialTheme.typography.labelMedium,
+                style = timeStyle,
                 color = colorScheme.onSurfaceVariant,
-                modifier = Modifier.widthIn(min = 52.dp),
+                modifier = Modifier.widthIn(min = timeMinWidth),
                 textAlign = TextAlign.Center,
             )
         }
@@ -571,6 +587,7 @@ private fun StandardPlayerProgress(colorScheme: ColorScheme) {
 fun StandardBottomPlayer(
     colorScheme: ColorScheme,
     toggleWindowFullscreen: () -> Unit,
+    floating: Boolean = false,
 ) {
     val castState by PlayerState.castManager.state.collectAsState()
     val deviceConnectState by DesktopDeviceConnect.manager.remote.state
@@ -581,19 +598,34 @@ fun StandardBottomPlayer(
     var showDetailsDialog by remember { mutableStateOf(false) }
     var showCastDialog by remember { mutableStateOf(false) }
 
-    // Switch during composition so open popups dispose before Compose measures their owners.
-    val windowWidth = LocalWindowInfo.current.containerSize.width
-    val width = with(LocalDensity.current) { windowWidth.toDp() }
+    // MinMusic desktop layout (spec 3.6): the bar follows the window width class (Compact 64 / Medium 80 / Full 88,
+    // 72 when Short), read from the layout metrics so it only switches when a class flips, never per resize frame.
+    val metrics = LocalDesktopLayoutMetrics.current
+    val mmBar = isMinMusicPlayer()
+    val barHeight = if (mmBar) metrics.playerBarHeight else BottomPlayerHeight
+    // Docked full-width (default) or floating rounded (Settings -> Appearance).
+    val barShape = RoundedCornerShape(if (floating) 20.dp else 0.dp)
+    val barColor =
+        if (colorScheme.background.luminance() > 0.5f) colorScheme.surfaceContainerLowest else colorScheme.surfaceContainerLow
 
     Box(
         modifier =
             Modifier
                 .fillMaxWidth()
+                .then(
+                    if (floating) {
+                        Modifier.padding(start = 8.dp, end = 8.dp, bottom = 8.dp).shadow(8.dp, barShape)
+                    } else {
+                        Modifier
+                    },
+                ).clip(barShape)
                 .cursorContextMenu(playerMenu)
-                .background(colorScheme.surfaceContainer),
+                .background(barColor),
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
-            StandardPlayerProgress(colorScheme)
+            if (!mmBar) {
+                StandardPlayerProgress(colorScheme)
+            }
             if (PlayerState.isReconnecting) {
                 Text(
                     stringResource(Res.string.playback_reconnecting),
@@ -606,11 +638,10 @@ fun StandardBottomPlayer(
             val artists = PlayerState.currentTrack?.artists ?: emptyList()
             val isLiked = PlayerState.currentTrack?.let { PlayerState.isLiked(it.id) } == true
 
-            val isCompact = width < 600.dp
-            val isMedium = width >= 600.dp && width < 960.dp
-            val isExpanded = width >= 960.dp && width < 1280.dp
-            val isLargeOrExtraLarge = width >= 1280.dp
-            val isWide = isExpanded || isLargeOrExtraLarge
+            val isCompact = metrics.isCompact
+            val isMedium = metrics.isMedium
+            val isExpanded = metrics.isExpanded
+            val isWide = isExpanded
 
             val controlsButtonHeight =
                 if (isCompact) {
@@ -623,7 +654,7 @@ fun StandardBottomPlayer(
 
             if (isCompact) {
                 Row(
-                    modifier = Modifier.fillMaxWidth().height(BottomPlayerHeight).padding(horizontal = 16.dp),
+                    modifier = Modifier.fillMaxWidth().height(barHeight).padding(horizontal = 16.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Row(
@@ -639,7 +670,7 @@ fun StandardBottomPlayer(
                         Box(
                             modifier =
                                 Modifier
-                                    .songThumbSize(PlayerState.currentTrack, 44.dp)
+                                    .songThumbSize(PlayerState.currentTrack, if (mmBar) metrics.playerBarArtSize else 44.dp)
                                     .clip(RoundedCornerShape(uiEnhanced(4.dp, 8.dp)))
                                     .hoverable(compactCoverInteractionSource)
                                     .clickable(
@@ -872,7 +903,7 @@ fun StandardBottomPlayer(
                 val sectionGap = if (isWide) 16.dp else 8.dp
 
                 Row(
-                    modifier = Modifier.fillMaxWidth().height(BottomPlayerHeight).padding(horizontal = horizontalPadding),
+                    modifier = Modifier.fillMaxWidth().height(barHeight).padding(horizontal = horizontalPadding),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     val songInfoSection: @Composable (Modifier, Boolean) -> Unit = { sectionModifier, isCentered ->
@@ -890,7 +921,7 @@ fun StandardBottomPlayer(
                             Box(
                                 modifier =
                                     Modifier
-                                        .songThumbSize(PlayerState.currentTrack, 48.dp)
+                                        .songThumbSize(PlayerState.currentTrack, if (mmBar) metrics.playerBarArtSize else 48.dp)
                                         .clip(RoundedCornerShape(uiEnhanced(4.dp, 8.dp)))
                                         .hoverable(standardCoverInteractionSource)
                                         .clickable(
@@ -1040,8 +1071,22 @@ fun StandardBottomPlayer(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = if (swapControls) Arrangement.Start else Arrangement.Center,
                         ) {
-                            if (!isListenTogetherGuest && isMinMusicPlayer()) {
-                                MmDesktopBarTransport(playButtonSize = if (isMedium) 44.dp else 48.dp)
+                            if (mmBar) {
+                                // Centre zone: transport, then time / progress / time under it (<= 640, 440 in Medium).
+                                CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
+                                    Column(
+                                        modifier = Modifier.widthIn(max = if (isWide) 640.dp else 440.dp).fillMaxWidth(),
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        verticalArrangement = Arrangement.spacedBy(2.dp, Alignment.CenterVertically),
+                                    ) {
+                                        if (!isListenTogetherGuest) {
+                                            MmDesktopBarTransport(playButtonSize = metrics.playerBarPlaySize)
+                                        }
+                                        Box(Modifier.fillMaxWidth().height(20.dp), contentAlignment = Alignment.Center) {
+                                            StandardPlayerProgress(colorScheme, inline = true)
+                                        }
+                                    }
+                                }
                             } else if (!isListenTogetherGuest) {
                                 if (Settings.shared.playerType == PlayerType.VINTAGE ||
                                     Settings.shared.playerType == PlayerType.CLASSIC
@@ -1134,7 +1179,8 @@ fun StandardBottomPlayer(
                     } else {
                         songInfoSection(Modifier.weight(1f), false)
                         Spacer(Modifier.width(sectionGap))
-                        controlsSection(Modifier)
+                        // MinMusic: three zones 1fr / centre / 1fr so the transport and progress stay centred.
+                        controlsSection(if (mmBar) Modifier.weight(if (isWide) 1.4f else 1.2f) else Modifier)
                         Spacer(Modifier.width(sectionGap))
                     }
 
@@ -1188,6 +1234,9 @@ fun StandardBottomPlayer(
                 }
             }
         }
+        if (mmBar && metrics.isCompact) {
+            CompactBarProgressLine(Modifier.align(Alignment.TopCenter))
+        }
     }
 
     PopupVisibility(visible = showCastDialog) {
@@ -1204,6 +1253,35 @@ fun StandardBottomPlayer(
             onDismiss = { showDetailsDialog = false },
         )
     }
+}
+
+/** Compact bar (spec 3.6): a 2 dp brand-gradient progress line on the top edge with a 16 dp hit area; a click seeks. */
+@Composable
+private fun CompactBarProgressLine(modifier: Modifier = Modifier) {
+    val position = PlayerState.playbackPosition.collectAsState()
+    val duration = PlayerState.playbackDuration.collectAsState()
+    val gradient = LocalBrand.current.gradient
+    val trackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
+    val canSeek = !ListenTogetherState.isListenTogetherGuest() && !playerIsLiveStream()
+    Box(
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .height(16.dp)
+                .pointerInput(canSeek) {
+                    if (canSeek) {
+                        detectTapGestures { offset ->
+                            if (size.width > 0) PlayerState.seekTo((offset.x / size.width).coerceIn(0f, 1f))
+                        }
+                    }
+                }.drawBehind {
+                    val total = duration.value
+                    val fraction = if (total > 0L) (position.value.toFloat() / total).coerceIn(0f, 1f) else 0f
+                    val lineHeight = 2.dp.toPx()
+                    drawRect(color = trackColor, size = Size(size.width, lineHeight))
+                    if (fraction > 0f) drawRect(brush = gradient, size = Size(size.width * fraction, lineHeight))
+                },
+    )
 }
 
 internal fun shouldShowVideoButton(): Boolean {

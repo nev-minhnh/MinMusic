@@ -40,10 +40,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.metrolist.desktop.state.app.DesktopNavigation
 import com.metrolist.desktop.state.playback.PlayerState
 import com.metrolist.desktop.ui.components.SongContextMenu
+import com.metrolist.desktop.ui.layouts.LocalDesktopLayoutMetrics
 import com.metrolist.shared.generated.resources.Res
 import com.metrolist.shared.generated.resources.artist_play_all
 import com.metrolist.shared.generated.resources.back
@@ -69,6 +71,7 @@ import com.metrolist.shared.ui.components.minmusic.mmChartSourceLabel
 import com.metrolist.shared.ui.components.minmusic.rememberMmChartsState
 import com.metrolist.shared.ui.icons.MetrolistIcons
 import com.metrolist.shared.ui.menu.contextMenuAnchor
+import com.metrolist.shared.ui.menu.onSecondaryClick
 import com.metrolist.shared.ui.menu.rememberCursorContextMenuState
 import kotlinx.coroutines.flow.distinctUntilChanged
 import org.jetbrains.compose.resources.stringResource
@@ -103,6 +106,7 @@ fun SourceChartsScreen(
     val page = selected?.let { state.page(it) }
 
     val listState = rememberLazyListState()
+    val gutter = LocalDesktopLayoutMetrics.current.gutter
     var shownKey by rememberSaveable { mutableStateOf<String?>(null) }
     LaunchedEffect(selected?.key, tabs) {
         val tab = selected ?: return@LaunchedEffect
@@ -144,7 +148,7 @@ fun SourceChartsScreen(
                 }
             }
             if (chartSources.size > 1) {
-                ChipRow {
+                ChipRow(gutter) {
                     chartSources.forEach { source ->
                         MmChip(
                             text = mmChartSourceLabel(source),
@@ -156,7 +160,7 @@ fun SourceChartsScreen(
                 }
             }
             if (sourceCharts.size > 1) {
-                ChipRow {
+                ChipRow(gutter) {
                     sourceCharts.forEach { tab ->
                         MmChip(
                             text = tab.title,
@@ -206,6 +210,7 @@ fun SourceChartsScreen(
                                 contextMenu.open()
                             },
                             onLoadMoreRetry = { state.loadMore(selected) },
+                            gutter = gutter,
                         )
                     }
                 }
@@ -233,6 +238,7 @@ private fun ChartList(
     onShuffle: (List<SongItem>) -> Unit,
     onSongMenu: (SongItem) -> Unit,
     onLoadMoreRetry: () -> Unit,
+    gutter: Dp = 16.dp,
 ) {
     val songs = page.songs
     val rankWidth = if (songs.size >= 100) 40.dp else 32.dp
@@ -242,7 +248,7 @@ private fun ChartList(
         contentPadding = PaddingValues(bottom = 32.dp),
     ) {
         item(key = "chart_actions", contentType = "chart_actions") {
-            Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
+            Column(Modifier.fillMaxWidth().padding(horizontal = gutter, vertical = 12.dp)) {
                 Text(
                     text = stringResource(Res.string.mm_charts_song_count, songs.size),
                     style = MaterialTheme.typography.labelSmall,
@@ -278,6 +284,8 @@ private fun ChartList(
                 isPlaying = isCurrent && isPlaying,
                 onClick = { onPlay(songs, index) },
                 onShowMenu = { onSongMenu(song) },
+                startPadding = gutter,
+                modifier = Modifier.onSecondaryClick { onSongMenu(song) },
             )
         }
         if (page.isLoadingMore || page.loadMoreFailed) {
@@ -302,13 +310,16 @@ private fun ChartList(
 }
 
 @Composable
-private fun ChipRow(content: @Composable () -> Unit) {
+private fun ChipRow(
+    gutter: Dp,
+    content: @Composable () -> Unit,
+) {
     Row(
         modifier =
             Modifier
                 .fillMaxWidth()
                 .horizontalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp, vertical = 4.dp),
+                .padding(horizontal = gutter, vertical = 4.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

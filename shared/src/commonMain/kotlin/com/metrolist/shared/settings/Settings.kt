@@ -941,6 +941,10 @@ class Settings(
     var desktopMiniPlayerOnMinimize by preference("desktopMiniPlayerOnMinimize", false)
     var desktopMiniPlayerPosition by preference("desktopMiniPlayerPosition", "")
     var desktopTaskbarButtons by preference("desktopTaskbarButtons", true)
+
+    // MinMusic (Windows desktop): sidebar docked/rail state and width (216-320 dp).
+    var desktopSidebarDocked by preference("desktopSidebarDocked", true)
+    var desktopSidebarWidth by preference("desktopSidebarWidth", 256)
     var waylandDefaultFrameApplied by preference(false)
     var disableWaylandScaleFix by preference(false)
     var macDefaultFrameApplied by preference(false)
@@ -959,8 +963,8 @@ class Settings(
     )
     var desktopWindowPosition by preference(DesktopWindowPositionKey, "")
     var desktopWindowPlacement by preference(DesktopWindowPlacementKey, "")
-    var savedWidth by preference(1080)
-    var savedHeight by preference(720)
+    var savedWidth by preference(1280)
+    var savedHeight by preference(800)
 
     // Read these non-reactive payloads on demand to avoid retaining a second copy in Compose state.
     private fun blobPreference(key: String): ReadWriteProperty<Settings, String> {

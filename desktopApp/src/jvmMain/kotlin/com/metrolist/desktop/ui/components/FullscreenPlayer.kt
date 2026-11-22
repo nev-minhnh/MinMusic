@@ -75,6 +75,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.metrolist.desktop.state.app.UiState
 import com.metrolist.desktop.state.playback.PlayerState
+import com.metrolist.desktop.ui.layouts.DesktopLayoutRules
 import com.metrolist.shared.generated.resources.Res
 import com.metrolist.shared.generated.resources.close_fullscreen_player
 import com.metrolist.shared.generated.resources.exit_expanded_mode
@@ -139,12 +140,21 @@ fun FullscreenPlayerView(
             else -> WindowInsets(0)
         }
 
-    Box(
+    // Measure the real window here: the two-pane rule and the artwork formula use the window size (spec 3.7).
+    BoxWithConstraints(
         modifier =
             Modifier
                 .fillMaxSize()
                 .background(baseBackgroundColor)
-                .focusRequester(fullscreenFocusRequester)
+                .onPreviewKeyEvent { event ->
+                    // F11: lyrics fullscreen (desktop-layout-spec 5.5).
+                    if (event.type == KeyEventType.KeyDown && event.key == Key.F11 && PlayerState.isExpanded) {
+                        FullPlayerLyricsMode.toggle()
+                        true
+                    } else {
+                        false
+                    }
+                }.focusRequester(fullscreenFocusRequester)
                 .onFocusChanged { onBackgroundFocusChanged(it.isFocused) }
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
@@ -152,6 +162,9 @@ fun FullscreenPlayerView(
                     onClick = {},
                 ),
     ) {
+        val windowWidth = maxWidth
+        val windowHeight = maxHeight
+        val twoPanes = DesktopLayoutRules.fullPlayerTwoPanes(windowWidth, windowHeight)
         when (playerBackgroundStyle) {
             PlayerBackgroundStyle.GRADIENT,
             PlayerBackgroundStyle.ANIMATED_GRADIENT,
@@ -215,7 +228,8 @@ fun FullscreenPlayerView(
                 artworkScrimAlpha = 0.5f,
                 artworkSaturation = 1.25f,
                 isLiquid = playerBackgroundStyle == PlayerBackgroundStyle.LIQUID,
-                visible = UiState.showLyricsDrawer,
+                // The two-pane player always shows its lyrics pane.
+                visible = UiState.showLyricsDrawer || twoPanes,
             )
         }
         BoxWithConstraints(
@@ -231,16 +245,18 @@ fun FullscreenPlayerView(
                 } else {
                     420.dp
                 }
-            val queueDrawerOpen = UiState.showPersistentPlayerDrawer
+            // Two panes: the queue is a tab of the right pane. One pane: an overlay drawer (full-height layer).
+            val queueDrawerOpen = UiState.showPersistentPlayerDrawer && !twoPanes
             SideEffect {
                 if (PlayerState.isExpanded) {
-                    UiState.playerPanels.canShowBoth = availableWidth - preferredWidth > 900.dp
+                    // Lyrics and queue are alternatives (tabs / layers) in the full player.
+                    UiState.playerPanels.canShowBoth = false
                 }
             }
-            val dockQueue = availableWidth >= 760.dp
+            val dockQueue = false
             val queueDrawerWidth =
                 if (queueDrawerOpen) {
-                    minOf(preferredWidth, if (dockQueue) availableWidth - 480.dp else availableWidth)
+                    minOf(preferredWidth, availableWidth)
                 } else {
                     0.dp
                 }
@@ -259,7 +275,9 @@ fun FullscreenPlayerView(
                         currentTrack = currentTrack,
                         isPlaying = isPlaying,
                         availableHeight = maxHeight,
-                        isWide = isWide,
+                        windowWidth = windowWidth,
+                        windowHeight = windowHeight,
+                        twoPanes = twoPanes,
                         toggleWindowFullscreen = toggleFullscreen,
                         closeExpandedPlayer = ::closeExpandedPlayer,
                     )

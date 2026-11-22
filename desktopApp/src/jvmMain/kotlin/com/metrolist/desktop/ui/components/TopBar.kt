@@ -139,6 +139,8 @@ import com.metrolist.desktop.storage.DownloadManager
 import com.metrolist.desktop.storage.DownloadState
 import com.metrolist.desktop.storage.downloadQueueSummary
 import com.metrolist.desktop.ui.layouts.AccountMenu
+import com.metrolist.desktop.ui.layouts.ChromeIconButton
+import com.metrolist.desktop.ui.layouts.LocalDesktopLayoutMetrics
 import com.metrolist.desktop.utils.WindowDragHandle
 import com.metrolist.desktop.window.jna.structure.isWindows10OrLater
 import com.metrolist.shared.generated.resources.Res
@@ -158,6 +160,7 @@ import com.metrolist.shared.generated.resources.errors
 import com.metrolist.shared.generated.resources.exit_fullscreen
 import com.metrolist.shared.generated.resources.expand
 import com.metrolist.shared.generated.resources.fullscreen
+import com.metrolist.shared.generated.resources.go_back
 import com.metrolist.shared.generated.resources.loading
 import com.metrolist.shared.generated.resources.lyrics
 import com.metrolist.shared.generated.resources.menu_repeat_all
@@ -165,6 +168,8 @@ import com.metrolist.shared.generated.resources.menu_repeat_off
 import com.metrolist.shared.generated.resources.menu_repeat_one
 import com.metrolist.shared.generated.resources.menu_shuffle_off
 import com.metrolist.shared.generated.resources.menu_shuffle_on
+import com.metrolist.shared.generated.resources.mm_desk_go_forward
+import com.metrolist.shared.generated.resources.mm_desk_search_placeholder
 import com.metrolist.shared.generated.resources.next
 import com.metrolist.shared.generated.resources.pause
 import com.metrolist.shared.generated.resources.play
@@ -188,6 +193,7 @@ import com.metrolist.shared.settings.Settings
 import com.metrolist.shared.settings.displayName
 import com.metrolist.shared.ui.components.playbackMarquee
 import com.metrolist.shared.ui.icons.MetrolistIcons
+import com.metrolist.shared.ui.navigation.LocalNavigator
 import com.metrolist.shared.ui.navigation.navigationPopupSource
 import com.metrolist.shared.ui.theme.uiEnhanced
 import com.metrolist.shared.ui.utils.DragScrollableColumn
@@ -196,7 +202,6 @@ import com.metrolist.shared.utils.OsUtil
 import org.jetbrains.compose.resources.stringResource
 
 val LocalCaptionBarInsets = staticCompositionLocalOf { WindowInsets(0) }
-internal val DesktopTitleBarHeight = 48.dp
 
 @Composable
 fun WindowScope.CustomTitleBar(
@@ -213,13 +218,11 @@ fun WindowScope.CustomTitleBar(
 ) {
     var showAccountPanel by remember { mutableStateOf(false) }
 
-    val adaptiveInfo = currentWindowAdaptiveInfoV2()
-    val isWindowTight = adaptiveInfo.windowSizeClass.minWidthDp < 960
-    val searchWidth =
-        when {
-            isWindowTight -> 280.dp
-            else -> 420.dp
-        }
+    // MinMusic (desktop-layout-spec 3.3): [back][forward] [search] ... [download activity][avatar] [- □ x].
+    val metrics = LocalDesktopLayoutMetrics.current
+    val titleBarHeight = metrics.titleBarHeight
+    val searchWidth = metrics.searchFieldWidth
+    val navigator = LocalNavigator.current
 
     val isMacOS = OsUtil.isMac
 
@@ -231,57 +234,59 @@ fun WindowScope.CustomTitleBar(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .height(DesktopTitleBarHeight)
-                    .background(colorScheme.surfaceContainer)
+                    .height(titleBarHeight)
+                    .background(colorScheme.background)
                     .windowInsetsPadding(LocalCaptionBarInsets.current.only(WindowInsetsSides.Right))
-                    .padding(horizontal = 8.dp),
+                    .padding(start = metrics.gutter - 8.dp, end = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            if (isMacOS) {
+                Spacer(Modifier.width(12.dp))
+            }
+            ChromeIconButton(
+                icon = MetrolistIcons.AutoMirrored.Filled.ArrowBack,
+                contentDescription = stringResource(Res.string.go_back),
+                tooltip = stringResource(Res.string.go_back) + "  Alt ←",
+                onClick = { navigator.goBack() },
+                size = 36.dp,
+                enabled = navigator.canGoBack,
+            )
+            ChromeIconButton(
+                icon = MetrolistIcons.AutoMirrored.Filled.ArrowForward,
+                contentDescription = stringResource(Res.string.mm_desk_go_forward),
+                tooltip = stringResource(Res.string.mm_desk_go_forward) + "  Alt →",
+                onClick = { navigator.goForward() },
+                size = 36.dp,
+                enabled = navigator.canGoForward,
+            )
+            Spacer(Modifier.width(12.dp))
+            if (!hideSearch && searchWidth > 0.dp) {
+                M3ExpressiveSearchBar(
+                    searchText = searchText,
+                    onSearchChange = onSearchChange,
+                    onSearchFocusChange = onSearchFocusChange,
+                    requestBackgroundFocus = requestBackgroundFocus,
+                    colorScheme = colorScheme,
+                    searchWidth = searchWidth,
+                    fieldHeight = metrics.searchFieldHeight,
+                    minMusicStyle = true,
+                )
+            }
+            Spacer(Modifier.weight(1f))
             Row(
-                modifier = Modifier.weight(1f),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Start,
+                horizontalArrangement = Arrangement.End,
             ) {
-                if (isMacOS) {
-                    Spacer(Modifier.width(12.dp))
-                }
+                PlaylistImportProgressIndicator()
+                ExpressiveDownloadIndicatorPill(colorScheme)
+                navItems()
+                DevtoolsButton(colorScheme)
                 AccountMenuButton(
                     showAccountMenu = showAccountPanel,
                     onToggleAccountMenu = { showAccountPanel = !showAccountPanel },
                     onDismissAccountMenu = { showAccountPanel = false },
                     colorScheme = colorScheme,
                 )
-                navItems()
-                DevtoolsButton(colorScheme)
-            }
-
-            Box(
-                modifier = Modifier.weight(2f),
-                contentAlignment = Alignment.Center,
-            ) {
-                if (hideSearch) {
-                    IconButton(onClick = { UiState.showFloatingSearch = true }, shapes = IconButtonDefaults.shapes()) {
-                        Icon(MetrolistIcons.Default.Search, contentDescription = stringResource(Res.string.search))
-                    }
-                } else {
-                    M3ExpressiveSearchBar(
-                        searchText = searchText,
-                        onSearchChange = onSearchChange,
-                        onSearchFocusChange = onSearchFocusChange,
-                        requestBackgroundFocus = requestBackgroundFocus,
-                        colorScheme = colorScheme,
-                        searchWidth = searchWidth,
-                    )
-                }
-            }
-
-            Row(
-                modifier = Modifier.weight(1f),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.End,
-            ) {
-                PlaylistImportProgressIndicator()
-                ExpressiveDownloadIndicatorPill(colorScheme)
             }
         }
     }
@@ -289,7 +294,7 @@ fun WindowScope.CustomTitleBar(
     if (isMacOS && !Settings.shared.enableSystemWindowFrame) {
         val trafficLightOffset = if (UiState.isNativeFullscreen) 0.dp else 78.dp
         Row(
-            modifier = Modifier.fillMaxWidth().height(DesktopTitleBarHeight).background(colorScheme.surfaceContainer),
+            modifier = Modifier.fillMaxWidth().height(titleBarHeight).background(colorScheme.background),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             if (trafficLightOffset > 0.dp) Spacer(Modifier.width(trafficLightOffset))
@@ -355,7 +360,7 @@ fun WindowScope.TopBarWithPlayer(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .height(DesktopTitleBarHeight)
+                    .height(LocalDesktopLayoutMetrics.current.titleBarHeight)
                     .background(bgColor)
                     .windowInsetsPadding(LocalCaptionBarInsets.current.only(WindowInsetsSides.Right))
                     .padding(horizontal = 8.dp),
@@ -721,7 +726,7 @@ fun WindowScope.TopBarWithPlayer(
     if (isMacOS && !Settings.shared.enableSystemWindowFrame) {
         val trafficLightOffset = if (UiState.isNativeFullscreen) 0.dp else 78.dp
         Row(
-            modifier = Modifier.fillMaxWidth().height(DesktopTitleBarHeight).background(colorScheme.surfaceContainer),
+            modifier = Modifier.fillMaxWidth().height(LocalDesktopLayoutMetrics.current.titleBarHeight).background(colorScheme.surfaceContainer),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             if (trafficLightOffset > 0.dp) Spacer(Modifier.width(trafficLightOffset))
@@ -824,6 +829,8 @@ fun M3ExpressiveSearchBar(
     requestBackgroundFocus: () -> Unit,
     modifier: Modifier = Modifier,
     searchWidth: Dp = 420.dp,
+    fieldHeight: Dp = 36.dp,
+    minMusicStyle: Boolean = false,
 ) {
     val focusRequester = remember { FocusRequester() }
     var isSearchFocused by remember { mutableStateOf(false) }
@@ -901,16 +908,25 @@ fun M3ExpressiveSearchBar(
     }
 
     val animatedWidth by animateDpAsState(
-        targetValue = if (isSearchFocused) searchWidth + 36.dp else searchWidth,
+        targetValue = if (isSearchFocused && !minMusicStyle) searchWidth + 36.dp else searchWidth,
         animationSpec = spring(dampingRatio = 0.75f, stiffness = 350f),
     )
     val containerColor by animateColorAsState(
-        targetValue = if (isSearchFocused) colorScheme.surfaceContainerHigh else colorScheme.surfaceContainerHigh.copy(alpha = 0.65f),
+        targetValue =
+            when {
+                // MinMusic: surface1 at rest, the stage colour with a 2 dp accent ring while focused.
+                minMusicStyle && isSearchFocused -> colorScheme.background
+                minMusicStyle -> colorScheme.surfaceContainerLow
+                isSearchFocused -> colorScheme.surfaceContainerHigh
+                else -> colorScheme.surfaceContainerHigh.copy(alpha = 0.65f)
+            },
         animationSpec = spring(dampingRatio = 0.8f, stiffness = 400f),
     )
     val borderColor by animateColorAsState(
         targetValue =
-            if (isSearchFocused) {
+            if (minMusicStyle) {
+                if (isSearchFocused) colorScheme.primary else Color.Transparent
+            } else if (isSearchFocused) {
                 colorScheme.outlineVariant.copy(
                     alpha = 0.5f,
                 )
@@ -920,7 +936,7 @@ fun M3ExpressiveSearchBar(
         animationSpec = spring(dampingRatio = 0.8f, stiffness = 400f),
     )
 
-    val shortcutBadgeText = if (OsUtil.isMac) "⌘K" else "Ctrl+K"
+    val shortcutBadgeText = if (OsUtil.isMac) "⌘K" else if (minMusicStyle) "Ctrl K" else "Ctrl+K"
 
     val searchMusicDesc = stringResource(Res.string.search_music)
 
@@ -945,10 +961,10 @@ fun M3ExpressiveSearchBar(
                 Modifier
                     .focusRequester(focusRequester)
                     .fillMaxWidth()
-                    .height(36.dp)
+                    .height(fieldHeight)
                     .semantics { contentDescription = searchMusicDesc }
                     .background(containerColor, CircleShape)
-                    .border(BorderStroke(1.dp, borderColor), CircleShape)
+                    .border(BorderStroke(if (minMusicStyle) 2.dp else 1.dp, borderColor), CircleShape)
                     .onFocusChanged {
                         if (Settings.shared.floatingSearch && it.isFocused) {
                             // clearFocus() during dismissal can refocus this field before the overlay closes.
@@ -1047,7 +1063,9 @@ fun M3ExpressiveSearchBar(
                     Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
                         if (searchText.isEmpty()) {
                             Text(
-                                stringResource(Res.string.search_placeholder),
+                                stringResource(if (minMusicStyle) Res.string.mm_desk_search_placeholder else Res.string.search_placeholder),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
                                 color = colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                                 style = MaterialTheme.typography.bodyMedium,
                             )
