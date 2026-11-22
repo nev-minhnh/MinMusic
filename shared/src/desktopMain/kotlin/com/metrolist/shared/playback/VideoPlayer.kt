@@ -1111,14 +1111,16 @@ actual class VideoPlayer actual constructor(
         var currentFrame: VideoFrame? = null
         // Created on the first video frame, not in the constructor: the 8 holders exist as soon as a VideoPlayer does (audio
         // only included), and the headless core sidecar must not load Skia for them.
-        private val planeYLazy = lazy { Bitmap() }
-        private val planeULazy = lazy { Bitmap() }
-        private val planeVLazy = lazy { Bitmap() }
-        private val bgraLazy = lazy { Bitmap() }
-        val planeY: Bitmap by planeYLazy
-        val planeU: Bitmap by planeULazy
-        val planeV: Bitmap by planeVLazy
-        val bgraBitmap: Bitmap by bgraLazy
+        // Plain nullable fields, not `lazy {}`: a lambda returning Bitmap is linked through invokedynamic when the holder is
+        // constructed, and that already loads org.jetbrains.skia.Bitmap.
+        private var planeYOrNull: Bitmap? = null
+        private var planeUOrNull: Bitmap? = null
+        private var planeVOrNull: Bitmap? = null
+        private var bgraOrNull: Bitmap? = null
+        val planeY: Bitmap get() = planeYOrNull ?: Bitmap().also { planeYOrNull = it }
+        val planeU: Bitmap get() = planeUOrNull ?: Bitmap().also { planeUOrNull = it }
+        val planeV: Bitmap get() = planeVOrNull ?: Bitmap().also { planeVOrNull = it }
+        val bgraBitmap: Bitmap get() = bgraOrNull ?: Bitmap().also { bgraOrNull = it }
 
         var yAddr: Long = 0L
         var uAddr: Long = 0L
@@ -1179,10 +1181,10 @@ actual class VideoPlayer actual constructor(
             synchronized(imageLock) {
                 currentFrame?.close()
                 currentFrame = null
-                if (planeYLazy.isInitialized()) planeY.reset()
-                if (planeULazy.isInitialized()) planeU.reset()
-                if (planeVLazy.isInitialized()) planeV.reset()
-                if (bgraLazy.isInitialized()) bgraBitmap.reset()
+                planeYOrNull?.reset()
+                planeUOrNull?.reset()
+                planeVOrNull?.reset()
+                bgraOrNull?.reset()
                 yAddr = 0L
                 uAddr = 0L
                 vAddr = 0L
