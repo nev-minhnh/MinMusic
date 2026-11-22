@@ -90,6 +90,7 @@ import com.metrolist.shared.generated.resources.action_like
 import com.metrolist.shared.generated.resources.cd_playback_position
 import com.metrolist.shared.generated.resources.loading
 import com.metrolist.shared.generated.resources.lyrics
+import com.metrolist.shared.generated.resources.menu_stop
 import com.metrolist.shared.generated.resources.mm_player_eq_chip
 import com.metrolist.shared.generated.resources.mm_player_eq_chip_profile
 import com.metrolist.shared.generated.resources.mm_player_queue_open
@@ -211,6 +212,8 @@ fun TabletPlayerBar(
     onOpenLyrics: () -> Unit,
     onOpenQueue: () -> Unit,
     modifier: Modifier = Modifier,
+    // Stops playback and hides the bar (the rail's menu button then returns to the bottom).
+    onDismiss: (() -> Unit)? = null,
     bottomSheetState: BottomSheetState? = null,
     cardFocusRequester: FocusRequester? = null,
 ) {
@@ -411,6 +414,7 @@ fun TabletPlayerBar(
                         },
                         onPress = { hapticManager.perform(HapticEvent.PRESS) },
                         songZone = songZone,
+                        onDismiss = onDismiss,
                     )
                 }
                 if (docked) {
@@ -471,6 +475,16 @@ fun TabletPlayerBar(
                             label = stringResource(Res.string.tablet_bar_open_player),
                             onClick = expand,
                         )
+                        if (onDismiss != null) {
+                            BarIconButton(
+                                icon = MetrolistIcons.Outlined.Close,
+                                label = stringResource(Res.string.menu_stop),
+                                onClick = {
+                                    hapticManager.perform(HapticEvent.PRESS)
+                                    onDismiss()
+                                },
+                            )
+                        }
                     }
                 }
                 if (Settings.shared.showExpressiveMiniPlayerProgress) {
@@ -508,6 +522,7 @@ private fun TabletBarFullLayout(
     onOpenQueue: () -> Unit,
     onPress: () -> Unit,
     songZone: @Composable (Modifier) -> Unit,
+    onDismiss: (() -> Unit)? = null,
 ) {
     val shuffled by player.shuffleModeEnabled.collectAsState()
     val repeatMode by player.repeatMode.collectAsState()
@@ -638,6 +653,16 @@ private fun TabletBarFullLayout(
                     label = stringResource(Res.string.tablet_bar_open_player),
                     onClick = onExpand,
                 )
+                if (onDismiss != null) {
+                    BarIconButton(
+                        icon = MetrolistIcons.Outlined.Close,
+                        label = stringResource(Res.string.menu_stop),
+                        onClick = {
+                            onPress()
+                            onDismiss()
+                        },
+                    )
+                }
             }
         }
     }

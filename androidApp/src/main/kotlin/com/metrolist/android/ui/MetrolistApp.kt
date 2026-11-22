@@ -915,6 +915,8 @@ fun MetrolistApp(
         val isModernMiniPlayer = Settings.shared.miniPlayerType == MiniPlayerType.MODERN && !useDesktopMiniPlayer
         val miniPlayerBottomSpacing =
             when {
+                // Tablets: every mini player type sits flush on the bottom edge (owner, 1.0.4).
+                useTabletNavigation -> 0.dp
                 dockedPlayerBar -> 0.dp
                 // Floating tablet bar: 8 dp above the gesture area (tablet spec 5.5).
                 useTabletPlayerBar -> 8.dp
@@ -950,7 +952,16 @@ fun MetrolistApp(
             }
         val miniPlayerInsets =
             calculateMiniPlayerInsets(
-                systemBottomInset = if (shouldRenderMiniPlayer) safeBottomPadding else navigationBarBottomPadding,
+                systemBottomInset =
+                    if (!shouldRenderMiniPlayer) {
+                        navigationBarBottomPadding
+                    } else if (useTabletNavigation) {
+                        // Tablets: flush with the bottom edge under gesture navigation (content may sit under the
+                        // gesture handle); stay above a real 3-button navigation bar.
+                        if (navigationBarBottomPadding >= 40.dp) navigationBarBottomPadding else 0.dp
+                    } else {
+                        safeBottomPadding
+                    },
                 navigationBottomInset = navigationBottomInset,
                 navigationConsumesSpace = navigationConsumesSpace,
                 playerHeight = if (shouldRenderMiniPlayer) miniPlayerHeight else 0.dp,
@@ -1533,7 +1544,10 @@ fun MetrolistApp(
                                 tabletNavigation = useTabletNavigation,
                                 tabletSidebar = tabletSidebar,
                                 // The rail/sidebar ends above the docked player bar (L-shaped frame).
-                                tabletNavigationBottomInset = if (dockedPlayerBar && shouldRenderMiniPlayer) miniPlayerHeight else 0.dp,
+                                // Use the bar's real collapsed top (height + its bottom offset) plus a small gap, so the
+                                // rail's menu button always sits above the bar and drops back when the bar is closed.
+                                tabletNavigationBottomInset =
+                                    if (dockedPlayerBar && shouldRenderMiniPlayer) miniPlayerCollapsedBound + 8.dp else 0.dp,
                                 onToggleTabletSidebar =
                                     if (tabletSidebarAvailable) {
                                         { Settings.shared.tabletSidebarExpanded = !tabletSidebarPreferred }
@@ -2158,6 +2172,9 @@ fun MetrolistApp(
                                             bottomSheetState = playerBottomSheetState,
                                             cardFocusRequester = miniPlayerFocusRequester,
                                             modifier = miniPlayerModifier,
+                                            onDismiss = {
+                                                playerBottomSheetState.dismiss(playerConnection.prepareDismissal())
+                                            },
                                         )
                                     } else {
                                         MiniPlayer(
