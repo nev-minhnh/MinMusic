@@ -46,11 +46,9 @@ import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -145,6 +143,7 @@ import com.metrolist.shared.state.SongLikeState
 import com.metrolist.shared.ui.LocalIsTv
 import com.metrolist.shared.ui.components.CollectionPreviews
 import com.metrolist.shared.ui.components.PopupContent
+import com.metrolist.shared.ui.components.minmusic.MmBrandFab
 import com.metrolist.shared.ui.icons.MetrolistIcons
 import com.metrolist.shared.ui.menu.loadMediaItemSongs
 import com.metrolist.shared.ui.menu.rememberSongWithAlbum
@@ -599,17 +598,12 @@ fun SearchScreen(
                         .align(Alignment.BottomEnd)
                         .padding(end = 16.dp, bottom = maxOf(imeBottomInset, floatingActionsBottomInset.value) + 16.dp),
             ) {
-                FloatingActionButton(
+                // MinMusic brand action instead of the stock blue FAB.
+                MmBrandFab(
+                    icon = MetrolistIcons.Outlined.AudioCapture,
+                    contentDescription = stringResource(Res.string.recognize_music),
                     onClick = { navigator.navigate(Screen.Recognition) },
-                    shape = RoundedCornerShape(12.dp),
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                ) {
-                    Icon(
-                        imageVector = MetrolistIcons.Outlined.AudioCapture,
-                        contentDescription = stringResource(Res.string.recognize_music),
-                    )
-                }
+                )
             }
         }
     }

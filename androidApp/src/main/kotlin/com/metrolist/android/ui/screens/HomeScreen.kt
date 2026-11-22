@@ -9,34 +9,25 @@ package com.metrolist.android.ui.screens
 
 import android.content.res.Configuration
 import android.widget.Toast
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusGroup
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
@@ -57,10 +48,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.focusRestorer
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
-import androidx.compose.ui.input.nestedscroll.NestedScrollSource
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -72,20 +59,18 @@ import com.metrolist.android.LocalStartupPresentation
 import com.metrolist.android.playback.LocalPlayerConnection
 import com.metrolist.android.ui.component.AdaptiveModalBottomSheet
 import com.metrolist.android.ui.component.tabContentTopPadding
-import com.metrolist.android.ui.components.ErrorBox
 import com.metrolist.android.ui.components.handleItemClick
 import com.metrolist.android.ui.utils.playSong
 import com.metrolist.android.viewmodels.HomeViewModel
 import com.metrolist.shared.auth.AuthManager
 import com.metrolist.shared.db.MusicDatabase
 import com.metrolist.shared.generated.resources.Res
-import com.metrolist.shared.generated.resources.error_occurred
 import com.metrolist.shared.generated.resources.home_load_failed
 import com.metrolist.shared.generated.resources.home_offline_empty
+import com.metrolist.shared.generated.resources.mm_home_error_title
 import com.metrolist.shared.generated.resources.no_playable_items
 import com.metrolist.shared.generated.resources.pin_to_speed_dial
 import com.metrolist.shared.generated.resources.player_not_ready
-import com.metrolist.shared.generated.resources.recognize_music
 import com.metrolist.shared.generated.resources.refresh
 import com.metrolist.shared.generated.resources.refreshing
 import com.metrolist.shared.generated.resources.shuffle
@@ -102,6 +87,8 @@ import com.metrolist.shared.ui.components.HomeLoadingPlaceholder
 import com.metrolist.shared.ui.components.PopupVisibility
 import com.metrolist.shared.ui.components.RefreshIndicator
 import com.metrolist.shared.ui.components.minmusic.MmChartsShelf
+import com.metrolist.shared.ui.components.minmusic.MmErrorState
+import com.metrolist.shared.ui.components.minmusic.MmTonalPill
 import com.metrolist.shared.ui.components.minmusic.rememberMmVnCharts
 import com.metrolist.shared.ui.icons.MetrolistIcons
 import com.metrolist.shared.ui.navigation.LocalRootContentActive
@@ -185,25 +172,6 @@ fun HomeScreen(
     var isRefreshing by remember { mutableStateOf(false) }
     val showTopRefreshIndicator = isRefreshing || uiState.isRefreshing
     val isTv = LocalIsTv.current
-    var showFloatingActions by remember { mutableStateOf(true) }
-    val fabNestedScrollConnection =
-        remember {
-            object : NestedScrollConnection {
-                override fun onPreScroll(
-                    available: Offset,
-                    source: NestedScrollSource,
-                ): Offset {
-                    if (source == NestedScrollSource.UserInput) {
-                        when {
-                            available.y < -1f -> showFloatingActions = false
-                            available.y > 1f -> showFloatingActions = true
-                        }
-                    }
-                    return Offset.Zero
-                }
-            }
-        }
-
     val selectedChip = uiState.selectedChip
     // Charts shelf: only when Zing / NCT / SoundCloud are enabled and answered; never placeholder data.
     val vnCharts by rememberMmVnCharts()
@@ -350,28 +318,45 @@ fun HomeScreen(
                     }
 
                     !isOffline && !uiState.error.isNullOrBlank() -> {
-                        item {
-                            Column(
-                                modifier = Modifier.padding(16.dp),
-                            ) {
-                                Text(stringResource(Res.string.error_occurred))
-                                ErrorBox(stringResource(Res.string.home_load_failed))
-                                TextButton(onClick = { viewModel.shared.refresh {} }, shapes = ButtonDefaults.shapes()) {
-                                    Text(stringResource(Res.string.try_again))
-                                }
-                            }
+                        // One message, one retry. ErrorBox printed its own "An error occurred" under a second one.
+                        item(key = "home_error", contentType = "home_error") {
+                            MmErrorState(
+                                title = stringResource(Res.string.mm_home_error_title),
+                                message = stringResource(Res.string.home_load_failed),
+                                detail = uiState.error,
+                                retryLabel = stringResource(Res.string.try_again),
+                                onRetry = {
+                                    isRefreshing = true
+                                    viewModel.shared.refresh { isRefreshing = false }
+                                },
+                            )
                         }
                     }
 
                     else -> {
-                        item {
-                            ChipShelf(
-                                options = uiState.chips,
-                                selectedOption = selectedChip,
-                                onSelectionChange = viewModel.shared::toggleChip,
-                                label = { it.title },
-                                modifier = Modifier.padding(top = 1.dp),
-                            )
+                        item(key = "home_chips", contentType = "home_chips") {
+                            // "Shuffle" is a tonal action at the end of the chip row (tablet + phone design);
+                            // it replaces the old blue FABs that covered content and the mini player.
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(top = 1.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                ChipShelf(
+                                    options = uiState.chips,
+                                    selectedOption = selectedChip,
+                                    onSelectionChange = viewModel.shared::toggleChip,
+                                    label = { it.title },
+                                    modifier = Modifier.weight(1f),
+                                )
+                                if (!isTv) {
+                                    MmTonalPill(
+                                        text = shuffleText,
+                                        icon = MetrolistIcons.Rounded.Shuffle,
+                                        onClick = ::shuffleHomeContent,
+                                        modifier = Modifier.padding(end = 16.dp),
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -380,7 +365,7 @@ fun HomeScreen(
     }
 
     Box(
-        modifier = Modifier.fillMaxSize().nestedScroll(fabNestedScrollConnection),
+        modifier = Modifier.fillMaxSize(),
     ) {
         if (enablePullToRefresh) {
             val pullToRefreshState = rememberPullToRefreshState()
@@ -407,47 +392,6 @@ fun HomeScreen(
             }
         } else {
             homeContent()
-        }
-
-        if (!isTv) {
-            AnimatedVisibility(
-                visible = (LocalIsTv.current || showFloatingActions),
-                enter = fadeIn() + slideInVertically { it / 2 },
-                exit = fadeOut() + slideOutVertically { it / 2 },
-                modifier =
-                    Modifier
-                        .align(Alignment.BottomEnd)
-                        .padding(
-                            bottom = floatingActionsBottomInset.value,
-                        ),
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    SmallFloatingActionButton(
-                        onClick = onNavigateToRecognition,
-                        shape = RoundedCornerShape(8.dp),
-                        containerColor = MaterialTheme.colorScheme.primaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                    ) {
-                        Icon(
-                            imageVector = MetrolistIcons.Outlined.AudioCapture,
-                            contentDescription = stringResource(Res.string.recognize_music),
-                        )
-                    }
-                    FloatingActionButton(
-                        onClick = ::shuffleHomeContent,
-                        shape = RoundedCornerShape(12.dp),
-                    ) {
-                        Icon(
-                            imageVector = MetrolistIcons.Rounded.Shuffle,
-                            contentDescription = stringResource(Res.string.shuffle),
-                        )
-                    }
-                }
-            }
         }
     }
 

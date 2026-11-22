@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -19,8 +20,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.metrolist.shared.ui.theme.LocalBrand
@@ -90,6 +94,73 @@ fun MmTonalIconButton(
             contentDescription = contentDescription,
             tint = if (checked) colors.onPrimaryContainer else colors.onSurface,
             modifier = Modifier.size(24.dp),
+        )
+    }
+}
+
+/**
+ * The one floating action MinMusic uses: a 56 dp brand-gradient squircle (radius 18) with a dark icon.
+ * Replaces the stacked Material FABs (shuffle + recognize music) on Home.
+ */
+@Composable
+fun MmBrandFab(
+    icon: ImageVector,
+    contentDescription: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val brand = LocalBrand.current
+    val description = contentDescription
+    val interactionSource = remember { MutableInteractionSource() }
+    Box(
+        modifier =
+            modifier
+                .mmPressScale(interactionSource)
+                .size(56.dp)
+                .shadow(6.dp, RoundedCornerShape(18.dp))
+                .clip(RoundedCornerShape(18.dp))
+                .background(brand.gradient)
+                .clickable(
+                    interactionSource = interactionSource,
+                    indication = ripple(color = brand.onGradient),
+                    role = Role.Button,
+                    onClick = onClick,
+                ).semantics { this.contentDescription = description },
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(icon, contentDescription = null, tint = brand.onGradient, modifier = Modifier.size(24.dp))
+    }
+}
+
+/** Tonal 32 dp pill (icon + label) for secondary actions in a chip row, such as "Shuffle" on Home. */
+@Composable
+fun MmTonalPill(
+    text: String,
+    icon: ImageVector?,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val colors = MaterialTheme.colorScheme
+    Row(
+        modifier =
+            modifier
+                .height(32.dp)
+                .clip(CircleShape)
+                .background(colors.surfaceContainerHigh)
+                .clickable(role = Role.Button, onClick = onClick)
+                .padding(horizontal = 12.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (icon != null) {
+            Icon(icon, contentDescription = null, tint = colors.onSurface, modifier = Modifier.size(18.dp))
+        }
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = colors.onSurface,
+            maxLines = 1,
         )
     }
 }
