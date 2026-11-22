@@ -2665,4 +2665,10 @@
     <string name="mm_charts_load_more_failed">Không tải thêm được bài hát</string>
     <string name="mm_charts_song_count">%1$d bài hát</string>
     <string name="mm_lyrics_unsynced_hint">Lời chưa đồng bộ</string>
+    <string name="mm_tablet_nav_yours">CỦA BẠN</string>
+    <string name="mm_tablet_nav_my_albums">ALBUM CỦA TÔI</string>
+    <string name="mm_tablet_nav_collapse">Thu gọn thanh bên</string>
+    <string name="mm_tablet_nav_expand">Mở rộng thanh bên</string>
+    <string name="mm_tablet_search_hint">Tìm bài hát, nghệ sĩ, lời bài hát…</string>
+    <string name="mm_home_error_title">Không tải được Trang chủ</string>
 </resources>

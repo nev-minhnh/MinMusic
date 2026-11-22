@@ -1,12 +1,18 @@
 package com.metrolist.android.ui
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteDefaults
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteType
 import androidx.compose.runtime.Composable
@@ -34,6 +40,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import com.metrolist.android.ui.component.TabletNavigation
 import com.metrolist.shared.generated.resources.Res
 import com.metrolist.shared.generated.resources.filter_library
 import com.metrolist.shared.generated.resources.home
@@ -58,6 +65,7 @@ import com.metrolist.shared.ui.navigation.Navigator
 import com.metrolist.shared.ui.navigation.Screen
 import com.metrolist.shared.ui.navigation.isNavigationBar
 import com.metrolist.shared.ui.navigation.visibleSidebarScreens
+import com.metrolist.shared.ui.theme.MinMotion
 import com.metrolist.shared.ui.tv.tvFocusHighlight
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -122,6 +130,9 @@ fun MetrolistNavigationScaffold(
     bottomExitFocusRequester: FocusRequester = FocusRequester.Default,
     contentFocusRequester: FocusRequester = FocusRequester.Default,
     onScrollToTop: (Screen) -> Unit = {},
+    tabletNavigation: Boolean = false,
+    tabletSidebar: Boolean = false,
+    onToggleTabletSidebar: (() -> Unit)? = null,
     content: @Composable () -> Unit,
 ) {
     val useDesktopUi = LocalUseDesktopUi.current
@@ -186,27 +197,112 @@ fun MetrolistNavigationScaffold(
             Modifier
         }
 
+    val itemModifier: @Composable (Screen) -> Modifier = { screen ->
+        val index = screens.indexOf(screen)
+        searchLongPressModifier(screen)
+            .focusProperties { canFocus = navigationVisible }
+            .tvFocusHighlight(
+                shape = RoundedCornerShape(16.dp),
+                scale = 1.04f,
+                bringIntoView = false,
+            ).then(
+                if (usesNavigationRail && isTv) {
+                    Modifier.focusRequester(itemFocusRequesters[index]).focusProperties {
+                        up = itemFocusRequesters.getOrNull(index - 1) ?: FocusRequester.Cancel
+                        down = itemFocusRequesters.getOrNull(index + 1) ?: bottomExitFocusRequester
+                        left = if (layoutDirection == LayoutDirection.Ltr) FocusRequester.Cancel else contentFocusRequester
+                        right = if (layoutDirection == LayoutDirection.Ltr) contentFocusRequester else FocusRequester.Cancel
+                    }
+                } else if (usesNavigationRail && index == screens.lastIndex) {
+                    Modifier.focusProperties { down = bottomExitFocusRequester }
+                } else {
+                    Modifier
+                },
+            ).then(
+                if (usesNavigationRail && selectedScreen == screen) {
+                    Modifier.focusRequester(selectedItemFocusRequester)
+                } else {
+                    Modifier
+                },
+            )
+    }
+    val onSelectScreen: (Screen) -> Unit = { screen ->
+        if (screen == Screen.Search && suppressSearchClick) {
+            suppressSearchClick = false
+        } else {
+            hapticManager.perform(HapticEvent.PRESS)
+            val shouldScrollToTop =
+                navigationState.topLevelRoute == screen &&
+                    (screen == Screen.Home || screen == Screen.Library)
+            navigator.navigate(screen)
+            if (shouldScrollToTop) onScrollToTop(screen)
+        }
+    }
+
+    // Tablets: the MinMusic rail/sidebar sits at the start, top-aligned with the logo. The scaffold stays
+    // in the same slot either way so rotating (rail <-> sidebar) keeps the screen state.
+    Row(modifier.background(containerColor)) {
+        if (tabletNavigation) {
+            AnimatedVisibility(
+                visible = navigationVisible,
+                enter = fadeIn(MinMotion.fast()),
+                exit = fadeOut(MinMotion.fast()),
+            ) {
+                TabletNavigation(
+                    navigator = navigator,
+                    items = items,
+                    selectedKey = selectedScreen,
+                    onSelect = onSelectScreen,
+                    sidebar = tabletSidebar,
+                    onToggleSidebar = onToggleTabletSidebar,
+                    // surface1 beside the stage; pure black stays black.
+                    containerColor = if (containerColor == Color.Black) Color.Black else MaterialTheme.colorScheme.surfaceContainerLow,
+                    itemModifier = itemModifier,
+                )
+            }
+        }
+        MetrolistAdaptiveScaffold(
+            adaptiveLayout = adaptiveLayout,
+            items = items,
+            selectedScreen = selectedScreen,
+            onSelect = onSelectScreen,
+            navigationVisible = navigationVisible,
+            useFloatingNavigation = useFloatingNavigation,
+            onFloatingNavigationOccupiedHeightChanged = onFloatingNavigationOccupiedHeightChanged,
+            floatingSeparateKey = Screen.Search.takeIf { it in screens },
+            navigationSuiteType = if (tabletNavigation) NavigationSuiteType.None else navigationSuiteType,
+            itemModifier = itemModifier,
+            modifier = Modifier.weight(1f).fillMaxHeight(),
+            content = content,
+        )
+    }
+}
+
+@Composable
+private fun MetrolistAdaptiveScaffold(
+    adaptiveLayout: AdaptiveLayout,
+    items: List<AdaptiveNavigationItem<Screen>>,
+    selectedScreen: Screen,
+    onSelect: (Screen) -> Unit,
+    navigationVisible: Boolean,
+    useFloatingNavigation: Boolean,
+    onFloatingNavigationOccupiedHeightChanged: (Dp) -> Unit,
+    floatingSeparateKey: Screen?,
+    navigationSuiteType: NavigationSuiteType,
+    itemModifier: @Composable (Screen) -> Modifier,
+    modifier: Modifier,
+    content: @Composable () -> Unit,
+) {
     AdaptiveNavigationScaffold(
         layout = adaptiveLayout,
         items = items,
         selectedKey = selectedScreen,
-        onSelect = { screen ->
-            if (screen == Screen.Search && suppressSearchClick) {
-                suppressSearchClick = false
-            } else {
-                hapticManager.perform(HapticEvent.PRESS)
-                val shouldScrollToTop =
-                    navigationState.topLevelRoute == screen &&
-                        (screen == Screen.Home || screen == Screen.Library)
-                navigator.navigate(screen)
-                if (shouldScrollToTop) onScrollToTop(screen)
-            }
-        },
-        modifier = modifier.background(containerColor),
+        onSelect = onSelect,
+        modifier = modifier,
         navigationVisible = navigationVisible,
         floatingNavigation = useFloatingNavigation,
         onFloatingNavigationOccupiedHeightChanged = onFloatingNavigationOccupiedHeightChanged,
-        floatingSeparateKey = Screen.Search.takeIf { it in screens },
+        floatingSeparateKey = floatingSeparateKey,
         navigationSuiteType = navigationSuiteType,
         navigationSuiteColors =
             NavigationSuiteDefaults.colors(
@@ -216,36 +312,9 @@ fun MetrolistNavigationScaffold(
         containerColor = Color.Transparent,
         isSidebarExpanded = false,
         isSidebarExpandable = false,
-        navigationItemVerticalArrangement = Arrangement.Center,
-        itemModifier = { screen ->
-            val index = screens.indexOf(screen)
-            searchLongPressModifier(screen)
-                .focusProperties { canFocus = navigationVisible }
-                .tvFocusHighlight(
-                    shape = RoundedCornerShape(16.dp),
-                    scale = 1.04f,
-                    bringIntoView = false,
-                ).then(
-                    if (usesNavigationRail && isTv) {
-                        Modifier.focusRequester(itemFocusRequesters[index]).focusProperties {
-                            up = itemFocusRequesters.getOrNull(index - 1) ?: FocusRequester.Cancel
-                            down = itemFocusRequesters.getOrNull(index + 1) ?: bottomExitFocusRequester
-                            left = if (layoutDirection == LayoutDirection.Ltr) FocusRequester.Cancel else contentFocusRequester
-                            right = if (layoutDirection == LayoutDirection.Ltr) contentFocusRequester else FocusRequester.Cancel
-                        }
-                    } else if (usesNavigationRail && index == screens.lastIndex) {
-                        Modifier.focusProperties { down = bottomExitFocusRequester }
-                    } else {
-                        Modifier
-                    },
-                ).then(
-                    if (usesNavigationRail && selectedScreen == screen) {
-                        Modifier.focusRequester(selectedItemFocusRequester)
-                    } else {
-                        Modifier
-                    },
-                )
-        },
+        // Touch rails are top-aligned like the MinMusic rail; a centred rail floats away from the top bar. TV keeps centring.
+        navigationItemVerticalArrangement = if (LocalIsTv.current) Arrangement.Center else Arrangement.Top,
+        itemModifier = itemModifier,
         content = { content() },
     )
 }

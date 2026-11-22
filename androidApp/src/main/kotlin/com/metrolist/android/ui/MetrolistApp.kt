@@ -187,8 +187,12 @@ import com.metrolist.android.ui.component.EqualizerDeviceSuggestion
 import com.metrolist.android.ui.component.FloatingTopAppBar
 import com.metrolist.android.ui.component.LocalMenuState
 import com.metrolist.android.ui.component.MenuState
+import com.metrolist.android.ui.component.LocalTabTopBarHeight
 import com.metrolist.android.ui.component.TabTopBarHeight
+import com.metrolist.android.ui.component.TabletTopBarSearch
 import com.metrolist.android.ui.component.TopBarIconButton
+import com.metrolist.android.ui.component.tabletNavigationWidth
+import com.metrolist.android.ui.component.tabletTopBarHeight
 import com.metrolist.android.ui.component.floatingBarCircle
 import com.metrolist.android.ui.components.AccountMenu
 import com.metrolist.android.ui.components.DesktopCaptionBar
@@ -290,6 +294,7 @@ import com.metrolist.shared.generated.resources.mysterious_fourth_tab_descriptio
 import com.metrolist.shared.generated.resources.offline_mode
 import com.metrolist.shared.generated.resources.play
 import com.metrolist.shared.generated.resources.profile
+import com.metrolist.shared.generated.resources.recognize_music
 import com.metrolist.shared.generated.resources.search
 import com.metrolist.shared.generated.resources.settings
 import com.metrolist.shared.generated.resources.update_pending
@@ -802,9 +807,6 @@ fun MetrolistApp(
         val captionHeight = WindowInsets.captionBar.getTop(LocalDensity.current)
         val statusBarHeight = WindowInsets.statusBars.getTop(LocalDensity.current)
         val hasDesktopCaption = shouldUseDesktopCaption(Build.VERSION.SDK_INT, captionHeight, useDesktopLayout, statusBarHeight)
-        val shouldShowNavigationBar =
-            (useDesktopUi || currentRoute in topLevelRoutes) &&
-                !(currentRoute == Screen.Search && searchResultsVisible)
         val usesDirectionalNavigation = isAndroidTv || isAutomotive
         val navigationSuiteType =
             when {
@@ -822,6 +824,20 @@ fun MetrolistApp(
                 }
             }
         val useNavigationRail = !navigationSuiteType.isNavigationBar
+        // MinMusic tablet navigation (rail at 600-839 dp, sidebar at >= 840 dp). Phones in landscape keep the old rail.
+        val useTabletNavigation =
+            adaptiveFormFactor == AdaptiveFormFactor.TOUCH && !useDesktopUi && useNavigationRail &&
+                LocalConfiguration.current.smallestScreenWidthDp >= 600
+        var tabletSidebarPreferred by rememberSaveable { mutableStateOf(true) }
+        val tabletSidebarAvailable = useTabletNavigation && adaptiveLayout.widthBreakpoint >= AdaptiveWidthBreakpoint.EXPANDED
+        val tabletSidebar = tabletSidebarAvailable && tabletSidebarPreferred
+        val tabletNavWidth = tabletNavigationWidth(tabletSidebar)
+        val tabTopBarHeight =
+            if (useTabletNavigation) tabletTopBarHeight(LocalConfiguration.current.screenHeightDp.dp) else TabTopBarHeight
+        // Tablets keep their navigation on every screen, like the desktop sidebar.
+        val shouldShowNavigationBar =
+            (useDesktopUi || useTabletNavigation || currentRoute in topLevelRoutes) &&
+                !(currentRoute == Screen.Search && searchResultsVisible && !useTabletNavigation)
         // Hiding navigation must not move the retained lookahead tree between scaffolds.
         val useFloatingNavBar =
             Settings.shared.floatingNavBar && !useDesktopUi && !usesDirectionalNavigation &&
@@ -836,7 +852,8 @@ fun MetrolistApp(
         val shouldShowTopBar =
             navigationState.topLevelRoute in topLevelScreens && currentRoute in topLevelScreens
 
-        val useFloatingTopBar = Settings.shared.floatingTopBar && !hasDesktopCaption
+        // Tablets use the integrated top bar: same surface as the content, no floating card.
+        val useFloatingTopBar = Settings.shared.floatingTopBar && !hasDesktopCaption && !useTabletNavigation
         val topAppBarScrollBehavior = appBarScrollBehavior()
         val selectedRailFocusRequester = remember { FocusRequester() }
         val contentFocusRequester = remember { FocusRequester() }
@@ -947,7 +964,9 @@ fun MetrolistApp(
             maxOf(navigationBottomInset, hiddenMiniPlayerBottomOffset) -
                 if (navigationConsumesSpace) navigationBottomInset else 0.dp
         val miniPlayerRailPadding = {
-            if (
+            if (useTabletNavigation) {
+                tabletNavWidth * navigationVisibilityProgress.value
+            } else if (
                 adaptiveFormFactor == AdaptiveFormFactor.TOUCH &&
                 useNavigationRail
             ) {
@@ -1458,6 +1477,7 @@ fun MetrolistApp(
                             LocalPlayerExpanded provides isPlayerExpanded,
                             LocalPlayerExpandedOrExpanding provides isPlayerExpandedOrExpanding,
                             LocalImmersiveContent provides immersiveContent,
+                            LocalTabTopBarHeight provides tabTopBarHeight,
                         ) {
                             MetrolistNavigationScaffold(
                                 navigator = navigator,
@@ -1480,6 +1500,14 @@ fun MetrolistApp(
                                     },
                                 contentFocusRequester = contentFocusRequester,
                                 onScrollToTop = ::requestScrollToTop,
+                                tabletNavigation = useTabletNavigation,
+                                tabletSidebar = tabletSidebar,
+                                onToggleTabletSidebar =
+                                    if (tabletSidebarAvailable) {
+                                        { tabletSidebarPreferred = !tabletSidebarPreferred }
+                                    } else {
+                                        null
+                                    },
                                 modifier =
                                     Modifier
                                         .fillMaxSize()
@@ -1535,7 +1563,8 @@ fun MetrolistApp(
                                                 val topBarTitle: @Composable () -> Unit = {
                                                     if (navigationState.topLevelRoute == Screen.Home && !hasPendingUpdate) {
                                                         // MinMusic Home header: 32 dp logo tile + time-of-day greeting.
-                                                        MmGreetingTitle()
+                                                        // Tablets show the logo in the rail/sidebar brand row on the same line.
+                                                        MmGreetingTitle(showLogo = !useTabletNavigation)
                                                     } else {
                                                         AppTitleWithUpdateWarning(
                                                             title =
@@ -1580,6 +1609,14 @@ fun MetrolistApp(
                                                 // menu so the greeting keeps its width (design: logo + greeting + gear).
                                                 val homeOverflow = navigationState.topLevelRoute == Screen.Home && !useDesktopUi
                                                 val topBarActions: @Composable RowScope.() -> Unit = {
+                                                    if (useTabletNavigation) {
+                                                        // Tablet top bar: search field with the recognize-music button inside it.
+                                                        TabletTopBarSearch(
+                                                            onClick = { navigator.navigateToRoot(Screen.Search) },
+                                                            onRecognize = { navigator.navigate(Screen.Recognition) },
+                                                            modifier = Modifier.padding(end = 4.dp),
+                                                        )
+                                                    }
                                                     if (navigationState.topLevelRoute == Screen.Home && Screen.History !in railScreens && !homeOverflow) {
                                                         TopBarIconButton(
                                                             floating = useFloatingTopBar,
@@ -1614,7 +1651,9 @@ fun MetrolistApp(
                                                     val overflowHistory = homeOverflow && Screen.History !in railScreens
                                                     val overflowListenTogether =
                                                         homeOverflow && Settings.shared.listenTogetherEnabled && Screen.ListenTogether !in railScreens
-                                                    if (overflowHistory || overflowListenTogether) {
+                                                    // The old recognize-music FAB moved here (phones and tablets): one menu, no floating buttons.
+                                                    val overflowRecognize = homeOverflow && !useTabletNavigation
+                                                    if (overflowHistory || overflowListenTogether || overflowRecognize) {
                                                         var homeMenuExpanded by remember { mutableStateOf(false) }
                                                         Box {
                                                             TopBarIconButton(
@@ -1637,6 +1676,18 @@ fun MetrolistApp(
                                                                 expanded = homeMenuExpanded,
                                                                 onDismissRequest = { homeMenuExpanded = false },
                                                             ) {
+                                                                if (overflowRecognize) {
+                                                                    DropdownMenuItem(
+                                                                        text = { Text(stringResource(Res.string.recognize_music)) },
+                                                                        leadingIcon = {
+                                                                            Icon(MetrolistIcons.Outlined.AudioCapture, contentDescription = null)
+                                                                        },
+                                                                        onClick = {
+                                                                            homeMenuExpanded = false
+                                                                            navigator.navigate(Screen.Recognition)
+                                                                        },
+                                                                    )
+                                                                }
                                                                 if (overflowHistory) {
                                                                     DropdownMenuItem(
                                                                         text = { Text(stringResource(Res.string.menu_history)) },
@@ -1730,7 +1781,7 @@ fun MetrolistApp(
                                                     )
                                                 } else {
                                                     TopAppBar(
-                                                        expandedHeight = TabTopBarHeight,
+                                                        expandedHeight = LocalTabTopBarHeight.current,
                                                         navigationIcon = {
                                                         },
                                                         title = topBarTitle,
@@ -1742,12 +1793,18 @@ fun MetrolistApp(
                                                                 containerColor =
                                                                     if (pureBlack) {
                                                                         Color.Black
+                                                                    } else if (useTabletNavigation) {
+                                                                        // Integrated with the content surface instead of a separate grey card.
+                                                                        MaterialTheme.colorScheme.surface
                                                                     } else {
                                                                         MaterialTheme.colorScheme.surfaceContainer
                                                                     },
                                                                 scrolledContainerColor =
                                                                     if (pureBlack) {
                                                                         Color.Black
+                                                                    } else if (useTabletNavigation) {
+                                                                        // Integrated with the content surface instead of a separate grey card.
+                                                                        MaterialTheme.colorScheme.surface
                                                                     } else {
                                                                         MaterialTheme.colorScheme.surfaceContainer
                                                                     },
@@ -1873,7 +1930,8 @@ fun MetrolistApp(
                                                                 sceneState = sceneState,
                                                                 navigationEventState = backState,
                                                                 modifier =
-                                                                    if (useDesktopUi) {
+                                                                    // Tablets share the desktop cap so lines and grids stop growing on very wide windows.
+                                                                    if (useDesktopUi || useTabletNavigation) {
                                                                         Modifier
                                                                             .widthIn(
                                                                                 max = DesktopContentMaxWidth,

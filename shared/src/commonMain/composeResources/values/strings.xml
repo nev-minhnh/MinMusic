@@ -5796,4 +5796,11 @@
     <string name="mm_charts_song_count">%1$d songs</string>
     <!-- Shown with lyrics that have no timing, so they cannot follow playback. -->
     <string name="mm_lyrics_unsynced_hint">Lyrics not synced</string>
+    <!-- Tablet navigation rail/sidebar, tablet top bar search and the Home error state. -->
+    <string name="mm_tablet_nav_yours">YOUR MUSIC</string>
+    <string name="mm_tablet_nav_my_albums">MY ALBUMS</string>
+    <string name="mm_tablet_nav_collapse">Collapse sidebar</string>
+    <string name="mm_tablet_nav_expand">Expand sidebar</string>
+    <string name="mm_tablet_search_hint">Songs, artists, lyrics…</string>
+    <string name="mm_home_error_title">Couldn't load Home</string>
 </resources>
