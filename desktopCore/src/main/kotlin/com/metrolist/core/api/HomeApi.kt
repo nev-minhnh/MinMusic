@@ -2,15 +2,20 @@ package com.metrolist.core.api
 
 import com.metrolist.core.CoreBackend
 import com.metrolist.core.CoreConfig
+import com.metrolist.core.bridge.AppEvents
 import com.metrolist.core.server.Handler
 import com.metrolist.core.server.backendReady
 import com.metrolist.core.server.bool
 import com.metrolist.core.server.handler
 import com.metrolist.core.server.str
 import com.metrolist.shared.db.MusicDatabase
+import com.metrolist.shared.model.Chip
+import com.metrolist.shared.model.HomeSection
 import com.metrolist.shared.viewmodels.HomeViewModel
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.Json
@@ -18,6 +23,7 @@ import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import org.koin.core.context.GlobalContext
@@ -25,7 +31,7 @@ import java.io.File
 import java.time.LocalTime
 
 /**
- * api.md 3.2 `home.get`. With `--fixture-home <file-or-dir>` the call short-circuits to the fixture (a directory means
+ * api.md 3.2 `home.get` (`home.more` is in BrowseApi). With `--fixture-home <file-or-dir>` the call short-circuits to the fixture (a directory means
  * `<dir>/home.json`) and never touches the network or the database. Otherwise it maps the v1 HomeViewModel state.
  */
 object HomeApi {
@@ -54,36 +60,35 @@ object HomeApi {
             else -> "good_night"
         }
 
+    private fun chipKeyOf(chip: Chip): String = chip.params ?: chip.browseId ?: chip.title
+
+    /** Shelves of a list of home sections as wire JSON; pure. */
+    internal fun shelvesJson(sections: List<HomeSection>): JsonArray = sections.toShelves().toShelvesJson()
+
+    @Volatile
+    private var updateWatcher: Job? = null
+
     suspend fun get(params: JsonObject): JsonElement {
         fixture?.let { return it }
         backendReady()
         return withContext(Dispatchers.IO) {
             val model = viewModel
             if (params.bool("refresh") == true) model.refresh {}
+            val chipKey = params.str("chip")
+            if (chipKey != null) selectChip(model, chipKey)
             // Return what the database/cache has right away; wait briefly for a first non-empty result on a cold start.
             val state = withTimeoutOrNull(FIRST_RESULT_WAIT_MS) { model.uiState.first { !it.data.isNullOrEmpty() } } ?: model.uiState.value
-            val chipKey = params.str("chip")
             val sections = state.data.orEmpty()
+            val shelves = shelvesJson(sections)
+            val fromCache = state.isLoading || state.isRefreshing || state.isRestoringCache || state.isRevalidating
+            if (fromCache) watchForUpdate(model, shelves)
             buildJsonObject {
-                put(
-                    "shelves",
-                    JsonArray(
-                        sections.mapIndexed { index, section ->
-                            Shelf(
-                                key = section.browseId ?: "section-$index",
-                                title = section.title,
-                                subtitle = section.subtitle,
-                                layout = if (section.isListStyle) "rows" else "cards",
-                                items = section.items.mapNotNull { it.toItem() },
-                            ).toJson()
-                        },
-                    ),
-                )
+                put("shelves", shelves)
                 put(
                     "chips",
                     JsonArray(
                         state.chips.map { chip ->
-                            val key = chip.params ?: chip.browseId ?: chip.title
+                            val key = chipKeyOf(chip)
                             buildJsonObject {
                                 put("key", key)
                                 put("title", chip.title)
@@ -93,11 +98,48 @@ object HomeApi {
                     ),
                 )
                 put("greeting", buildJsonObject { put("key", greetingKey()) })
-                put("fromCache", state.isLoading || state.isRefreshing || state.isRestoringCache)
-                put("next", state.continuation?.let { kotlinx.serialization.json.JsonPrimitive(it) } ?: JsonNull)
+                put("fromCache", fromCache)
+                put("next", state.continuation?.let { JsonPrimitive(it) } ?: JsonNull)
             }
         }
     }
 
+    /**
+     * Selects the chip with [key] (matched on `params ?: browseId ?: title`) through `toggleChip` on core-main, then waits
+     * up to [CHIP_WAIT_MS] for its content. A chip that is already selected is left alone: toggling it again would clear it.
+     */
+    private suspend fun selectChip(
+        model: HomeViewModel,
+        key: String,
+    ) {
+        val chip = model.uiState.value.chips.firstOrNull { chipKeyOf(it) == key } ?: return
+        if (model.uiState.value.selectedChip != chip) {
+            // toggleChip(chip: Chip?) sets selectedChip synchronously, so the wait below sees the new selection.
+            withContext(Dispatchers.Main) { model.toggleChip(chip) }
+        }
+        withTimeoutOrNull(CHIP_WAIT_MS) { model.uiState.first { it.selectedChip == chip && !it.isLoading && !it.isContentLoading } }
+    }
+
+    /** Pushes `home.updated {shelves}` when the network result that replaces a cached answer differs from it. */
+    private fun watchForUpdate(
+        model: HomeViewModel,
+        returned: JsonArray,
+    ) {
+        updateWatcher?.cancel()
+        updateWatcher =
+            CoreBackend.scope.launch {
+                val settled =
+                    withTimeoutOrNull(UPDATE_WAIT_MS) {
+                        model.uiState.first {
+                            !it.isLoading && !it.isRefreshing && !it.isRestoringCache && !it.isRevalidating && !it.data.isNullOrEmpty()
+                        }
+                    } ?: return@launch
+                val latest = shelvesJson(settled.data.orEmpty())
+                if (latest != returned) AppEvents.emit("home.updated", buildJsonObject { put("shelves", latest) })
+            }
+    }
+
     private const val FIRST_RESULT_WAIT_MS = 2_500L
+    private const val CHIP_WAIT_MS = 8_000L
+    private const val UPDATE_WAIT_MS = 30_000L
 }

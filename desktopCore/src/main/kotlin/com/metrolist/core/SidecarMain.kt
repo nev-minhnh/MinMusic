@@ -1,9 +1,6 @@
 package com.metrolist.core
 
-import com.metrolist.core.api.HomeApi
-import com.metrolist.core.api.LibraryApi
-import com.metrolist.core.api.PlayerApi
-import com.metrolist.core.api.SysApi
+import com.metrolist.core.api.ApiRegistry
 import com.metrolist.core.server.CoreServer
 import com.metrolist.core.server.str
 import com.metrolist.desktop.utils.DesktopSingleInstance
@@ -70,8 +67,7 @@ fun main(args: Array<String>) {
     installSignals()
     CoreBackend.start()
 
-    val handlers = SysApi.handlers + HomeApi.handlers + LibraryApi.handlers + PlayerApi.handlers
-    val topics = mapOf("player" to PlayerApi.playerTopic, "app" to SysApi.appTopic)
+    val (handlers, topics) = ApiRegistry.load()
     val server = CoreServer(options.dev, handlers, topics)
     val port = server.start()
     CoreShutdown.onBeforeExit = { server.stop() }
