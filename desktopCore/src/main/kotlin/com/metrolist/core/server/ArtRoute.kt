@@ -105,8 +105,10 @@ internal object ArtSources {
             ?.let(::File)
             ?.takeIf { it.isFile }
             ?.let { return it }
-        if (!id.startsWith("file:")) return null
-        val folder = runCatching { File(URI(id)).parentFile }.getOrNull() ?: return null
+        val audio =
+            com.metrolist.core.api.importfiles.LocalFiles.pathOf(id)?.let(::File)
+                ?: if (id.startsWith("file:")) runCatching { File(URI(id)) }.getOrNull() else null
+        val folder = audio?.parentFile ?: return null
         return listOf("cover.jpg", "cover.png", "folder.jpg", "folder.png").map { File(folder, it) }.firstOrNull { it.isFile }
     }
 }

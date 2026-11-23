@@ -110,6 +110,8 @@ class SeedPlan(
     val history: List<PlannedPlay>,
     /** Liked songs, newest like first, for [SongLikeState]. */
     val likes: List<SongItem>,
+    /** One saved (non user-album) playlist, so `library.counts.playlists >= 1` holds on a seeded root. */
+    val playlists: List<PlannedUserAlbum> = emptyList(),
 ) {
     class PlannedUserAlbum(
         val entity: PlaylistEntity,
@@ -264,7 +266,26 @@ class SeedPlan(
                     )
                 }
 
-            return SeedPlan(artists.values.toList(), albums, albumArtists, entities, songArtists, songAlbums, userAlbums, history, likes)
+            val playlists =
+                userAlbums.firstOrNull()?.let { first ->
+                    val created = LibraryDto.utc(nowMs - userAlbums.size * 1_000L)
+                    listOf(
+                        PlannedUserAlbum(
+                            PlaylistEntity(
+                                name = "Seed playlist",
+                                createdAt = created,
+                                lastUpdateTime = created,
+                                bookmarkedAt = created,
+                                thumbnailUrl = first.entity.thumbnailUrl,
+                                isLocal = true,
+                            ),
+                            first.songIds,
+                            false,
+                        ),
+                    )
+                }.orEmpty()
+
+            return SeedPlan(artists.values.toList(), albums, albumArtists, entities, songArtists, songAlbums, userAlbums, history, likes, playlists)
         }
     }
 }
@@ -312,7 +333,7 @@ object LibrarySeed {
             dao.upsertSongEntities(plan.songs)
             dao.upsertSongArtists(plan.songArtists)
             plan.songAlbums.forEach { dao.upsert(it) }
-            for (album in plan.userAlbums) {
+            for (album in plan.userAlbums + plan.playlists) {
                 dao.insert(album.entity)
                 album.songIds.forEachIndexed { position, songId ->
                     dao.insert(PlaylistSongMap(playlistId = album.entity.id, songId = songId, position = position))

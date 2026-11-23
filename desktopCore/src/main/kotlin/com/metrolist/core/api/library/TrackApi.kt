@@ -15,7 +15,6 @@ import com.metrolist.core.server.handler
 import com.metrolist.core.server.notFound
 import com.metrolist.core.server.requireBool
 import com.metrolist.core.server.requireStr
-import com.metrolist.core.server.unsupported
 import com.metrolist.desktop.storage.SongCacheManager
 import com.metrolist.shared.db.entities.AlbumEntity
 import com.metrolist.shared.db.entities.ArtistEntity
@@ -45,7 +44,7 @@ import kotlinx.serialization.json.put
 import java.io.File
 import kotlin.coroutines.resume
 
-/** api.md 3.4: likes, saves, track details and sources, blocks; `import.files` is answered `unsupported` until M4-2. */
+/** api.md 3.4: likes, saves, track details, blocks. */
 object TrackApi {
     val handlers: Map<String, Handler> =
         mapOf(
@@ -54,24 +53,14 @@ object TrackApi {
             "artist.subscribe" to handler { params, _ -> artistSubscribe(params.requireStr("id"), params.requireBool("on")) },
             "playlist.save" to handler { params, _ -> playlistSave(params.requireStr("id"), params.requireBool("on")) },
             "track.info" to handler { params, _ -> info(params.requireStr("id")) },
-            "track.sources" to handler { params, _ -> sources(params.requireStr("id")) },
-            "track.setSource" to handler { _, _ -> unsupported("choosing a source per track arrives with M3-2") },
+            // track.sources / track.setSource: TrackSourceModule (M3-2). import.files: ImportFilesModule (M4-2a).
             "track.block" to handler { params, _ -> blockTrack(params.requireStr("id"), params.requireBool("on")) },
             "artist.block" to handler { params, _ -> blockArtist(params.requireStr("id"), params.requireBool("on")) },
-        ) + importFilesStub()
-
-    /**
-     * `import.files` is answered `unsupported` until M4-2 lands its own module (the brief for this package); once that
-     * module is on the class path the stub steps aside, because a method defined twice stops the core from starting.
-     */
-    private fun importFilesStub(): Map<String, Handler> {
-        val owned = runCatching { Class.forName("com.metrolist.core.api.importfiles.ImportFilesModule", false, TrackApi::class.java.classLoader) }.isSuccess
-        return if (owned) emptyMap() else mapOf("import.files" to handler { _, _ -> unsupported("file import arrives with M4-2") })
-    }
+        )
 
     /** The stored song, else YouTube metadata; an id nobody knows is `not_found`. */
     private suspend fun resolveOne(id: String): SongItem {
-        val song = PlayerApi.resolve(listOf(id)).first()
+        val song = PlayerApi.resolve(listOf(id), overrides = false).first()
         if (QueueMapper.isUnresolved(song)) notFound("track $id not found")
         return song
     }
@@ -249,14 +238,6 @@ object TrackApi {
             put("track", track.toJson())
             put("details", details)
         }
-    }
-
-    /** M1 stub: the current source only (the full per-track choice is M3-2). */
-    private suspend fun sources(id: String): JsonElement {
-        libraryReady()
-        val song = withContext(Dispatchers.IO) { libraryDao.getSongById(id) } ?: notFound("track $id not found")
-        val track = song.toTrack().copy(quality = QualityLabel.of(song.format?.codecs, song.format?.bitrate))
-        return buildJsonObject { put("options", JsonArray(listOf(sourceOption(track)))) }
     }
 
     private fun sourceOption(track: Track): JsonObject =

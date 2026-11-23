@@ -24,6 +24,8 @@ import com.metrolist.core.server.requireStr
 import com.metrolist.core.server.str
 import com.metrolist.core.server.topic
 import com.metrolist.core.server.badRequest
+import com.metrolist.core.api.tracksource.TrackSourceOverrides
+import com.metrolist.desktop.state.playback.PlaybackVideoPolicy
 import com.metrolist.desktop.state.playback.PlayerState as DesktopPlayerState
 import com.metrolist.shared.db.daos.DatabaseDao
 import com.metrolist.shared.db.entities.toSongItem
@@ -132,9 +134,10 @@ object PlayerApi {
      */
     internal fun ensureCoreDefaults() {
         if (!coreDefaultsApplied.compareAndSet(false, true)) return
-        if (Settings.shared.musicVideoPlaybackEnabled) {
-            Settings.shared.musicVideoPlaybackEnabled = false
-            CoreLog.info("music video playback disabled: the core has no video surface yet")
+        // Runtime only: the settings file is shared with v1, so the stored value is never written here.
+        if (!PlaybackVideoPolicy.audioOnly) {
+            PlaybackVideoPolicy.audioOnly = true
+            CoreLog.info("music videos play audio-only: the core has no video surface yet (runtime override)")
         }
         OutputPrefs.restore()?.let { AudioRenderer.setPreferredOutputDevice(it) }
     }
@@ -294,10 +297,14 @@ object PlayerApi {
      */
     internal suspend fun resolveContext(context: JsonObject): List<SongItem> {
         backendReady()
-        return when (context.str("kind")) {
+        return TrackSourceOverrides.applyAsync(contextSongs(context))
+    }
+
+    private suspend fun contextSongs(context: JsonObject): List<SongItem> =
+        when (context.str("kind")) {
             "tracks" -> {
                 val ids = (context["ids"] as? JsonArray)?.mapNotNull { (it as? JsonPrimitive)?.takeIf(JsonPrimitive::isString)?.content }
-                resolve(ids ?: badRequest("context.ids must be an array of ids"))
+                resolve(ids ?: badRequest("context.ids must be an array of ids"), overrides = false)
             }
 
             "library" -> {
@@ -335,7 +342,6 @@ object PlayerApi {
                 badRequest("unknown context.kind")
             }
         }
-    }
 
     /** All songs of a playlist for playback: the first page that has songs, then continuations up to [MAX_PLAYLIST_SONGS]. */
     private suspend fun playlistSongs(id: String): List<SongItem> {
@@ -346,12 +352,22 @@ object PlayerApi {
         return page.songs
     }
 
-    /** Library rows where known, YouTube metadata for other ids, and a bare item as the last resort (it still plays). */
-    internal suspend fun resolve(ids: List<String>): List<SongItem> =
-        withContext(Dispatchers.IO) {
-            val stored = GlobalContext.get().get<DatabaseDao>().getSongsByIds(ids).associateBy { it.id }
-            ids.map { id -> stored[id]?.toSongItem() ?: remoteSong(id) ?: SongItem(id = id, title = id, thumbnail = null, artists = emptyList<ArtistTiny>(), album = null) }
-        }
+    /**
+     * Library rows where known, YouTube metadata for other ids, and a bare item as the last resort (it still plays). With
+     * [overrides] (playback, downloads) the per-track source choice of `track.setSource` replaces a song (M3-2); callers
+     * that store or describe the id itself (user albums, `track.info`) pass false.
+     */
+    internal suspend fun resolve(
+        ids: List<String>,
+        overrides: Boolean = true,
+    ): List<SongItem> {
+        val songs =
+            withContext(Dispatchers.IO) {
+                val stored = GlobalContext.get().get<DatabaseDao>().getSongsByIds(ids).associateBy { it.id }
+                ids.map { id -> stored[id]?.toSongItem() ?: remoteSong(id) ?: SongItem(id = id, title = id, thumbnail = null, artists = emptyList<ArtistTiny>(), album = null) }
+            }
+        return if (overrides) TrackSourceOverrides.applyAsync(songs) else songs
+    }
 
     private suspend fun remoteSong(id: String): SongItem? {
         if (sourceOf(id) != SourceId.YT) return null

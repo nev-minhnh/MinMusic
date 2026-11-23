@@ -98,7 +98,7 @@ object UserAlbumApi {
     /** The songs for [ids]: stored rows, else YouTube metadata; an unknown YouTube id is `not_found`. */
     private suspend fun songsOf(ids: List<String>): List<SongItem> {
         if (ids.isEmpty()) return emptyList()
-        val songs = PlayerApi.resolve(ids)
+        val songs = PlayerApi.resolve(ids, overrides = false)
         songs.firstOrNull { QueueMapper.isUnresolved(it) }?.let { notFound("track ${it.id} not found") }
         return songs
     }

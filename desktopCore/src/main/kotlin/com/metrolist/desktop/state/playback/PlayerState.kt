@@ -194,7 +194,7 @@ internal fun localPlaybackResource(
     videoId: String,
     hints: ContentHints,
 ): PlaybackResource? {
-    val uri = validatedLocalMediaUrl(hints.endpointParams ?: videoId.takeIf { it.startsWith("file:") }) ?: return null
+    val uri = validatedLocalMediaUrl(hints.endpointParams ?: videoId.takeIf { it.startsWith("file:") } ?: LocalMediaPaths.lookup(videoId)) ?: return null
     return PlaybackResource(
         videoId = videoId,
         url = uri,
@@ -838,7 +838,7 @@ object PlayerState {
     private var videoWindowShown by mutableStateOf(false)
     private val isVideoPresented: Boolean
         get() =
-            Settings.shared.musicVideoPlaybackEnabled && !deviceConnect.isFollowing && currentTrack != null &&
+            PlaybackVideoPolicy.musicVideoPlaybackEnabled && !deviceConnect.isFollowing && currentTrack != null &&
                 shouldPresentDesktopVideo(videoWindowShown, UiState.showVideoViewer, UiState.showVideoFullscreen, isExpanded)
 
     fun setVideoWindowVisible(visible: Boolean) {
@@ -870,7 +870,7 @@ object PlayerState {
     fun copyVideoDebugInfo() = video.copyVideoDebugInfo()
 
     fun toggleVideoViewer() {
-        if (deviceConnect.isFollowing || !Settings.shared.musicVideoPlaybackEnabled) return
+        if (deviceConnect.isFollowing || !PlaybackVideoPolicy.musicVideoPlaybackEnabled) return
         if (UiState.showVideoViewer) {
             closeVideoViewer()
             return
@@ -899,7 +899,7 @@ object PlayerState {
     }
 
     fun requestVideoMode() {
-        if (deviceConnect.isFollowing || !Settings.shared.musicVideoPlaybackEnabled) return
+        if (deviceConnect.isFollowing || !PlaybackVideoPolicy.musicVideoPlaybackEnabled) return
         val song = currentTrack ?: return
         if (!song.isYouTube) return
         if (
@@ -949,7 +949,7 @@ object PlayerState {
         val requestId = ++videoModeRequestId
 
         fun isCurrentRequest(): Boolean =
-            Settings.shared.musicVideoPlaybackEnabled && requestId == videoModeRequestId && isCurrentPlaybackTransition(generation) &&
+            PlaybackVideoPolicy.musicVideoPlaybackEnabled && requestId == videoModeRequestId && isCurrentPlaybackTransition(generation) &&
                 sessionId == deviceConnect.state.value.sessionId
 
         fun isCurrentSource(): Boolean =
@@ -2735,7 +2735,7 @@ object PlayerState {
             showVideoViewer = UiState.showVideoViewer,
             showVideoFullscreen = UiState.showVideoFullscreen,
             synchronizedPlayback = keepsCanonicalMedia(),
-            videoPlaybackEnabled = Settings.shared.musicVideoPlaybackEnabled,
+            videoPlaybackEnabled = PlaybackVideoPolicy.musicVideoPlaybackEnabled,
             forcedClientId = forcedPlaybackClientId(),
             showError = showError,
             storedAudio = {
@@ -2768,7 +2768,7 @@ object PlayerState {
         val playbackHints =
             hints.copy(
                 isLive = if (isLiveStream) true else hints.isLive,
-                wantVideo = hints.wantVideo && Settings.shared.musicVideoPlaybackEnabled,
+                wantVideo = hints.wantVideo && PlaybackVideoPolicy.musicVideoPlaybackEnabled,
                 playbackClientOverrideId =
                     when {
                         forceDirect -> null

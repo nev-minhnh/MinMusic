@@ -66,6 +66,8 @@ fun main(args: Array<String>) {
         exitProcess(20)
     }
     installSignals()
+    // No video surface in the sidecar yet: music videos play audio-only. Runtime only, the shared v1 setting is untouched.
+    com.metrolist.desktop.state.playback.PlaybackVideoPolicy.audioOnly = true
     CoreBackend.start()
     com.metrolist.core.seed.LibrarySeed.schedule(options.seedLibrary) // test fixture, no-op without --seed-library
 

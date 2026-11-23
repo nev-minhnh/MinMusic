@@ -91,7 +91,7 @@ internal class DesktopVideoLifecycle(
 
     private val musicVideoResolver by lazy { GlobalContext.get().get<MusicVideoResolver>() }
     private val canPlayVideo: Boolean
-        get() = status().videoVisible && Settings.shared.musicVideoPlaybackEnabled
+        get() = status().videoVisible && PlaybackVideoPolicy.musicVideoPlaybackEnabled
 
     private val videoPlayer: VideoPlayer =
         VideoPlayer(
