@@ -2,6 +2,7 @@ package com.metrolist.core.api.library
 
 import com.metrolist.core.CoreBackend
 import com.metrolist.core.CoreLog
+import com.metrolist.desktop.storage.DownloadManager
 import com.metrolist.shared.db.MusicDatabase
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -10,6 +11,7 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
 import org.koin.core.context.GlobalContext
 import java.util.concurrent.atomic.AtomicLong
@@ -67,6 +69,19 @@ object LibraryChanges {
         synchronized(this) {
             if (started) return
             started = true
+        }
+        // Downloads are not database rows on the desktop: DownloadManager's list is the change signal for them.
+        CoreBackend.scope.launch(Dispatchers.IO) {
+            try {
+                DownloadManager.downloadedFiles
+                    .drop(1)
+                    .debounce(OBSERVED_DEBOUNCE_MS)
+                    .collect { bump(listOf("downloaded", "songs")) }
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Throwable) {
+                CoreLog.error("download change watcher stopped", error)
+            }
         }
         CoreBackend.scope.launch(Dispatchers.IO) {
             try {

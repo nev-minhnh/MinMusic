@@ -58,8 +58,16 @@ object TrackApi {
             "track.setSource" to handler { _, _ -> unsupported("choosing a source per track arrives with M3-2") },
             "track.block" to handler { params, _ -> blockTrack(params.requireStr("id"), params.requireBool("on")) },
             "artist.block" to handler { params, _ -> blockArtist(params.requireStr("id"), params.requireBool("on")) },
-            "import.files" to handler { _, _ -> unsupported("file import arrives with M4-2") },
-        )
+        ) + importFilesStub()
+
+    /**
+     * `import.files` is answered `unsupported` until M4-2 lands its own module (the brief for this package); once that
+     * module is on the class path the stub steps aside, because a method defined twice stops the core from starting.
+     */
+    private fun importFilesStub(): Map<String, Handler> {
+        val owned = runCatching { Class.forName("com.metrolist.core.api.importfiles.ImportFilesModule", false, TrackApi::class.java.classLoader) }.isSuccess
+        return if (owned) emptyMap() else mapOf("import.files" to handler { _, _ -> unsupported("file import arrives with M4-2") })
+    }
 
     /** The stored song, else YouTube metadata; an id nobody knows is `not_found`. */
     private suspend fun resolveOne(id: String): SongItem {

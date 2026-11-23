@@ -10,6 +10,8 @@ import com.metrolist.core.api.toTrack
 import com.metrolist.core.seed.LibrarySeed
 import com.metrolist.core.server.backendReady
 import com.metrolist.core.server.notFound
+import com.metrolist.desktop.storage.DownloadManager
+import com.metrolist.desktop.storage.DownloadedFile
 import com.metrolist.desktop.storage.SongCacheManager
 import com.metrolist.shared.db.MusicDatabase
 import com.metrolist.shared.db.daos.DatabaseDao
@@ -130,12 +132,20 @@ internal object LibraryLists {
     ): List<Song> =
         bases.getOrBuild(kind.wire, revision) {
             val dao = libraryDao
-            when (kind) {
-                ListKind.SONGS -> dao.songsByCreateDateAsc().first()
-                ListKind.LIKED -> dao.likedSongsByCreateDateAsc().first()
-                ListKind.DOWNLOADED -> dao.downloadedSongsByCreateDateAsc().first()
-                ListKind.CACHED -> cachedSongs(dao)
-                else -> emptyList()
+            // The desktop never sets song.isDownloaded in the database: DownloadManager knows what is downloaded.
+            val files = DownloadManager.downloadedFiles.value
+            val downloaded = files.mapTo(HashSet()) { it.songId }
+            val rows =
+                when (kind) {
+                    ListKind.SONGS -> dao.songsByCreateDateAsc().first()
+                    ListKind.LIKED -> dao.likedSongsByCreateDateAsc().first()
+                    ListKind.DOWNLOADED -> downloadedSongs(dao, files)
+                    ListKind.CACHED -> cachedSongs(dao)
+                    else -> emptyList()
+                }
+            rows.map { row ->
+                val flag = row.song.id in downloaded
+                if (row.song.isDownloaded == flag) row else row.copy(song = row.song.copy(isDownloaded = flag))
             }
         }
 
@@ -158,6 +168,33 @@ internal object LibraryLists {
             HistoryData.events(revision).forEach { map.putIfAbsent(it.songId, it.playedAt) }
             map
         }
+
+    /** The downloaded files as songs, oldest download first: the stored row when the database knows the id, else a bare one. */
+    private suspend fun downloadedSongs(
+        dao: DatabaseDao,
+        files: List<DownloadedFile>,
+    ): List<Song> {
+        if (files.isEmpty()) return emptyList()
+        val ordered = files.sortedBy { it.downloadDate }
+        val stored = dao.getSongsByIds(ordered.map { it.songId }).associateBy { it.song.id }
+        return ordered.map { file ->
+            stored[file.songId]
+                ?: Song(
+                    song =
+                        SongEntity(
+                            id = file.songId,
+                            title = file.title,
+                            duration = file.duration?.takeIf { it > 0 }?.toInt() ?: -1,
+                            thumbnailUrl = file.thumbnailUrl,
+                            albumName = file.album,
+                            year = file.year,
+                            isDownloaded = true,
+                            dateDownload = LibraryDto.utc(file.downloadDate),
+                        ),
+                    artists = listOf(ArtistEntity(id = "LAdownload", name = file.artist, isLocal = true)),
+                )
+        }
+    }
 
     /** The cache manager's files as songs: the stored row when the database knows the id, else a bare one from the cache entry. */
     private suspend fun cachedSongs(dao: DatabaseDao): List<Song> {
