@@ -3,6 +3,8 @@ package com.metrolist.core
 import com.metrolist.core.bridge.CoreBridge
 import com.metrolist.desktop.backup.DesktopBackupRestoreManager
 import com.metrolist.desktop.deviceconnect.DesktopDeviceConnect
+import com.metrolist.core.shell.ShellPoTokenRuntime
+import com.metrolist.core.shell.upcomingIds
 import com.metrolist.desktop.di.headlessStateModule
 import com.metrolist.desktop.state.DesktopLocaleManager
 import com.metrolist.desktop.state.auth.AuthState
@@ -128,7 +130,7 @@ object CoreBackend {
         AppLogger.info("Core", "MinMusic core ${CoreConfig.VERSION} starting (app ${BuildConfig.APP_VERSION})")
 
         startKoin {
-            modules(coreModule, sharedModule, headlessStateModule { DesktopTokenProvider() })
+            modules(coreModule, sharedModule, headlessStateModule { DesktopTokenProvider(ShellPoTokenRuntime) { upcomingIds() } })
         }
         val database =
             try {
