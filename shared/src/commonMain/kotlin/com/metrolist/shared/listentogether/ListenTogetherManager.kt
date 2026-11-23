@@ -44,6 +44,7 @@ import com.metrolist.shared.listentogether.network.SuggestionRejectedPayload
 import com.metrolist.shared.listentogether.network.SuggestionSubmittedPayload
 import com.metrolist.shared.listentogether.network.SyncStatePayload
 import com.metrolist.shared.listentogether.network.TrackInfo
+import com.metrolist.shared.listentogether.network.TransferHostPayload
 import com.metrolist.shared.listentogether.network.UserDisconnectedPayload
 import com.metrolist.shared.listentogether.network.UserInfo
 import com.metrolist.shared.listentogether.network.UserJoinedPayload
@@ -613,6 +614,9 @@ class ListenTogetherManager(
         userId: String,
         reason: String? = null,
     ) = launchSend(MessageTypes.KICK_USER, KickUserPayload(userId, reason))
+
+    /** Host only: hands the room to [userId] (the server already supports `transfer_host`). */
+    fun transferHost(userId: String) = launchSend(MessageTypes.TRANSFER_HOST, TransferHostPayload(userId))
 
     fun approveSuggestion(suggestionId: String) {
         synchronized(participationLock) { autoApprovingSuggestions.remove(suggestionId) }
