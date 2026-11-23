@@ -558,6 +558,8 @@ class DesktopBackupRestoreManagerTest {
                     sql.execute("ALTER TABLE history_snapshot DROP COLUMN artistNamesJson")
                     sql.execute("ALTER TABLE history_snapshot DROP COLUMN albumId")
                     sql.execute("DROP TABLE pending_scrobble")
+                    // Tables newer than the declared version cannot exist in a real backup of that version.
+                    sql.execute("DROP TABLE IF EXISTS source_account")
                     sql.execute("PRAGMA user_version = 51")
                 }
             }
@@ -640,6 +642,8 @@ class DesktopBackupRestoreManagerTest {
                     sql.execute("DROP TABLE history_import_policy")
                     sql.execute("ALTER TABLE event DROP COLUMN playTimeKnown")
                     sql.execute("DROP TABLE pending_scrobble")
+                    // Tables newer than the declared version cannot exist in a real backup of that version.
+                    sql.execute("DROP TABLE IF EXISTS source_account")
                     sql.execute("PRAGMA user_version = 50")
                 }
             }
