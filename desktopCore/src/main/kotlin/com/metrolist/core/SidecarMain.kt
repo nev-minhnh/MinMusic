@@ -61,7 +61,15 @@ fun main(args: Array<String>) {
     CoreLog.info("Dispatchers.Main=${Dispatchers.Main} thread=$mainThread")
     SnapshotPump.install()
 
-    if (!DesktopSingleInstance.acquire()) {
+    // A lock file another process keeps open without sharing (FileSystemException) is held just like a byte-range lock.
+    val acquired =
+        try {
+            DesktopSingleInstance.acquire()
+        } catch (error: java.nio.file.FileSystemException) {
+            CoreLog.error("metrolist.lock cannot be opened: ${error.reason ?: error.message}")
+            false
+        }
+    if (!acquired) {
         CoreLog.error("metrolist.lock is held by another instance (MinMusic 1.x?), exiting with 20")
         exitProcess(20)
     }

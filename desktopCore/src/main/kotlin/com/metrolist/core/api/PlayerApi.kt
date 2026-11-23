@@ -165,6 +165,18 @@ object PlayerApi {
         seekVerifyJob =
             CoreBackend.scope.launch {
                 delay(SEEK_VERIFY_DELAY_MS)
+                // INT-W5: a seek sent while the stream is still loading (player.state already shows the track) is dropped,
+                // and the track then starts at 0. Wait for the load to finish (bounded), then check and repeat the seek.
+                val waitUntil = System.currentTimeMillis() + SEEK_PENDING_MAX_MS
+                while (System.currentTimeMillis() < waitUntil) {
+                    val loaded =
+                        withContext(Dispatchers.Main) {
+                            val p = DesktopPlayerState
+                            p.currentTrack?.id != trackId || (!p.isPlaybackLoading && p.player.duration.value > 0L)
+                        }
+                    if (loaded) break
+                    delay(SEEK_PENDING_POLL_MS)
+                }
                 withContext(Dispatchers.Main) {
                     val p = DesktopPlayerState
                     if (p.currentTrack?.id != trackId) return@withContext
@@ -521,6 +533,8 @@ object PlayerApi {
     private const val POSITION_TICK_MS = 1_000L
     private const val MIN_POSITION_GAP_MS = 250L
     private const val SEEK_VERIFY_DELAY_MS = 450L
+    private const val SEEK_PENDING_MAX_MS = 30_000L
+    private const val SEEK_PENDING_POLL_MS = 200L
     private const val AUTOPLAY_WAIT_MS = 10_000L
     private const val DEFAULT_UNMUTE_VOLUME = 0.7f
 }

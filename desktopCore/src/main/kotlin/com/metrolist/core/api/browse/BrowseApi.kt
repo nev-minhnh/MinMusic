@@ -6,6 +6,7 @@ import com.metrolist.core.api.toShelves
 import com.metrolist.core.server.ApiException
 import com.metrolist.core.server.Handler
 import com.metrolist.core.server.backendReady
+import com.metrolist.core.server.badRequest
 import com.metrolist.core.server.handler
 import com.metrolist.core.server.requireStr
 import com.metrolist.core.server.str
@@ -56,7 +57,7 @@ object BrowseApi {
 
     private suspend fun browsePage(params: JsonObject): JsonElement {
         backendReady()
-        val browseId = params.requireStr("browseId")
+        val browseId = params.requireStr("browseId").takeIf(String::isNotBlank) ?: badRequest("empty 'browseId'")
         // getBrowsePageData(browseId, params, title, loadAllPages): BrowsePageData(title, sections, continuation)
         val data = GlobalYouTubeRepository.instance.getBrowsePageData(browseId, params.str("params"), null, loadAllPages = false)
         return buildJsonObject {
