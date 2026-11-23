@@ -67,6 +67,7 @@ fun main(args: Array<String>) {
     }
     installSignals()
     CoreBackend.start()
+    com.metrolist.core.seed.LibrarySeed.schedule(options.seedLibrary) // test fixture, no-op without --seed-library
 
     val (handlers, topics) = ApiRegistry.load()
     val server = CoreServer(options.dev, handlers, topics)

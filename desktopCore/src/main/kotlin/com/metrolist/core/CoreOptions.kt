@@ -11,6 +11,8 @@ data class CoreOptions(
     val logDir: String? = null,
     /** Print READY only after the backend (DB, PlayerState, ...) is initialised. Default: READY comes first. */
     val readyAfterInit: Boolean = false,
+    /** Test only: a JSON file (tests/fixtures/library-seed.json) that fills an empty library after the backend is up. */
+    val seedLibrary: String? = null,
 ) {
     companion object {
         fun parse(args: Array<String>): CoreOptions {
@@ -28,6 +30,7 @@ data class CoreOptions(
                     "--data-root" -> options = options.copy(dataRoot = value())
                     "--log-dir" -> options = options.copy(logDir = value())
                     "--ready-after-init" -> options = options.copy(readyAfterInit = true)
+                    "--seed-library" -> options = options.copy(seedLibrary = value())
                 }
                 i++
             }
