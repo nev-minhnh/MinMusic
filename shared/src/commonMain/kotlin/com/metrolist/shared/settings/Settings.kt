@@ -235,6 +235,85 @@ class Settings(
     private val settingTypes = mutableMapOf<String, SettingType>()
     private val preferenceRefreshers = mutableMapOf<String, () -> Unit>()
     private val preferenceDefaults = mutableMapOf<String, Any?>()
+    private val registryMap = LinkedHashMap<String, SettingMeta>()
+
+    /** Every `by preference(...)` key, in declaration order. Complete once this instance is constructed. */
+    val registry: List<SettingMeta> get() = registryMap.values.toList()
+
+    /** The current value of [key] as a plain value (enums as their name); null for an unknown key. */
+    fun getRaw(key: String): Any? {
+        val meta = registryMap[key] ?: return null
+        if (key == AppLanguageKey) return appLanguage
+        return when (meta.type) {
+            SettingType.STRING -> settings.getString(key, meta.default as String)
+            SettingType.BOOLEAN -> settings.getBoolean(key, meta.default as Boolean)
+            SettingType.LONG -> settings.getLong(key, meta.default as Long)
+            SettingType.FLOAT -> settings.getFloat(key, meta.default as Float)
+            SettingType.INT -> {
+                val names = meta.enumValues
+                if (names == null) {
+                    settings.getInt(key, meta.default as Int)
+                } else {
+                    val fallback = names.indexOf(meta.default as String).coerceAtLeast(0)
+                    names.getOrElse(settings.getInt(key, fallback)) { meta.default as String }
+                }
+            }
+        }
+    }
+
+    /**
+     * Writes [value] for [key] through the same `settings.putX` path as the delegate setters (enums by ordinal),
+     * then refreshes the cached state. Throws [IllegalArgumentException] for an unknown key or a type mismatch.
+     */
+    fun setRaw(
+        key: String,
+        value: Any?,
+    ) {
+        val meta = requireNotNull(registryMap[key]) { "unknown setting $key" }
+        if (key == AppLanguageKey) {
+            require(value is String) { "$key: string required" }
+            appLanguage = value
+            return
+        }
+        when (meta.type) {
+            SettingType.STRING -> {
+                require(value is String) { "$key: string required" }
+                settings.putString(key, value)
+            }
+            SettingType.BOOLEAN -> {
+                require(value is Boolean) { "$key: boolean required" }
+                settings.putBoolean(key, value)
+            }
+            SettingType.LONG -> settings.putLong(key, integralOf(key, value))
+            SettingType.FLOAT -> {
+                require(value is Number) { "$key: number required" }
+                settings.putFloat(key, value.toFloat())
+            }
+            SettingType.INT -> {
+                val names = meta.enumValues
+                if (names == null) {
+                    val whole = integralOf(key, value)
+                    require(whole in Int.MIN_VALUE..Int.MAX_VALUE) { "$key: out of range" }
+                    settings.putInt(key, whole.toInt())
+                } else {
+                    val ordinal = if (value is String) names.indexOf(value) else -1
+                    require(ordinal >= 0) { "$key: one of ${names.joinToString("|")}" }
+                    settings.putInt(key, ordinal)
+                }
+            }
+        }
+        preferenceRefreshers[key]?.invoke()
+    }
+
+    private fun integralOf(
+        key: String,
+        value: Any?,
+    ): Long {
+        require(value is Number) { "$key: integer required" }
+        val d = value.toDouble()
+        require(d == kotlin.math.floor(d) && !d.isInfinite()) { "$key: integer required" }
+        return value.toLong()
+    }
 
     init {
         if ((settings as? DeferredSecretMigrationSettings)?.secretRecoveryPending != true) migrateInitialSettings()
@@ -956,6 +1035,9 @@ class Settings(
     var disableWaylandScaleFix by preference(false)
     var macDefaultFrameApplied by preference(false)
     var desktopOnboardingComplete by preference(false)
+
+    // MinMusic for Windows v2: set once the v2 first-run welcome has been shown (read by the UI over settings.get).
+    var w2FirstRunDone by preference(false)
     var desktopOnboardingInitialized by preference(false)
     var desktopPendingOnboardingSentryConsent by preference("")
     var iosOnboardingComplete by preference(IosOnboardingCompleteKey, false)
@@ -1038,6 +1120,7 @@ class Settings(
         SettingType.INT,
         { name, fallback -> enumEntries<E>().getOrElse(settings.getInt(name, fallback.ordinal)) { fallback } },
         { name, value -> settings.putInt(name, value.ordinal) },
+        enumNames = enumEntries<E>().map { it.name },
     )
 
     @Suppress("UNCHECKED_CAST")
@@ -1049,10 +1132,20 @@ class Settings(
         type: SettingType,
         getter: (String, T) -> T,
         setter: (String, T) -> Unit,
+        enumNames: List<String>? = null,
     ) = PropertyDelegateProvider<Settings, Preference<T>> { _, property ->
         val name = key ?: property.name
         settingTypes[name] = type
         preferenceDefaults[property.name] = defaultValue
+        if (name !in registryMap) {
+            val rawDefault: Any? =
+                when {
+                    enumNames != null -> (defaultValue as Enum<*>).name
+                    defaultValue is LibraryFilterType -> defaultValue.storedValue
+                    else -> defaultValue
+                }
+            registryMap[name] = SettingMeta(name, type, rawDefault, enumNames)
+        }
         Preference(name, defaultValue, getter, setter).also {
             preferenceRefreshers[name] = it::refresh
         }
@@ -1393,6 +1486,7 @@ class Settings(
                     "knownUploadIdsJson",
                     "hasNewUploads",
                     "desktopOnboardingComplete",
+                    "w2FirstRunDone",
                     "desktopOnboardingInitialized",
                     "desktopPendingOnboardingSentryConsent",
                     IosOnboardingCompleteKey,
