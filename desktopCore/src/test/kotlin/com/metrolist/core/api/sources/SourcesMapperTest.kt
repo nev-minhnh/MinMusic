@@ -105,12 +105,11 @@ class SourcesMapperTest {
 
     @Test
     fun loginFailuresMapToApiCodes() {
-        val r = DesktopSourceLoginException.Reason
-        assertEquals("unauthorized" to false, SourcesMapper.loginError(r.AUTH_FAILED))
-        assertEquals("network" to true, SourcesMapper.loginError(r.NETWORK))
-        assertEquals("not_signed_in" to false, SourcesMapper.loginError(r.NOT_SIGNED_IN))
-        assertEquals("cancelled" to false, SourcesMapper.loginError(r.CANCELLED))
-        assertEquals("internal" to false, SourcesMapper.loginError(r.UNKNOWN))
+        assertEquals("unauthorized" to false, SourcesMapper.loginError(DesktopSourceLoginException.Reason.AUTH_FAILED))
+        assertEquals("network" to true, SourcesMapper.loginError(DesktopSourceLoginException.Reason.NETWORK))
+        assertEquals("not_signed_in" to false, SourcesMapper.loginError(DesktopSourceLoginException.Reason.NOT_SIGNED_IN))
+        assertEquals("cancelled" to false, SourcesMapper.loginError(DesktopSourceLoginException.Reason.CANCELLED))
+        assertEquals("internal" to false, SourcesMapper.loginError(DesktopSourceLoginException.Reason.UNKNOWN))
     }
 
     // --- SourcePrefsStore ----------------------------------------------------------------------------------------
