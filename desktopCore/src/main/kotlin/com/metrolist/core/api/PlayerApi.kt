@@ -25,6 +25,7 @@ import com.metrolist.core.server.str
 import com.metrolist.core.server.topic
 import com.metrolist.core.server.badRequest
 import com.metrolist.core.api.tracksource.TrackSourceOverrides
+import com.metrolist.core.seed.LibrarySeed
 import com.metrolist.desktop.state.playback.PlaybackVideoPolicy
 import com.metrolist.desktop.state.playback.PlayerState as DesktopPlayerState
 import com.metrolist.shared.db.daos.DatabaseDao
@@ -151,6 +152,10 @@ object PlayerApi {
      * `seekToPosition(positionMs: Long)` (PlayerState) is the normal path. A background check follows (INT-W1: seek had
      * no effect on MV tracks): when the audio player is nowhere near the target, the seek is repeated straight on
      * `MusicPlayer.seekTo(position: Long)`, skipping the PlayerState guards and the resume bookkeeping.
+     *
+     * W6: while a `player.play` is still loading its stream, the target track is the one that play asked for
+     * (`PlayerState.loadingTrackId`), not `currentTrack` (null or the previous track at that point). PlayerState keeps that
+     * seek as the pending resume position and applies it once the stream is prepared; the check waits for that.
      */
     private suspend fun seek(ms: Long): JsonElement {
         backendReady()
@@ -158,36 +163,49 @@ object PlayerApi {
         val target = ms.coerceAtLeast(0L)
         val trackId =
             withContext(Dispatchers.Main) {
+                val loading = DesktopPlayerState.loadingTrackId
                 DesktopPlayerState.seekToPosition(target)
-                DesktopPlayerState.currentTrack?.id
+                loading ?: DesktopPlayerState.currentTrack?.id
             }
         seekVerifyJob?.cancel()
         seekVerifyJob =
             CoreBackend.scope.launch {
                 delay(SEEK_VERIFY_DELAY_MS)
-                // INT-W5: a seek sent while the stream is still loading (player.state already shows the track) is dropped,
-                // and the track then starts at 0. Wait for the load to finish (bounded), then check and repeat the seek.
+                // W6: a far seek on a stream URL can fail (HTTP 403 on the range) and the stream recovery then restarts the
+                // track at 0 while `isPlaybackLoading` is already false, so one check is not enough: check up to
+                // SEEK_VERIFY_ROUNDS times, repeat the seek when it is off, stop after two landed checks in a row.
                 val waitUntil = System.currentTimeMillis() + SEEK_PENDING_MAX_MS
-                while (System.currentTimeMillis() < waitUntil) {
-                    val loaded =
+                var landedChecks = 0
+                var round = 0
+                while (round < SEEK_VERIFY_ROUNDS && landedChecks < 2 && System.currentTimeMillis() < waitUntil) {
+                    // Wait (bounded) until the target track is prepared, or playback moved on to another track.
+                    val settled =
                         withContext(Dispatchers.Main) {
                             val p = DesktopPlayerState
-                            p.currentTrack?.id != trackId || (!p.isPlaybackLoading && p.player.duration.value > 0L)
+                            val current = p.currentTrack?.id
+                            !p.isPlaybackLoading && (current != trackId || p.player.duration.value > 0L)
                         }
-                    if (loaded) break
-                    delay(SEEK_PENDING_POLL_MS)
-                }
-                withContext(Dispatchers.Main) {
-                    val p = DesktopPlayerState
-                    if (p.currentTrack?.id != trackId) return@withContext
-                    // MusicPlayer.currentPlaybackPositionMs(): Long, MusicPlayer.duration: StateFlow<Long> (ms, 0 until known).
-                    val actual = p.player.currentPlaybackPositionMs()
-                    val duration = p.player.duration.value
-                    if (!SeekCheck.landed(target, actual, duration)) {
-                        CoreLog.info("seek to $target ms did not land (at $actual ms, duration $duration ms): repeating on the audio player")
-                        // MusicPlayer.seekTo(position: Long)
-                        p.player.seekTo(if (duration > 0L) target.coerceAtMost(duration) else target)
+                    if (!settled) {
+                        delay(SEEK_PENDING_POLL_MS)
+                        continue
                     }
+                    round++
+                    val outcome =
+                        withContext(Dispatchers.Main) {
+                            val p = DesktopPlayerState
+                            if (p.currentTrack?.id != trackId) return@withContext SEEK_GONE
+                            // MusicPlayer.currentPlaybackPositionMs(): Long, MusicPlayer.duration: StateFlow<Long> (ms, 0 until known).
+                            val actual = p.player.currentPlaybackPositionMs()
+                            val duration = p.player.duration.value
+                            if (SeekCheck.landed(target, actual, duration)) return@withContext SEEK_LANDED
+                            CoreLog.info("seek to $target ms did not land (at $actual ms, duration $duration ms): repeating on the audio player")
+                            // MusicPlayer.seekTo(position: Long)
+                            p.player.seekTo(if (duration > 0L) target.coerceAtMost(duration) else target)
+                            SEEK_REPEATED
+                        }
+                    if (outcome == SEEK_GONE) break
+                    landedChecks = if (outcome == SEEK_LANDED) landedChecks + 1 else 0
+                    delay(SEEK_RECHECK_MS)
                 }
             }
         return emptyResult()
@@ -282,6 +300,9 @@ object PlayerApi {
             withContext(Dispatchers.Main) { DesktopPlayerState.startRadio(seed) }
             return emptyResult()
         }
+        // --seed-library (test roots only) writes the library in the background; a play racing that transaction was dropped
+        // silently (W6). Library handlers already wait for it; without the flag this returns at once.
+        LibrarySeed.await()
         val songs = resolveContext(context)
         if (songs.isEmpty()) throw ApiException("not_found", "nothing to play")
         val index =
@@ -535,6 +556,11 @@ object PlayerApi {
     private const val SEEK_VERIFY_DELAY_MS = 450L
     private const val SEEK_PENDING_MAX_MS = 30_000L
     private const val SEEK_PENDING_POLL_MS = 200L
+    private const val SEEK_RECHECK_MS = 1_500L
+    private const val SEEK_VERIFY_ROUNDS = 4
+    private const val SEEK_GONE = 0
+    private const val SEEK_LANDED = 1
+    private const val SEEK_REPEATED = 2
     private const val AUTOPLAY_WAIT_MS = 10_000L
     private const val DEFAULT_UNMUTE_VOLUME = 0.7f
 }
@@ -544,10 +570,14 @@ object SeekCheck {
     const val TOLERANCE_BEHIND_MS = 1_500L
     const val TOLERANCE_AHEAD_MS = 6_000L
 
+    /** A target this close to the end may already have ended the track (position reset), so any position counts. */
+    const val END_RESET_MS = 1_500L
+
     /**
      * True when [actualMs] is where a seek to [targetMs] puts the audio player a moment later: playback may have moved
      * on from the target ([TOLERANCE_AHEAD_MS]) but not stayed behind it. The target is clamped to [durationMs] when
-     * known, and at the very end the position may already have been reset (end of track), which counts as landed.
+     * known, and in the last [END_RESET_MS] the position may already have been reset (end of track), which counts as
+     * landed. W6: this used [TOLERANCE_AHEAD_MS] (6 s), so a lost seek to `dur - 3 s` (the auto-advance test) was never repeated.
      */
     fun landed(
         targetMs: Long,
@@ -555,7 +585,7 @@ object SeekCheck {
         durationMs: Long,
     ): Boolean {
         val target = if (durationMs > 0L) targetMs.coerceIn(0L, durationMs) else targetMs.coerceAtLeast(0L)
-        if (durationMs > 0L && target >= durationMs - TOLERANCE_AHEAD_MS) return true
+        if (durationMs > 0L && target >= durationMs - END_RESET_MS) return true
         return actualMs in (target - TOLERANCE_BEHIND_MS)..(target + TOLERANCE_AHEAD_MS)
     }
 

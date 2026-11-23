@@ -494,6 +494,17 @@ object PlayerState {
     private val enrichedAlbums = linkedMapOf<String, AlbumTiny>()
     private val enrichedCounterparts = linkedMapOf<String, SongItem>()
     private var pendingResumePosition: Pair<String, Long>? = null
+
+    // v2 core (W6): the track a playTrackInternal transition is loading. A seek sent while its stream still resolves is kept
+    // as the pending resume position (persisted now, applied by completeDesktopPlaybackResume after the load) instead of
+    // reaching a player that has nothing prepared and dropping it.
+    private var loadingPlayGeneration = -1L
+    private var loadingPlayTrackId: String? = null
+    private var loadingPlaySeek = false
+
+    /** The id of the track a `playTrack` is still loading (stream not prepared yet), else null. */
+    internal val loadingTrackId: String?
+        get() = loadingPlayTrackId?.takeIf { isPlaybackResolving && loadingPlayGeneration == playbackTransitionGeneration && !player.playbackReady }
     private var appliedDeviceQueue: Triple<String, Long, String>? = null
     private val playbackStatePersistence = PlaybackStatePersistence()
     private val playbackStateWrites =
@@ -2865,6 +2876,9 @@ object PlayerState {
         val restorePosition = pendingResumePosition?.takeIf { list?.isEmpty() == true && it.first == track.id }
         val generation = beginPlaybackTransition(resumePosition = restorePosition, preserveCast = true)
         desiredPlayback.value = !startPaused
+        loadingPlayGeneration = generation
+        loadingPlayTrackId = track.id
+        loadingPlaySeek = false
         playbackTransitionJob =
             scope.launch {
                 val playableTrack: SongItem
@@ -2890,6 +2904,7 @@ object PlayerState {
                     playableTrack = track
                 }
 
+                if (isCurrentPlaybackTransition(generation)) loadingPlayTrackId = playableTrack.id
                 val resumePosition =
                     pendingResumePosition?.takeIf { it.first == playableTrack.id }?.second
                         ?: podcastResumePosition(playableTrack)
@@ -2968,7 +2983,7 @@ object PlayerState {
                         video.setResolving(false)
                     }
                 }
-                if (resumePosition != null && playableTrack.duration == null && restorePosition == null &&
+                if (resumePosition != null && playableTrack.duration == null && restorePosition == null && !loadingPlaySeek &&
                     pendingResumePosition?.second == resumePosition
                 ) {
                     val position = podcastResumePosition(playableTrack, player.duration.value)
@@ -2986,6 +3001,18 @@ object PlayerState {
                 ) {
                     pendingResumePosition = null
                     persistPlaybackState()
+                }
+            }.also { job ->
+                // A load that never prepared (blocked, unavailable, superseded) must not leave a seek-during-load position
+                // behind: later seeks would only move that pending position and never reach the player.
+                job.invokeOnCompletion {
+                    scope.launch {
+                        if (loadingPlayGeneration == generation) {
+                            if (loadingPlaySeek && isCurrentPlaybackTransition(generation) && !player.playbackReady) pendingResumePosition = null
+                            loadingPlaySeek = false
+                            loadingPlayTrackId = null
+                        }
+                    }
                 }
             }
     }
@@ -4064,6 +4091,11 @@ object PlayerState {
         invalidatePersistedRestore()
         val dur = player.duration.value
         val targetMs = if (dur > 0) positionMs.coerceIn(0, dur) else positionMs.coerceAtLeast(0)
+        val loadingId = loadingTrackId
+        if (pendingResumePosition == null && loadingId != null) {
+            pendingResumePosition = loadingId to targetMs
+            loadingPlaySeek = true
+        }
         pendingResumePosition?.let {
             pendingResumePosition = it.first to targetMs
             playbackPosition.value = targetMs

@@ -76,10 +76,22 @@ object ShellPoTokenRuntime : PageBoundPoTokenJavaScriptRuntime {
             normalizeJavaScriptResult(result)
         }
 
+    /**
+     * Never throws: the stream recovery calls it through `invalidateAttestation()` outside its own try (W6). Without a
+     * shell there is no webview to reset; "shell not connected" escaped as an uncaught exception there, the recovery
+     * coroutine died, and playback stayed silent with `playing = true` after a 403 on a seek.
+     */
     override suspend fun reset() {
         mutex.withLock {
             installedGeneration = -1L
-            ShellChannel.request("shell.po.reset", JsonObject(emptyMap()), REQUEST_TIMEOUT_MS)
+            if (!ShellChannel.connected.value) return@withLock
+            try {
+                ShellChannel.request("shell.po.reset", JsonObject(emptyMap()), REQUEST_TIMEOUT_MS)
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                CoreLog.info("shell.po.reset failed: ${error.message}")
+            }
         }
     }
 

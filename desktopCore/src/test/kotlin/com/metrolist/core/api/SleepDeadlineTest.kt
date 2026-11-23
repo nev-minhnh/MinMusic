@@ -42,8 +42,17 @@ class SleepDeadlineTest {
 
     @Test
     fun seekNearTheEndCountsAsLandedEvenAfterAReset() {
-        assertTrue(SeekCheck.landed(198_000, 0, 200_000))
+        assertTrue(SeekCheck.landed(199_000, 0, 200_000))
         assertTrue(SeekCheck.landed(500_000, 0, 200_000))
+    }
+
+    @Test
+    fun aLostSeekToThreeSecondsBeforeTheEndIsNotLanded() {
+        // W6: the auto-advance test seeks to dur - 3 s; a seek dropped during loading left the audio at 0
+        assertFalse(SeekCheck.landed(269_221, 0, 272_221))
+        // the contract test takes dur - 3 s from the metadata duration (273 s); the stream says 272.221 s
+        assertFalse(SeekCheck.landed(270_000, 0, 272_221))
+        assertTrue(SeekCheck.landed(269_221, 269_700, 272_221))
     }
 
     @Test
