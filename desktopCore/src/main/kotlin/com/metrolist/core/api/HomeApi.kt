@@ -62,6 +62,26 @@ object HomeApi {
 
     private fun chipKeyOf(chip: Chip): String = chip.params ?: chip.browseId ?: chip.title
 
+    /**
+     * The fixture as `home.get` answers it: with a `chip` param exactly that chip is marked `selected` (the others are
+     * cleared), without one the fixture is returned as written. A key that matches no chip leaves the chips unchanged. Pure.
+     */
+    internal fun selectFixtureChip(
+        fixture: JsonElement,
+        chipKey: String?,
+    ): JsonElement {
+        val root = fixture as? JsonObject ?: return fixture
+        val chips = root["chips"] as? JsonArray ?: return fixture
+        if (chipKey == null || chips.none { (it as? JsonObject)?.get("key")?.let { k -> (k as? JsonPrimitive)?.content } == chipKey }) return fixture
+        val marked =
+            chips.map { chip ->
+                val obj = chip as? JsonObject ?: return@map chip
+                val key = (obj["key"] as? JsonPrimitive)?.content
+                JsonObject(obj + ("selected" to JsonPrimitive(key == chipKey)))
+            }
+        return JsonObject(root + ("chips" to JsonArray(marked)))
+    }
+
     /** Shelves of a list of home sections as wire JSON; pure. */
     internal fun shelvesJson(sections: List<HomeSection>): JsonArray = sections.toShelves().toShelvesJson()
 
@@ -69,7 +89,7 @@ object HomeApi {
     private var updateWatcher: Job? = null
 
     suspend fun get(params: JsonObject): JsonElement {
-        fixture?.let { return it }
+        fixture?.let { return selectFixtureChip(it, params.str("chip")) }
         backendReady()
         return withContext(Dispatchers.IO) {
             val model = viewModel

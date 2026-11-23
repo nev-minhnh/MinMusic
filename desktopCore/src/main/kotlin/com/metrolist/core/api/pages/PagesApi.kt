@@ -3,6 +3,7 @@ package com.metrolist.core.api.pages
 import com.metrolist.core.api.browse.BrowseCursor
 import com.metrolist.core.api.browse.sourceRegistry
 import com.metrolist.core.api.browse.withSourceErrors
+import com.metrolist.core.api.library.LibraryFlags
 import com.metrolist.core.server.Handler
 import com.metrolist.core.server.backendReady
 import com.metrolist.core.server.badRequest
@@ -69,13 +70,15 @@ object PagesApi {
     private suspend fun albumGet(id: String): JsonElement {
         backendReady()
         val page = loadAlbum(id) ?: notFound("album $id not found")
-        return PageMappers.albumResult(page)
+        return PageMappers.albumResult(page, LibraryFlags.albumSaved(id))
     }
 
     private suspend fun artistGet(id: String): JsonElement {
         backendReady()
         // getArtist(channelId: String): ArtistPageResult
-        return PageMappers.artistResult(repo.getArtist(id), id)
+        val page = repo.getArtist(id)
+        val subscribed = LibraryFlags.artistSubscribed(id, PageMappers.artistHeader(page)?.isSubscribed ?: false)
+        return PageMappers.artistResult(page, id, subscribed)
     }
 
     private suspend fun artistAbout(

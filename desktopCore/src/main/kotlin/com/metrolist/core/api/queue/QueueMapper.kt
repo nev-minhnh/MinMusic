@@ -4,8 +4,11 @@ import com.metrolist.core.api.jsonOf
 import com.metrolist.core.api.toJson
 import com.metrolist.core.api.toTrack
 import com.metrolist.core.server.ApiException
+import com.metrolist.shared.model.SongItem
 import com.metrolist.shared.playback.MusicQueueEntry
 import com.metrolist.shared.playback.MusicQueueState
+import com.metrolist.shared.source.SourceId
+import com.metrolist.shared.source.sourceOf
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
@@ -30,6 +33,18 @@ object QueueMapper {
     const val HEAD_BEFORE = 5
 
     private fun badPosition(): Nothing = throw ApiException("bad_request", "position must be next, end or a number")
+
+    /** `queue.window` bounds: offset >= 0 and 1 <= limit <= [MAX_WINDOW]; anything else is `bad_request`. */
+    fun checkRange(
+        offset: Int,
+        limit: Int,
+    ) {
+        if (offset < 0 || limit !in 1..MAX_WINDOW) throw ApiException("bad_request", "offset must be >= 0 and limit 1..$MAX_WINDOW")
+    }
+
+    /** The bare item `PlayerApi.resolve` falls back to for a YouTube id it could not find anywhere (no title, no artist, no art). */
+    fun isUnresolved(song: SongItem): Boolean =
+        sourceOf(song.id) == SourceId.YT && song.title == song.id && song.artists.isEmpty() && song.thumbnail == null
 
     /** `"next"`, `"end"` or a non-negative number; anything else is `bad_request`. */
     fun parsePosition(value: JsonElement?): QueuePosition {

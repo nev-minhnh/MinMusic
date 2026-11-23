@@ -11,7 +11,9 @@ import com.metrolist.core.server.requireStr
 import com.metrolist.core.server.str
 import com.metrolist.shared.model.BrowseItem
 import com.metrolist.shared.model.SongItem
+import com.metrolist.shared.source.MusicSource
 import com.metrolist.shared.source.SourceId
+import com.metrolist.shared.source.SourceRegistry
 import com.metrolist.shared.source.SourceUnavailableException
 import com.metrolist.shared.state.GlobalYouTubeRepository
 import com.metrolist.shared.ui.components.minmusic.MmVnCharts
@@ -23,6 +25,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import org.koin.core.context.GlobalContext
 
 /** api.md 3.2: `home.more`, `charts.get`, `browse.page`, `moods.list` (`home.get` lives in HomeApi). */
 object BrowseApi {
@@ -67,15 +70,34 @@ object BrowseApi {
 
     private suspend fun moods(): JsonElement {
         backendReady()
-        val data = GlobalYouTubeRepository.instance.getBrowsePageData("FEmusic_moods_and_genres", loadAllPages = false)
-        return buildJsonObject {
-            put("items", JsonArray(moodItems(data.sections.flatMap { it.items }.filterIsInstance<BrowseItem>())))
-        }
+        val repo = GlobalYouTubeRepository.instance
+        // getBrowsePageData(browseId, params, title, loadAllPages): BrowsePageData(title, sections, continuation)
+        val fromPage =
+            try {
+                repo.getBrowsePageData("FEmusic_moods_and_genres", loadAllPages = false).sections.flatMap { it.items }.filterIsInstance<BrowseItem>()
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Exception) {
+                emptyList()
+            }
+        val items =
+            fromPage.ifEmpty {
+                // The moods page is empty or refused without a signed-in session: the Home page carries the same mood chips.
+                // getHomePageData(params: String? = null, browseId: String = "FEmusic_home", setLogin: Boolean): HomePageData(chips, sections, continuation)
+                repo.getHomePageData().chips.map { chip ->
+                    BrowseItem(id = chip.browseId ?: "FEmusic_home", title = chip.title, params = chip.params)
+                }
+            }
+        return buildJsonObject { put("items", JsonArray(moodItems(items))) }
     }
 
-    /** `{key: "<id>|<params>", title}`; pure. */
+    /** `{key: "<id>|<params>", title}`, unique by key and skipping untitled entries; pure. */
     fun moodItems(items: List<BrowseItem>): List<JsonObject> =
-        items.map { item -> jsonOf("key" to JsonPrimitive("${item.id}|${item.params ?: ""}"), "title" to JsonPrimitive(item.title)) }
+        items
+            .filter { it.title.isNotBlank() }
+            .map { item -> "${item.id}|${item.params ?: ""}" to item.title }
+            .distinctBy { it.first }
+            .map { (key, title) -> jsonOf("key" to JsonPrimitive(key), "title" to JsonPrimitive(title)) }
 
     // --- charts.get ----------------------------------------------------------------------------------------------
 
@@ -96,18 +118,11 @@ object BrowseApi {
         key: String?,
     ): JsonElement =
         withSourceErrors {
-            val registry = sourceRegistry()
+            val shared = sourceRegistry()
+            // Charts are public on both sources, so a source the user has not switched on still serves them (api.md 3.2).
+            val registry = if (shared.isEnabled(source)) shared else chartRegistry(source) ?: throw sourceUnavailable(source, SourceUnavailableException.Reason.DISABLED)
             // MmVnCharts.load skips a source that is not available and returns no tabs, so report the reason ourselves.
-            if (registry.available(source) == null) {
-                throw sourceUnavailable(
-                    source,
-                    if (registry.isEnabled(source)) {
-                        SourceUnavailableException.Reason.DEGRADED
-                    } else {
-                        SourceUnavailableException.Reason.DISABLED
-                    },
-                )
-            }
+            if (registry.available(source) == null) throw sourceUnavailable(source, SourceUnavailableException.Reason.DEGRADED)
             val tabs = MmVnCharts.load(registry, listOf(source))
             if (tabs.isEmpty()) throw sourceUnavailable(source, SourceUnavailableException.Reason.DEGRADED)
             val tab = key?.let { wanted -> tabs.firstOrNull { it.key == wanted } } ?: tabs.first()
@@ -126,6 +141,16 @@ object BrowseApi {
             }
             chartResult(source.key, tab.title, tabs.map { it.key to it.title }, songs)
         }
+
+    /**
+     * A private registry holding only [source], always switched on. It carries no failure history of its own, so a
+     * disabled source never turns "degraded" in the shared registry. `getAll<MusicSource>()` is the same lookup
+     * SharedModule.kt uses to build the shared registry.
+     */
+    private fun chartRegistry(source: SourceId): SourceRegistry? {
+        val musicSource = GlobalContext.get().getAll<MusicSource>().firstOrNull { it.id == source } ?: return null
+        return SourceRegistry(listOf(musicSource), enabledSetting = { true })
+    }
 
     private suspend fun youtubeChart(): JsonElement {
         val data = GlobalYouTubeRepository.instance.getBrowsePageData("FEmusic_charts", loadAllPages = false)

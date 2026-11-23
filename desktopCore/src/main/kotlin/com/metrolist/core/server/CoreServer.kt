@@ -4,9 +4,13 @@ import com.metrolist.core.CoreBackend
 import com.metrolist.core.CoreConfig
 import com.metrolist.core.CoreLog
 import io.ktor.http.HttpHeaders
+import io.ktor.http.HttpStatusCode
+import io.ktor.server.application.ApplicationCallPipeline
 import io.ktor.server.application.install
 import io.ktor.server.cio.CIO
 import io.ktor.server.engine.embeddedServer
+import io.ktor.server.request.path
+import io.ktor.server.response.respond
 import io.ktor.server.routing.routing
 import io.ktor.server.websocket.DefaultWebSocketServerSession
 import io.ktor.server.websocket.WebSockets
@@ -52,8 +56,17 @@ class CoreServer(
             install(WebSockets) {
                 maxFrameSize = MAX_FRAME_BYTES
             }
+            // api.md 1.1 / contract m0: a wrong Origin is refused with HTTP 403 before the WebSocket upgrade.
+            intercept(ApplicationCallPipeline.Plugins) {
+                if (call.request.path() == "/rpc" && !originAllowed(call.request.headers[HttpHeaders.Origin])) {
+                    CoreLog.info("refused upgrade with Origin '${call.request.headers[HttpHeaders.Origin]}'")
+                    call.respond(HttpStatusCode.Forbidden)
+                    finish()
+                }
+            }
             routing {
                 webSocket("/rpc") { handleSession(this) }
+                installArtRoute() // M1-2b: GET /art/<kind>/<id>
             }
         }
 
@@ -143,6 +156,9 @@ class CoreServer(
         try {
             if (method == null) badRequest("missing method")
             when (method) {
+                // api.md 1.3: the handshake happens once, a second sys.hello is a malformed request.
+                "sys.hello" -> badRequest("sys.hello was already received on this connection")
+
                 "sub.open" -> openSubscription(conn, scope, id, params)
                 "sub.close" -> {
                     val sub = params.int("sub") ?: badRequest("missing 'sub'")

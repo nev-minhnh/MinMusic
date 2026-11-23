@@ -41,7 +41,10 @@ object PageMappers {
 
     // --- album.get -----------------------------------------------------------------------------------------------
 
-    fun albumResult(page: AlbumPage): JsonObject {
+    fun albumResult(
+        page: AlbumPage,
+        saved: Boolean = false,
+    ): JsonObject {
         val card = page.album.toCard()
         val albumRef = AlbumRef(page.album.id, page.album.title)
         val summed = page.songs.sumOf { it.duration?.takeIf { seconds -> seconds > 0 } ?: 0L } * 1000
@@ -54,8 +57,7 @@ object PageMappers {
                     "durationMs" to JsonPrimitive(durationMs),
                     "trackCount" to JsonPrimitive(page.songs.size),
                     "year" to JsonPrimitive(year),
-                    // TODO(M1-2b) saved
-                    "saved" to JsonPrimitive(false),
+                    "saved" to JsonPrimitive(saved),
                 ),
             )
         // Album pages often leave album and art off the songs; fill them from the album so rows look right.
@@ -106,6 +108,7 @@ object PageMappers {
     fun artistResult(
         page: ArtistPageResult,
         requestedId: String,
+        subscribed: Boolean = false,
     ): JsonObject {
         val header = artistHeader(page)
         val card = header?.toCard() ?: ArtistCard(id = requestedId, name = "", source = sourceOf(requestedId).key)
@@ -115,8 +118,7 @@ object PageMappers {
                     "banner" to header?.banner?.takeIf { it.isNotBlank() }?.let { Art(src = it).toJson() },
                     "subscribers" to header?.subscribers.json(),
                     "description" to header?.description.json(),
-                    // TODO(M1-2b) subscribed
-                    "subscribed" to JsonPrimitive(false),
+                    "subscribed" to JsonPrimitive(subscribed),
                     "monthly" to header?.monthlyListeners.json(),
                 ),
             )
