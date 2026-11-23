@@ -117,6 +117,18 @@ object SearchMapper {
             "params" to jsonOf("q" to JsonPrimitive(q), "source" to JsonPrimitive(source.key), "type" to JsonPrimitive(type)),
         )
 
+    const val MAX_HISTORY = 50
+
+    /** [query] moved to the front of [history] (no duplicates, case-sensitive), capped at [MAX_HISTORY]; blank queries change nothing. */
+    fun addToHistory(
+        history: List<String>,
+        query: String,
+    ): List<String> {
+        val q = query.trim()
+        if (q.isEmpty()) return history
+        return (listOf(q) + history.filterNot { it == q }).take(MAX_HISTORY)
+    }
+
     /** Removes [query] from [history], or everything when [query] is null. */
     fun removeFromHistory(
         history: List<String>,

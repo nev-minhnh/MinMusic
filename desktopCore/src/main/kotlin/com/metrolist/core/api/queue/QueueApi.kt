@@ -1,6 +1,7 @@
 package com.metrolist.core.api.queue
 
 import com.metrolist.core.api.PlayerApi
+import com.metrolist.core.server.ApiException
 import com.metrolist.core.server.Handler
 import com.metrolist.core.server.Topic
 import com.metrolist.core.server.backendReady
@@ -53,6 +54,8 @@ object QueueApi {
     private suspend fun window(params: JsonObject): JsonElement {
         val offset = params.int("offset") ?: 0
         val limit = params.int("limit") ?: QueueMapper.MAX_WINDOW
+        // api.md 1.8B: limit <= 200; a bad range is the caller's mistake, not something to clamp silently.
+        QueueMapper.checkRange(offset, limit)
         val state = queueState()
         return QueueMapper.window(state, QueueRevision.observe(state), offset, limit)
     }
@@ -65,7 +68,10 @@ object QueueApi {
             (params["ids"] as? JsonArray)?.mapNotNull { (it as? JsonPrimitive)?.takeIf(JsonPrimitive::isString)?.content }
                 ?: badRequest("ids must be an array of strings")
         val position = QueueMapper.parsePosition(params["position"])
-        return addSongs(PlayerApi.resolve(ids), position)
+        val songs = PlayerApi.resolve(ids)
+        // An id that is neither stored nor known to YouTube is not_found (contract m1-queue); other sources keep the bare-id fallback.
+        songs.firstOrNull { QueueMapper.isUnresolved(it) }?.let { throw ApiException("not_found", "track ${it.id} not found") }
+        return addSongs(songs, position)
     }
 
     private suspend fun addContext(params: JsonObject): JsonElement {

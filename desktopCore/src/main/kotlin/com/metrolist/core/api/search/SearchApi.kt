@@ -100,6 +100,8 @@ object SearchApi {
         val source = params.str("source") ?: "all"
         val type = params.str("type") ?: "all"
         val cursor = params.str("cursor")
+        // contract m1-browse: the newest query comes first in search.history.list; only the first page of a search counts.
+        if (cursor == null) recordHistory(q)
         val filter = if (type == "all") null else SearchMapper.filterOf(type) ?: badRequest("unknown type '$type'")
         return when (source) {
             "yt" -> ytSearch(q, type, filter, cursor)
@@ -208,6 +210,13 @@ object SearchApi {
         backendReady()
         val items = withContext(Dispatchers.IO) { SearchHistoryCodec.decode(Settings.shared.searchHistory) }
         return buildJsonObject { put("items", JsonArray(items.map { JsonPrimitive(it) })) }
+    }
+
+    private suspend fun recordHistory(q: String) {
+        withContext(Dispatchers.IO) {
+            val updated = SearchMapper.addToHistory(SearchHistoryCodec.decode(Settings.shared.searchHistory), q)
+            Settings.shared.searchHistory = SearchHistoryCodec.encode(updated)
+        }
     }
 
     private suspend fun historyRemove(params: JsonObject): JsonElement {
