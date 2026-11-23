@@ -266,21 +266,32 @@ abstract class SidecarImageTask : DefaultTask() {
     @get:Input
     abstract val modules: ListProperty<String>
 
+    /**
+     * [logFile] set: the output goes there and a timeout is not fatal (the process is killed, the last lines are logged,
+     * the result is -1). W6: the CDS warm-up hung on the GitHub windows runner with no visible output.
+     */
     private fun runProcess(
         workingDir: File,
         timeoutMinutes: Long,
         command: List<String>,
+        logFile: File? = null,
     ): Int {
         val process =
             ProcessBuilder(command)
                 .directory(workingDir)
                 .redirectErrorStream(true)
-                .redirectOutput(ProcessBuilder.Redirect.INHERIT)
+                .redirectOutput(logFile?.let { ProcessBuilder.Redirect.to(it) } ?: ProcessBuilder.Redirect.INHERIT)
                 .start()
         process.outputStream.close()
         if (!process.waitFor(timeoutMinutes, TimeUnit.MINUTES)) {
+            process.descendants().forEach { it.destroyForcibly() }
             process.destroyForcibly()
-            error("Timed out: " + command.joinToString(" "))
+            if (logFile == null) error("Timed out: " + command.joinToString(" "))
+            process.waitFor(30, TimeUnit.SECONDS)
+            val tail = runCatching { logFile.readLines().takeLast(40).joinToString(System.lineSeparator()) }.getOrDefault("")
+            logger.warn("sidecarImage: timed out after $timeoutMinutes min: ${command.joinToString(" ")}")
+            logger.warn("sidecarImage: last output of the timed-out process:" + System.lineSeparator() + tail)
+            return -1
         }
         return process.exitValue()
     }
@@ -361,7 +372,8 @@ abstract class SidecarImageTask : DefaultTask() {
             runProcess(
                 out,
                 4,
-                listOf(exe.absolutePath, "@core.warmup.args", "-XX:ArchiveClassesAtExit=core.jsa", "-cp", "lib/*", "com.metrolist.core.SidecarMainKt") +
+                logFile = File(scratchDir.get().asFile, "warmup.log"),
+                command = listOf(exe.absolutePath, "@core.warmup.args", "-XX:ArchiveClassesAtExit=core.jsa", "-cp", "lib/*", "com.metrolist.core.SidecarMainKt") +
                     listOf("--cds-warmup", "--data-root", File(warmDir, "data").absolutePath, "--fixture-home", fixture.absolutePath),
             )
         val jsa = File(out, "core.jsa")
