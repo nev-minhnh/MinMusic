@@ -3,6 +3,7 @@ package com.metrolist.core.server
 import com.metrolist.core.CoreBackend
 import com.metrolist.core.CoreConfig
 import com.metrolist.core.CoreLog
+import com.metrolist.core.shell.ShellChannel
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.ApplicationCallPipeline
@@ -132,13 +133,17 @@ class CoreServer(
             null,
         )
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+        // M3-2: the shell connection is the core's channel to the shell (shell.webLogin, shell.po.*).
+        val shellHandle = if (role == "shell") ShellFrames.attach(conn) else null
         try {
             for (frame in session.incoming) {
                 if (frame !is Frame.Text) continue
                 val text = frame.readText()
+                if (shellHandle != null && ShellFrames.offer(text)) continue
                 scope.launch { handleRequest(conn, scope, text) }
             }
         } finally {
+            if (shellHandle != null) ShellChannel.detach(shellHandle)
             conn.subs.values.forEach { it.cancel() }
             scope.cancel()
         }
@@ -176,7 +181,7 @@ class CoreServer(
         } catch (error: CancellationException) {
             throw error
         } catch (error: Throwable) {
-            CoreLog.error("handler $method failed", error)
+            CoreLog.error("handler $method failed (params ${ParamRedaction.describe(method, params)})", error)
             conn.respond(id, null, ApiException("internal", error.message ?: error::class.java.simpleName))
         }
     }
