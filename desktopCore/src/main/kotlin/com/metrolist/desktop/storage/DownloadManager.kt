@@ -272,6 +272,13 @@ object DownloadManager {
     private val _downloadTitles = MutableStateFlow<Map<String, String>>(emptyMap())
     val downloadTitles: StateFlow<Map<String, String>> = _downloadTitles.asStateFlow()
 
+    // Desktop core (api.md 3.9): the last failure message per FAILED song, and a global pause gate.
+    private val _downloadErrors = MutableStateFlow<Map<String, String>>(emptyMap())
+    val downloadErrors: StateFlow<Map<String, String>> = _downloadErrors.asStateFlow()
+
+    /** While true, queued downloads wait before taking a download slot; downloads already running finish. */
+    val paused = MutableStateFlow(false)
+
     fun getDefaultDownloadDir(): File = File(XdgUtils.getXdgDataHome(), "metrolist/downloads").also { it.mkdirs() }
 
     fun getDownloadDir(): File =
@@ -990,6 +997,7 @@ object DownloadManager {
                 var failed = false
                 try {
                     synchronized(metadataLock) { _downloadedFiles.value = metadataStore.load().filter { isValidDownloadSongId(it.songId) } }
+                    paused.first { !it }
                     downloadSemaphore.withPermit {
                         updateState(song.id, DownloadState.DOWNLOADING)
                         updateProgress(song.id, 0f)
@@ -1166,6 +1174,7 @@ object DownloadManager {
                     audioPath?.let { safePersistedFile(it)?.delete() }
                     thumbnailPath?.let { safePersistedFile(it)?.delete() }
                     failed = true
+                    _downloadErrors.update { it + (song.id to (e.message ?: e.javaClass.simpleName)) }
                     println("[DownloadManager] Download failed for ${song.id}: ${e.message}")
                 } finally {
                     synchronized(metadataLock) {
@@ -1193,6 +1202,7 @@ object DownloadManager {
             }
             pendingSongs[song.id] = song
             updateState(song.id, DownloadState.QUEUED)
+            _downloadErrors.update { it - song.id }
             _downloadTitles.update { it + (song.id to song.title) }
             job.start()
         }
@@ -1213,6 +1223,7 @@ object DownloadManager {
             if (stoppedDownloadIds.add(songId)) saveStoppedDownloadIds()
             _downloadStates.update { it - songId }
             _downloadTitles.update { it - songId }
+            _downloadErrors.update { it - songId }
         }
     }
 
@@ -1250,6 +1261,7 @@ object DownloadManager {
             _downloadStates.update { it - removed }
             _downloadProgress.update { it - ids }
             _downloadTitles.update { it - removed }
+            _downloadErrors.update { it - removed }
             check(failed.isEmpty()) { "Some downloads could not be deleted" }
         }
     }
@@ -1278,7 +1290,25 @@ object DownloadManager {
             }
             _downloadProgress.value = emptyMap()
             _downloadTitles.value = emptyMap()
+            _downloadErrors.value = emptyMap()
             _sessionCompletedCount.value = 0
+        }
+    }
+
+    /** Cancels the queued, running or failed downloads of [ids] (finished downloads stay); like [stopActiveDownloads] for a subset. */
+    fun cancelDownloads(ids: Collection<String>) {
+        val set = ids.toSet()
+        if (set.isEmpty()) return
+        synchronized(metadataLock) {
+            val live = set.filterTo(mutableSetOf()) { it in activeJobs.keys || it in pendingSongs.keys || _downloadStates.value[it] == DownloadState.FAILED }
+            if (live.isEmpty()) return
+            if (stoppedDownloadIds.addAll(live)) saveStoppedDownloadIds()
+            cancelDownloadJobs(live, activeJobs)
+            live.forEach(pendingSongs::remove)
+            _downloadStates.update { map -> map.filter { (id, state) -> id !in live || state == DownloadState.DOWNLOADED } }
+            _downloadProgress.update { it - live }
+            _downloadTitles.update { it - live }
+            _downloadErrors.update { it - live }
         }
     }
 
