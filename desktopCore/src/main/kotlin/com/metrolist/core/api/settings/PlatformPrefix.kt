@@ -19,7 +19,7 @@ object PlatformPrefix {
             Regex("^blockScreenshots$"),
             Regex("^voiceSearch"),
             Regex("^stopMusicOnTaskClear$"),
-            Regex("^(forceBottomNavBar|slimNavBar|floatingNavBar|floatingTopBar|showBottomNav\w+)$"),
+            Regex("^(forceBottomNavBar|slimNavBar|floatingNavBar|floatingTopBar|showBottomNav\\w+)$"),
             Regex("^swipe"),
             Regex("^appIcon$"),
             Regex("^materialYou"),

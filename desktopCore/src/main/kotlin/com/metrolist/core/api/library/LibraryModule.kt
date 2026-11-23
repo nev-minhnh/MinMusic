@@ -28,7 +28,7 @@ object LibraryTopic {
     private const val MIN_INTERVAL_MS = 250L
 
     val topic: Topic =
-        topic { _, emit ->
+        com.metrolist.core.server.topic { _, emit ->
             libraryReady()
             coroutineScope {
                 val inbox = Channel<LibraryChange>(Channel.UNLIMITED)
