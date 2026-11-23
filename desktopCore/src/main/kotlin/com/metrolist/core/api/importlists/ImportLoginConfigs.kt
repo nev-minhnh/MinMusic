@@ -8,7 +8,7 @@ import java.net.URI
 
 /**
  * The `shell.webLogin` configs of the five import providers (api.md section 5, architecture 5.1), taken from the v1 login
- * dialogs in `desktopApp/.../spotifyimport/*LoginDialog.kt`. The done cookie is the one the v1 extractor needs:
+ * dialogs in `desktopApp/.../spotifyimport/<Provider>LoginDialog.kt`. The done cookie is the one the v1 extractor needs:
  * spotify `sp_dc`, tidal `userId` (and `sid`, collected), deezer `arl`, apple `media-user-token`, amazon a session token.
  * No user agent is set (the shell's WebView2 default), as for YouTube.
  *

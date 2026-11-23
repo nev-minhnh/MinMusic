@@ -59,9 +59,10 @@ class CoreServer(
             }
             // api.md 1.1 / contract m0: a wrong Origin is refused with HTTP 403 before the WebSocket upgrade.
             intercept(ApplicationCallPipeline.Plugins) {
-                if (call.request.path() == "/rpc" && !originAllowed(call.request.headers[HttpHeaders.Origin])) {
-                    CoreLog.info("refused upgrade with Origin '${call.request.headers[HttpHeaders.Origin]}'")
-                    call.respond(HttpStatusCode.Forbidden)
+                // `context` is the ApplicationCall (the `call` shortcut is not in scope for a raw intercept in Ktor 3)
+                if (context.request.path() == "/rpc" && !originAllowed(context.request.headers[HttpHeaders.Origin])) {
+                    CoreLog.info("refused upgrade with Origin '${context.request.headers[HttpHeaders.Origin]}'")
+                    context.respond(HttpStatusCode.Forbidden)
                     finish()
                 }
             }
