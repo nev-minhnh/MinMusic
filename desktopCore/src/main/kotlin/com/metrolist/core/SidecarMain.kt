@@ -72,7 +72,8 @@ fun main(args: Array<String>) {
     com.metrolist.core.seed.LibrarySeed.schedule(options.seedLibrary) // test fixture, no-op without --seed-library
 
     val (handlers, topics) = ApiRegistry.load()
-    val server = CoreServer(options.dev, handlers, topics)
+    // hello.capabilities: the UI shows the Device Connect panel and Listen Together only when the core lists them.
+    val server = CoreServer(options.dev, handlers, topics, capabilities = listOf("deviceConnect", "listenTogether"))
     val port = server.start()
     CoreShutdown.onBeforeExit = { server.stop() }
     writeCorePid(options)
