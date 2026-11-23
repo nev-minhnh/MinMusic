@@ -55,6 +55,7 @@ object QueueMapper {
         revision: Long,
         offset: Int,
         limit: Int,
+        locked: Boolean? = null,
     ): JsonObject {
         val from = offset.coerceIn(0, state.entries.size)
         val to = minOf(state.entries.size, from + limit.coerceIn(1, MAX_WINDOW))
@@ -63,6 +64,7 @@ object QueueMapper {
             "revision" to JsonPrimitive(revision),
             "currentIndex" to JsonPrimitive(state.currentIndex),
             "items" to JsonArray(state.entries.subList(from, to).map { item(it) }),
+            "locked" to locked?.let { JsonPrimitive(it) },
         )
     }
 
@@ -70,6 +72,7 @@ object QueueMapper {
     fun snapshot(
         state: MusicQueueState,
         revision: Long,
+        locked: Boolean? = null,
     ): JsonObject {
         val from = (state.currentIndex - HEAD_BEFORE).coerceIn(0, state.entries.size)
         val to = minOf(state.entries.size, from + HEAD_SIZE)
@@ -78,13 +81,20 @@ object QueueMapper {
             "revision" to JsonPrimitive(revision),
             "currentIndex" to JsonPrimitive(state.currentIndex),
             "head" to JsonArray(state.entries.subList(from, to).map { item(it) }),
+            "locked" to locked?.let { JsonPrimitive(it) },
         )
     }
 
     fun changed(
         state: MusicQueueState,
         revision: Long,
-    ): JsonObject = jsonOf("revision" to JsonPrimitive(revision), "currentIndex" to JsonPrimitive(state.currentIndex))
+        locked: Boolean? = null,
+    ): JsonObject =
+        jsonOf(
+            "revision" to JsonPrimitive(revision),
+            "currentIndex" to JsonPrimitive(state.currentIndex),
+            "locked" to locked?.let { JsonPrimitive(it) },
+        )
 
     /** Index the first added song should take: after the playing entry, never past the old end. */
     fun insertIndex(

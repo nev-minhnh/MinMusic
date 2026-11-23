@@ -458,7 +458,16 @@ class AudioRenderer private constructor(
 
     fun getAudioSessionId(): Int = 0
 
+    /** [device] is a mixer name (`Mixer.Info.name`); anything else clears the preference. Applies to the next line opened. */
     fun setPreferredDevice(device: Any?) {
+        setPreferredOutputDevice(device as? String)
+    }
+
+    companion object {
+        /** Process-wide output preference read by `openAudioLine`; null or blank means the default routing of v1. */
+        fun setPreferredOutputDevice(name: String?) {
+            AudioOutputPreference.mixerName = name?.takeIf { it.isNotBlank() }
+        }
     }
 
     fun close() {
