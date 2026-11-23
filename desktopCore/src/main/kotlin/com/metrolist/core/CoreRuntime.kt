@@ -1,5 +1,7 @@
 package com.metrolist.core
 
+import com.metrolist.core.api.onboarding.OnboardingModule
+import com.metrolist.core.api.onboarding.OnboardingRule
 import com.metrolist.core.bridge.CoreBridge
 import com.metrolist.desktop.backup.DesktopBackupRestoreManager
 import com.metrolist.desktop.deviceconnect.DesktopDeviceConnect
@@ -40,6 +42,7 @@ import kotlinx.coroutines.runBlocking
 import org.koin.core.context.GlobalContext
 import org.koin.core.context.startKoin
 import java.io.File
+import java.nio.file.Paths
 
 object CoreLog {
     fun info(message: String) {
@@ -57,6 +60,16 @@ object CoreLog {
 
 /** Per-launch secrets from the first stdin line plus the parsed command line. */
 object CoreConfig {
+    init {
+        // M4-3a portable mode. This runs on the first access (SidecarMain assigns `options` right at the start), i.e. before
+        // SidecarMain applies `--data-root`, which therefore still wins over the portable root.
+        val portableFlag = System.getenv(PortableMode.ENV)
+        if (portableFlag?.trim() == "1") {
+            PortableMode.dataRoot(portableFlag, System.getProperty("minmusic.dataRoot"), ProcessHandle.current().info().command().orElse(null))
+                ?.let { System.setProperty("minmusic.dataRoot", it) }
+        }
+    }
+
     const val VERSION = "0.1.0"
     const val PROTOCOL = 1
 
@@ -72,6 +85,27 @@ object CoreConfig {
     val corePidFile: File get() = File(XdgUtils.getXdgStateHome(), "metrolist/core.pid")
 
     val logDirectory: File get() = options.logDir?.let(::File) ?: File(XdgUtils.getXdgStateHome(), "metrolist/logs")
+}
+
+/**
+ * Portable mode (docs/architecture.md 7): with `MINMUSIC_PORTABLE=1` and no `--data-root` the XDG base is `<app>/data`,
+ * where the core runs as `<app>/sidecar/runtime/bin/minmusic-core.exe` (that is `<runtime image dir>/../../data`).
+ */
+object PortableMode {
+    const val ENV = "MINMUSIC_PORTABLE"
+
+    /** The data root to use, or null when portable mode is off, a root is already set, or the executable path is unusable. */
+    fun dataRoot(
+        portableFlag: String?,
+        existingRoot: String?,
+        command: String?,
+    ): String? {
+        if (portableFlag?.trim() != "1" || !existingRoot.isNullOrBlank()) return null
+        val executable = command?.takeIf(String::isNotBlank)?.let { runCatching { Paths.get(it) }.getOrNull() } ?: return null
+        val runtimeImage = executable.parent?.parent ?: return null // <app>/sidecar/runtime
+        val app = runtimeImage.parent?.parent ?: return null
+        return app.resolve("data").normalize().toString()
+    }
 }
 
 /**
@@ -114,7 +148,11 @@ object CoreBackend {
     suspend fun await() = ready.await()
 
     private fun init() {
+        // M4-3a: captured before the pending restore and before the database opens (v1 Main.kt:895-901).
+        val dbExistedAtStart = OnboardingRule.databaseFile(XdgUtils.getXdgDataHome()).isFile
+        // Signature: DesktopBackupRestoreManager.applyPendingRestore(settings: Settings): Boolean
         DesktopBackupRestoreManager.applyPendingRestore(Settings.shared)
+        OnboardingModule.initialize(Settings.shared, dbExistedAtStart)
         val settings = Settings.shared
         // MinMusic sends no telemetry; drop any crash-report consent carried in by a restored backup.
         if (settings.sentryEnabled) settings.sentryEnabled = false
