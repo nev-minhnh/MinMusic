@@ -154,6 +154,10 @@ dependencies {
 
 tasks.test {
     useJUnit()
+    // Core tests touch Settings.shared, CorePrefs and the source prefs: keep them off the owner's real MinMusic folders.
+    listOf("XDG_DATA_HOME" to "data", "XDG_CONFIG_HOME" to "config", "XDG_STATE_HOME" to "state", "XDG_CACHE_HOME" to "cache").forEach { (name, dir) ->
+        environment(name, layout.buildDirectory.dir("test-data/xdg-$dir").get().asFile.absolutePath)
+    }
 }
 
 // The core has its own single-thread Main dispatcher (CoreMainDispatcherFactory); Swing's would be picked otherwise.

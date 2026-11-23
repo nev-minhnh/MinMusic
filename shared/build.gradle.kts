@@ -484,6 +484,10 @@ tasks.named<Test>("desktopTest") {
             .get()
             .asFile.absolutePath,
     )
+    // Settings.shared, state and caches must never reach the owner's real %APPDATA% / %LOCALAPPDATA% MinMusic folders.
+    listOf("XDG_CONFIG_HOME" to "config", "XDG_STATE_HOME" to "state", "XDG_CACHE_HOME" to "cache").forEach { (name, dir) ->
+        environment(name, layout.buildDirectory.dir("test-data/xdg-$dir").get().asFile.absolutePath)
+    }
 }
 
 val prepareComposeResourceAliases =
